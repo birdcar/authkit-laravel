@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\Event;
-use WorkOS\AuthKit\Auth\SessionManager;
+use WorkOS\AuthKit\Auth\SessionManagerInterface;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\Events\OrganizationSwitched;
 use WorkOS\AuthKit\Models\Concerns\HasOrganization;
@@ -182,11 +182,11 @@ it('switches organization and fires event', function () {
     $user->organizations()->attach($org->id);
 
     // Mock the session manager
-    $sessionManager = Mockery::mock(SessionManager::class);
+    $sessionManager = Mockery::mock(SessionManagerInterface::class);
     $sessionManager->shouldReceive('setOrganizationId')
         ->once()
         ->with('org_456');
-    $this->app->instance(SessionManager::class, $sessionManager);
+    $this->app->instance(SessionManagerInterface::class, $sessionManager);
 
     $result = $user->switchOrganization('org_456');
 
