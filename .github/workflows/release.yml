@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    name: Create Release
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Auto Release
+        uses: birdcar/actions/auto-release@main
+        with:
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          changelogPath: CHANGELOG.md
+          timezone: America/Chicago
+          defaultBump: patch
+          majorLabels: major,breaking
+          minorLabels: minor,feature,enhancement
+          patchLabels: patch,fix,bugfix,bug
+          skipLabels: skip-release,no-release
