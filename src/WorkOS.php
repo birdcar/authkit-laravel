@@ -9,7 +9,7 @@ use Illuminate\Contracts\Auth\Guard;
 use InvalidArgumentException;
 use SensitiveParameter;
 use WorkOS\AuthKit\Audit\AuditLogger;
-use WorkOS\AuthKit\Auth\SessionManager;
+use WorkOS\AuthKit\Auth\SessionManagerInterface;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\Testing\WorkOSFake;
 
@@ -35,7 +35,7 @@ class WorkOS
     ];
 
     public function __construct(
-        private readonly SessionManager $session,
+        private readonly SessionManagerInterface $session,
     ) {}
 
     /**
@@ -86,15 +86,44 @@ class WorkOS
         );
     }
 
+    /**
+     * Get the logout URL for ending the user's WorkOS session.
+     *
+     * For cookie-based sessions, this uses the CookieSessionManager's getLogoutUrl.
+     * For Laravel sessions, this uses the session ID to build the URL.
+     *
+     * @deprecated Use getLogoutUrl() instead
+     */
     public function logoutUrl(?string $returnTo = null): string
     {
-        /** @var \WorkOS\UserManagement $userManagement */
-        $userManagement = $this->userManagement();
-
-        $sessionId = $this->session()?->sessionId;
-        if ($sessionId === null) {
+        $url = $this->getLogoutUrl($returnTo);
+        if ($url === null) {
             throw new \RuntimeException('No active session to logout');
         }
+
+        return $url;
+    }
+
+    /**
+     * Get the logout URL for ending the user's WorkOS session.
+     *
+     * Returns null if there's no active session.
+     */
+    public function getLogoutUrl(?string $returnTo = null): ?string
+    {
+        // Try to get logout URL from session manager (works for cookie sessions)
+        if ($this->session instanceof Auth\CookieSessionManager) {
+            return $this->session->getLogoutUrl($returnTo);
+        }
+
+        // Fall back to building URL from session ID (Laravel session driver)
+        $sessionId = $this->session()?->sessionId;
+        if ($sessionId === null) {
+            return null;
+        }
+
+        /** @var \WorkOS\UserManagement $userManagement */
+        $userManagement = $this->userManagement();
 
         return $userManagement->getLogoutUrl($sessionId, $returnTo);
     }

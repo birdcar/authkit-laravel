@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Audit\AuditMiddleware;
+use WorkOS\AuthKit\Auth\CookieSessionManager;
 use WorkOS\AuthKit\Auth\SessionManager;
+use WorkOS\AuthKit\Auth\SessionManagerInterface;
 use WorkOS\AuthKit\Auth\WorkOSGuard;
 use WorkOS\AuthKit\Commands\EventsListenCommand;
 use WorkOS\AuthKit\Commands\InstallCommand;
@@ -30,6 +32,7 @@ use WorkOS\AuthKit\Http\Middleware\CheckPermission;
 use WorkOS\AuthKit\Http\Middleware\CheckRole;
 use WorkOS\AuthKit\Http\Middleware\DetectImpersonation;
 use WorkOS\AuthKit\Http\Middleware\EnsureWorkOSAuthenticated;
+use WorkOS\AuthKit\Http\Middleware\SetCurrentOrganization;
 use WorkOS\AuthKit\Http\Middleware\ShareWorkOSData;
 use WorkOS\AuthKit\Listeners\SyncMembershipFromWebhook;
 use WorkOS\AuthKit\Listeners\SyncOrganizationFromWebhook;
@@ -41,14 +44,12 @@ class WorkOSServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/workos.php', 'workos');
 
-        $this->app->singleton(SessionManager::class, function ($app) {
-            return new SessionManager($app['session.store']);
-        });
+        $this->registerSessionManager();
 
         $this->app->singleton('workos', function ($app) {
             $this->configureWorkOSSdk();
 
-            return new WorkOS($app->make(SessionManager::class));
+            return new WorkOS($app->make(SessionManagerInterface::class));
         });
 
         $this->app->alias('workos', WorkOS::class);
@@ -56,9 +57,35 @@ class WorkOSServiceProvider extends ServiceProvider
         $this->app->singleton(AuditLogger::class, function ($app) {
             return new AuditLogger(
                 new \WorkOS\AuditLogs,
-                $app->make(SessionManager::class)
+                $app->make(SessionManagerInterface::class)
             );
         });
+    }
+
+    protected function registerSessionManager(): void
+    {
+        $this->app->singleton(SessionManagerInterface::class, function ($app) {
+            $useCookieSession = config('workos.session.cookie_session', true);
+
+            if ($useCookieSession) {
+                // Use APP_KEY for cookie decryption - it's guaranteed to exist
+                $appKey = config('app.key');
+                if (str_starts_with($appKey, 'base64:')) {
+                    $appKey = base64_decode(substr($appKey, 7));
+                }
+
+                return new CookieSessionManager(
+                    $app['request'],
+                    $appKey,
+                    config('workos.session.cookie_name', 'wos-session')
+                );
+            }
+
+            return new SessionManager($app['session.store']);
+        });
+
+        // Maintain backward compatibility
+        $this->app->alias(SessionManagerInterface::class, SessionManager::class);
     }
 
     public function boot(): void
@@ -92,7 +119,7 @@ class WorkOSServiceProvider extends ServiceProvider
         Auth::extend('workos', function ($app, $name, array $config) {
             return new WorkOSGuard(
                 Auth::createUserProvider($config['provider'] ?? null),
-                $app->make(SessionManager::class),
+                $app->make(SessionManagerInterface::class),
                 $app['request']
             );
         });
@@ -108,6 +135,7 @@ class WorkOSServiceProvider extends ServiceProvider
         $router->aliasMiddleware('workos.permission', CheckPermission::class);
         $router->aliasMiddleware('workos.impersonation', DetectImpersonation::class);
         $router->aliasMiddleware('workos.organization', CheckOrganization::class);
+        $router->aliasMiddleware('workos.organization.current', SetCurrentOrganization::class);
         $router->aliasMiddleware('workos.audit', AuditMiddleware::class);
         $router->aliasMiddleware('workos.inertia', ShareWorkOSData::class);
     }
@@ -138,7 +166,7 @@ class WorkOSServiceProvider extends ServiceProvider
             return false;
         });
 
-        Blade::if('impersonating', fn () => $this->app->make(SessionManager::class)->isImpersonating()
+        Blade::if('impersonating', fn () => $this->app->make(SessionManagerInterface::class)->isImpersonating()
         );
     }
 

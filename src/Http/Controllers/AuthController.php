@@ -64,6 +64,11 @@ class AuthController extends Controller
     {
         $session = WorkOS::session();
         $user = $request->user();
+        $returnTo = $request->query('return_to');
+        $returnToUrl = is_string($returnTo) ? $returnTo : null;
+
+        // Get logout URL before destroying session (needed for cookie-based sessions)
+        $logoutUrl = WorkOS::getLogoutUrl($returnToUrl);
 
         WorkOS::destroySession();
 
@@ -71,12 +76,9 @@ class AuthController extends Controller
             event(new UserLoggedOut($user, $session));
         }
 
-        if ($session?->sessionId) {
-            $returnTo = $request->query('return_to');
-
-            return redirect(WorkOS::logoutUrl(
-                returnTo: is_string($returnTo) ? $returnTo : null
-            ));
+        // Redirect to WorkOS logout to clear the wos-session cookie
+        if ($logoutUrl) {
+            return redirect($logoutUrl);
         }
 
         return redirect((string) config('workos.routes.home', '/'));
