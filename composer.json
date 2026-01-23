@@ -1,0 +1,57 @@
+{
+    "name": "workos/authkit-laravel",
+    "description": "Laravel integration for WorkOS AuthKit",
+    "license": "MIT",
+    "keywords": ["laravel", "workos", "authkit", "authentication", "sso"],
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^10.0|^11.0|^12.0",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "workos/workos-php": "^4.29"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "pestphp/pest": "^2.0|^3.0",
+        "laravel/pint": "^1.0",
+        "phpstan/phpstan": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "WorkOS\\AuthKit\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "WorkOS\\AuthKit\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "WorkOS\\AuthKit\\WorkOSServiceProvider"
+            ],
+            "aliases": {
+                "WorkOS": "WorkOS\\AuthKit\\Facades\\WorkOS"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "test:coverage": "vendor/bin/pest --coverage --min=80",
+        "analyse": "vendor/bin/phpstan analyse src --level=8",
+        "format": "vendor/bin/pint",
+        "format:test": "vendor/bin/pint --test"
+    }
+}

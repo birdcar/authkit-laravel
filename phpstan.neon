@@ -1,0 +1,15 @@
+includes:
+    - ./vendor/phpstan/phpstan/conf/bleedingEdge.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+    excludePaths:
+        - src/Traits
+        - src/Models/Concerns
+        - src/Audit/Concerns
+        - src/Testing/Concerns
+    ignoreErrors:
+        - '#Call to an undefined method [a-zA-Z0-9\\_]+::userManagement\(\)#'
+    tmpDir: .phpstan-cache
