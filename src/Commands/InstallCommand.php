@@ -120,16 +120,20 @@ PHP;
         $this->line('     <fg=green>WORKOS_REDIRECT_URI=</><fg=gray>'.config('app.url', 'http://localhost').'/auth/callback</>');
         $this->newLine();
 
-        $this->line('  <fg=gray>2.</> Run migrations:');
+        $this->line('  <fg=gray>2.</> Set WorkOS as default auth guard in <fg=cyan>.env</>:');
+        $this->line('     <fg=green>AUTH_GUARD=</><fg=cyan>workos</>');
+        $this->newLine();
+
+        $this->line('  <fg=gray>3.</> Run migrations:');
         $this->line('     <fg=cyan>php artisan migrate</>');
         $this->newLine();
 
-        $this->line('  <fg=gray>3.</> Make the password column nullable (WorkOS handles authentication):');
+        $this->line('  <fg=gray>4.</> Make the password column nullable (WorkOS handles authentication):');
         $this->line('     <fg=cyan>php artisan make:migration make_password_nullable_on_users_table</>');
         $this->line('     <fg=gray>Then add:</> <fg=cyan>$table->string(\'password\')->nullable()->change();</>');
         $this->newLine();
 
-        $this->line('  <fg=gray>4.</> Add the WorkOS traits to your User model:');
+        $this->line('  <fg=gray>5.</> Add the WorkOS traits to your User model:');
         $this->line('     <fg=cyan>use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;</>');
         $this->line('     <fg=cyan>use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;</>');
         $this->newLine();

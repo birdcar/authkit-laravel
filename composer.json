@@ -52,6 +52,16 @@
         "test:coverage": "vendor/bin/pest --coverage --min=80",
         "analyse": "vendor/bin/phpstan analyse src --level=8",
         "format": "vendor/bin/pint",
-        "format:test": "vendor/bin/pint --test"
+        "format:test": "vendor/bin/pint --test",
+        "serve": [
+            "Composer\\Config::disableProcessTimeout",
+            "cd workbench && php artisan serve"
+        ],
+        "fresh": [
+            "cd workbench && php artisan migrate:fresh --seed"
+        ],
+        "test:example": [
+            "cd workbench && ./vendor/bin/pest"
+        ]
     }
 }
