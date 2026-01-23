@@ -8,7 +8,14 @@ use Illuminate\Contracts\Session\Session;
 use SensitiveParameter;
 use WorkOS\UserManagement;
 
-class SessionManager
+/**
+ * Manages WorkOS sessions using Laravel's session storage.
+ *
+ * This driver stores WorkOS session data (access token, refresh token, etc.)
+ * in Laravel's session. Use this when you need full control over session
+ * storage or when cookie-based sessions are not suitable.
+ */
+class SessionManager implements SessionManagerInterface
 {
     private const SESSION_KEY = 'workos_session';
 

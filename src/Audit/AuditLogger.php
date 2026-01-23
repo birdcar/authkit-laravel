@@ -7,13 +7,13 @@ namespace WorkOS\AuthKit\Audit;
 use Illuminate\Contracts\Auth\Authenticatable;
 use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\Contracts\Auditable;
-use WorkOS\AuthKit\Auth\SessionManager;
+use WorkOS\AuthKit\Auth\SessionManagerInterface;
 
 class AuditLogger
 {
     public function __construct(
         private readonly AuditLogs $auditLogs,
-        private readonly SessionManager $sessionManager,
+        private readonly SessionManagerInterface $sessionManager,
     ) {}
 
     /**

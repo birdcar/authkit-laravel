@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WorkOS\AuthKit\Models\Concerns;
 
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use WorkOS\AuthKit\Auth\SessionManager;
+use WorkOS\AuthKit\Auth\SessionManagerInterface;
 use WorkOS\AuthKit\Events\OrganizationSwitched;
 use WorkOS\AuthKit\Models\Organization;
 
@@ -46,7 +46,7 @@ trait HasOrganization
             return false;
         }
 
-        app(SessionManager::class)->setOrganizationId($organizationId);
+        app(SessionManagerInterface::class)->setOrganizationId($organizationId);
 
         event(new OrganizationSwitched($this, $organizationId));
 

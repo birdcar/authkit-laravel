@@ -15,7 +15,7 @@ class WorkOSGuard implements Guard
 
     public function __construct(
         protected ?UserProvider $provider,
-        protected SessionManager $session,
+        protected SessionManagerInterface $session,
         protected Request $request,
     ) {}
 

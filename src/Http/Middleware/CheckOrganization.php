@@ -7,12 +7,12 @@ namespace WorkOS\AuthKit\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use WorkOS\AuthKit\Auth\SessionManager;
+use WorkOS\AuthKit\Auth\SessionManagerInterface;
 
 class CheckOrganization
 {
     public function __construct(
-        private readonly SessionManager $sessionManager,
+        private readonly SessionManagerInterface $sessionManager,
     ) {}
 
     public function handle(Request $request, Closure $next, ?string $role = null): Response
