@@ -1,5 +1,5 @@
 {
-    "name": "workos/authkit-laravel",
+    "name": "birdcar/authkit-laravel",
     "description": "Laravel integration for WorkOS AuthKit",
     "license": "MIT",
     "keywords": ["laravel", "workos", "authkit", "authentication", "sso"],

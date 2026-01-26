@@ -40,13 +40,13 @@ Since this package is not yet on Packagist, add the repository to your `composer
 Then install via Composer:
 
 ```bash
-composer require workos/authkit-laravel:dev-main
+composer require birdcar/authkit-laravel:dev-main
 ```
 
 Or to install a specific release:
 
 ```bash
-composer require workos/authkit-laravel:v0.1.0
+composer require birdcar/authkit-laravel:v0.1.0
 ```
 
 ### Run Installation Command
@@ -486,7 +486,7 @@ Run it locally:
 
 ```bash
 # Clone the repository
-git clone https://github.com/workos/authkit-laravel.git
+git clone https://github.com/birdcar/authkit-laravel.git
 cd authkit-laravel
 
 # Install dependencies
@@ -505,7 +505,7 @@ composer fresh
 
 ```bash
 # Clone and install
-git clone https://github.com/workos/authkit-laravel.git
+git clone https://github.com/birdcar/authkit-laravel.git
 cd authkit-laravel
 composer install
 
