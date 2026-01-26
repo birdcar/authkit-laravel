@@ -127,5 +127,5 @@ return [
     |
     */
 
-    'organization_model' => env('WORKOS_ORGANIZATION_MODEL', \WorkOS\AuthKit\Models\Organization::class),
+    'organization_model' => env('WORKOS_ORGANIZATION_MODEL', 'App\\Models\\Organization'),
 ];

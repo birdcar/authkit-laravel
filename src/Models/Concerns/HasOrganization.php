@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Models\Concerns;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use WorkOS\AuthKit\Auth\SessionManagerInterface;
 use WorkOS\AuthKit\Events\OrganizationSwitched;
-use WorkOS\AuthKit\Models\Organization;
 
 /**
  * @mixin \Illuminate\Database\Eloquent\Model
@@ -15,22 +15,28 @@ use WorkOS\AuthKit\Models\Organization;
 trait HasOrganization
 {
     /**
-     * @return BelongsToMany<Organization, $this>
+     * @return BelongsToMany<Model, $this>
      */
     public function organizations(): BelongsToMany
     {
-        /** @var class-string<Organization> $organizationModel */
-        $organizationModel = config('workos.organization_model', Organization::class);
+        /** @var class-string<Model>|null $organizationModel */
+        $organizationModel = config('workos.organization_model');
+
+        if ($organizationModel === null) {
+            throw new \RuntimeException(
+                'workos.organization_model is not configured. Run php artisan workos:install to set up.'
+            );
+        }
 
         return $this->belongsToMany(
             $organizationModel,
-            'organization_user',
+            'organization_memberships',
             'user_id',
             'organization_id'
         )->withPivot('role')->withTimestamps();
     }
 
-    public function currentOrganization(): ?Organization
+    public function currentOrganization(): ?Model
     {
         $orgId = $this->currentOrganizationId();
         if (! $orgId) {

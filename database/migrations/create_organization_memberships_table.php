@@ -10,11 +10,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('organization_user')) {
+        if (Schema::hasTable('organization_memberships')) {
             return;
         }
 
-        Schema::create('organization_user', function (Blueprint $table) {
+        Schema::create('organization_memberships', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
@@ -27,6 +27,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('organization_user');
+        Schema::dropIfExists('organization_memberships');
     }
 };
