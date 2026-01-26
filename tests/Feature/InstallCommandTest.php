@@ -8,10 +8,22 @@ use WorkOS\AuthKit\Install\EnvManager;
 use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Support\EnvironmentDetector;
 
+// Mark all tests in this file as serial to avoid parallel test conflicts
+// These tests publish files to shared paths (config, models) which causes race conditions
+pest()->group('serial');
+
 beforeEach(function () {
     // Clean up any published files from previous tests
     if (File::exists(config_path('workos.php'))) {
         File::delete(config_path('workos.php'));
+    }
+    if (File::exists(app_path('Models/Organization.php'))) {
+        File::delete(app_path('Models/Organization.php'));
+    }
+    // Backup User model if we need to test modifying it
+    $this->originalUserModel = null;
+    if (File::exists(app_path('Models/User.php'))) {
+        $this->originalUserModel = File::get(app_path('Models/User.php'));
     }
 });
 
@@ -19,6 +31,13 @@ afterEach(function () {
     // Clean up published config
     if (File::exists(config_path('workos.php'))) {
         File::delete(config_path('workos.php'));
+    }
+    if (File::exists(app_path('Models/Organization.php'))) {
+        File::delete(app_path('Models/Organization.php'));
+    }
+    // Restore original User model
+    if ($this->originalUserModel !== null) {
+        File::put(app_path('Models/User.php'), $this->originalUserModel);
     }
     Mockery::close();
 });
@@ -273,11 +292,165 @@ it('wizard installs full auth system with migrations', function () {
         ->expectsConfirmation('Install full auth system? (guards, providers, User model guidance)', 'yes')
         ->expectsConfirmation('Install webhooks? (user sync, event handlers)', 'no')
         ->expectsConfirmation('Run migrations now?', 'no')
+        ->expectsConfirmation('Do you have an existing model to use for organizations (e.g., Team, Workspace)?', 'no')
         ->expectsOutputToContain('Published config/workos.php')
-        ->expectsOutputToContain('Add these traits to your User model')
         ->assertExitCode(0);
 
     expect(File::exists(config_path('workos.php')))->toBeTrue();
+});
+
+it('wizard creates Organization model when installing full auth system', function () {
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withAllEnvVars());
+
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $this->artisan('workos:install')
+        ->expectsConfirmation('Install auth routes? (login, callback, logout)', 'no')
+        ->expectsConfirmation('Install full auth system? (guards, providers, User model guidance)', 'yes')
+        ->expectsConfirmation('Install webhooks? (user sync, event handlers)', 'no')
+        ->expectsConfirmation('Run migrations now?', 'no')
+        ->expectsConfirmation('Do you have an existing model to use for organizations (e.g., Team, Workspace)?', 'no')
+        ->expectsOutputToContain('Created app/Models/Organization.php')
+        ->assertExitCode(0);
+
+    expect(File::exists(app_path('Models/Organization.php')))->toBeTrue();
+
+    $contents = File::get(app_path('Models/Organization.php'));
+    expect($contents)->toContain('class Organization extends Model');
+    expect($contents)->toContain('function users(): BelongsToMany');
+    expect($contents)->toContain('findByWorkOSId');
+    expect($contents)->toContain('findOrCreateByWorkOS');
+});
+
+it('wizard updates workos config to use app Organization model', function () {
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withAllEnvVars());
+
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $this->artisan('workos:install')
+        ->expectsConfirmation('Install auth routes? (login, callback, logout)', 'no')
+        ->expectsConfirmation('Install full auth system? (guards, providers, User model guidance)', 'yes')
+        ->expectsConfirmation('Install webhooks? (user sync, event handlers)', 'no')
+        ->expectsConfirmation('Run migrations now?', 'no')
+        ->expectsConfirmation('Do you have an existing model to use for organizations (e.g., Team, Workspace)?', 'no')
+        ->assertExitCode(0);
+
+    $configContents = File::get(config_path('workos.php'));
+    expect($configContents)->toContain('App\\Models\\Organization::class');
+});
+
+it('wizard skips Organization model creation if already exists', function () {
+    // Create existing Organization model
+    File::ensureDirectoryExists(app_path('Models'));
+    File::put(app_path('Models/Organization.php'), '<?php class Organization {}');
+
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withAllEnvVars());
+
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $this->artisan('workos:install')
+        ->expectsConfirmation('Install auth routes? (login, callback, logout)', 'no')
+        ->expectsConfirmation('Install full auth system? (guards, providers, User model guidance)', 'yes')
+        ->expectsConfirmation('Install webhooks? (user sync, event handlers)', 'no')
+        ->expectsConfirmation('Run migrations now?', 'no')
+        ->expectsConfirmation('Do you have an existing model to use for organizations (e.g., Team, Workspace)?', 'no')
+        ->expectsOutputToContain('Organization model already exists')
+        ->assertExitCode(0);
+
+    // Should not have been overwritten
+    $contents = File::get(app_path('Models/Organization.php'));
+    expect($contents)->toBe('<?php class Organization {}');
+});
+
+it('wizard configures existing model when user has one', function () {
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withAllEnvVars());
+
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $this->artisan('workos:install')
+        ->expectsConfirmation('Install auth routes? (login, callback, logout)', 'no')
+        ->expectsConfirmation('Install full auth system? (guards, providers, User model guidance)', 'yes')
+        ->expectsConfirmation('Install webhooks? (user sync, event handlers)', 'no')
+        ->expectsConfirmation('Run migrations now?', 'no')
+        ->expectsConfirmation('Do you have an existing model to use for organizations (e.g., Team, Workspace)?', 'yes')
+        ->expectsQuestion('Enter the fully qualified class name', 'App\\Models\\Team')
+        ->expectsOutputToContain('Configured App\\Models\\Team as organization model')
+        ->expectsOutputToContain('Add these to your Team model')
+        ->assertExitCode(0);
+
+    // Should NOT have created Organization model
+    expect(File::exists(app_path('Models/Organization.php')))->toBeFalse();
+
+    // Config should reference the Team model
+    $configContents = File::get(config_path('workos.php'));
+    expect($configContents)->toContain('App\\Models\\Team::class');
+});
+
+it('wizard adds WorkOS traits to User model', function () {
+    // Create a fresh User model without WorkOS traits
+    $freshUserModel = <<<'PHP'
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+    ];
+}
+PHP;
+
+    File::put(app_path('Models/User.php'), $freshUserModel);
+
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withAllEnvVars());
+
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $this->artisan('workos:install')
+        ->expectsConfirmation('Install auth routes? (login, callback, logout)', 'no')
+        ->expectsConfirmation('Install full auth system? (guards, providers, User model guidance)', 'yes')
+        ->expectsConfirmation('Install webhooks? (user sync, event handlers)', 'no')
+        ->expectsConfirmation('Run migrations now?', 'no')
+        ->expectsConfirmation('Do you have an existing model to use for organizations (e.g., Team, Workspace)?', 'no')
+        ->expectsOutputToContain('Added WorkOS traits to User model')
+        ->assertExitCode(0);
+
+    $contents = File::get(app_path('Models/User.php'));
+    expect($contents)->toContain('use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;');
+    expect($contents)->toContain('use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;');
+    expect($contents)->toContain('HasWorkOSId');
+    expect($contents)->toContain('HasWorkOSPermissions');
+});
+
+it('wizard skips traits if already present in User model', function () {
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withAllEnvVars());
+
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    // The workbench User model already has the traits
+    $this->artisan('workos:install')
+        ->expectsConfirmation('Install auth routes? (login, callback, logout)', 'no')
+        ->expectsConfirmation('Install full auth system? (guards, providers, User model guidance)', 'yes')
+        ->expectsConfirmation('Install webhooks? (user sync, event handlers)', 'no')
+        ->expectsConfirmation('Run migrations now?', 'no')
+        ->expectsConfirmation('Do you have an existing model to use for organizations (e.g., Team, Workspace)?', 'no')
+        ->expectsOutputToContain('WorkOS traits already present in User model')
+        ->assertExitCode(0);
 });
 
 it('wizard shows webhook setup instructions', function () {
