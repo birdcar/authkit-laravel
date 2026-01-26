@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace WorkOS\AuthKit\Auth;
 
 use Illuminate\Http\Request;
+use WorkOS\AuthKit\Facades\WorkOS;
 use WorkOS\CookieSession;
 use WorkOS\Resource\SessionAuthenticationSuccessResponse;
-use WorkOS\UserManagement;
 
 /**
  * Manages WorkOS sessions using the wos-session cookie directly.
@@ -156,8 +156,7 @@ class CookieSessionManager implements SessionManagerInterface
             return null;
         }
 
-        $userManagement = new UserManagement;
-        $this->cookieSession = $userManagement->loadSealedSession($sealedSession, $this->cookiePassword);
+        $this->cookieSession = WorkOS::userManagement()->loadSealedSession($sealedSession, $this->cookiePassword);
 
         return $this->cookieSession;
     }

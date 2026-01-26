@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WorkOS\AuthKit\Commands;
 
 use Illuminate\Console\Command;
-use WorkOS\UserManagement;
+use WorkOS\AuthKit\Facades\WorkOS;
 
 class SyncUsersCommand extends Command
 {
@@ -19,7 +19,6 @@ class SyncUsersCommand extends Command
     {
         $this->info('Syncing users from WorkOS...');
 
-        $userManagement = new UserManagement;
         /** @var class-string $userModel */
         $userModel = config('workos.user_model');
         /** @var string|null $organizationId */
@@ -44,7 +43,7 @@ class SyncUsersCommand extends Command
         do {
             // listUsers returns [$before, $after, $users]
             /** @var array{0: ?string, 1: ?string, 2: array<\WorkOS\Resource\User>} $response */
-            $response = $userManagement->listUsers(
+            $response = WorkOS::userManagement()->listUsers(
                 organizationId: $organizationId,
                 limit: $limit,
                 after: $cursor,

@@ -52,6 +52,42 @@ class WorkOS
         return $this->instances[$name] ??= new (self::SERVICE_MAP[$name]);
     }
 
+    public function userManagement(): \WorkOS\UserManagement
+    {
+        /** @var \WorkOS\UserManagement */
+        return $this->instances['userManagement'] ??= new \WorkOS\UserManagement;
+    }
+
+    public function organizations(): \WorkOS\Organizations
+    {
+        /** @var \WorkOS\Organizations */
+        return $this->instances['organizations'] ??= new \WorkOS\Organizations;
+    }
+
+    public function sso(): \WorkOS\SSO
+    {
+        /** @var \WorkOS\SSO */
+        return $this->instances['sso'] ??= new \WorkOS\SSO;
+    }
+
+    public function directorySync(): \WorkOS\DirectorySync
+    {
+        /** @var \WorkOS\DirectorySync */
+        return $this->instances['directorySync'] ??= new \WorkOS\DirectorySync;
+    }
+
+    public function auditLogs(): \WorkOS\AuditLogs
+    {
+        /** @var \WorkOS\AuditLogs */
+        return $this->instances['auditLogs'] ??= new \WorkOS\AuditLogs;
+    }
+
+    public function webhook(): \WorkOS\Webhook
+    {
+        /** @var \WorkOS\Webhook */
+        return $this->instances['webhook'] ??= new \WorkOS\Webhook;
+    }
+
     public function user(): ?Authenticatable
     {
         /** @var Guard $guard */

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
 use Symfony\Component\HttpFoundation\Response;
 use WorkOS\AuthKit\Auth\SessionManagerInterface;
+use WorkOS\AuthKit\Facades\WorkOS;
 
 class SetCurrentOrganization
 {
@@ -74,8 +75,7 @@ class SetCurrentOrganization
     private function syncOrganizationFromWorkOS(string $workosOrgId, Authenticatable $user): ?Model
     {
         try {
-            $organizations = new \WorkOS\Organizations;
-            $orgData = $organizations->getOrganization($workosOrgId);
+            $orgData = WorkOS::organizations()->getOrganization($workosOrgId);
 
             /** @var class-string<Model> $organizationModel */
             $organizationModel = config('workos.organization_model');

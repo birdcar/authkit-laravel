@@ -6,7 +6,7 @@ namespace WorkOS\AuthKit\Auth;
 
 use Illuminate\Contracts\Session\Session;
 use SensitiveParameter;
-use WorkOS\UserManagement;
+use WorkOS\AuthKit\Facades\WorkOS;
 
 /**
  * Manages WorkOS sessions using Laravel's session storage.
@@ -109,10 +109,9 @@ class SessionManager implements SessionManagerInterface
         }
 
         try {
-            $userManagement = new UserManagement;
             /** @var string $clientId */
             $clientId = config('workos.client_id');
-            $response = $userManagement->authenticateWithRefreshToken(
+            $response = WorkOS::userManagement()->authenticateWithRefreshToken(
                 clientId: $clientId,
                 refreshToken: $session->refreshToken,
             );
