@@ -7,6 +7,7 @@ namespace WorkOS\AuthKit\Auth;
 use Illuminate\Http\Request;
 use WorkOS\AuthKit\Facades\WorkOS;
 use WorkOS\CookieSession;
+use WorkOS\Resource\Impersonator;
 use WorkOS\Resource\SessionAuthenticationSuccessResponse;
 
 /**
@@ -41,7 +42,7 @@ class CookieSessionManager implements SessionManagerInterface
         try {
             $result = $cookieSession->authenticate();
 
-            if (! $result->authenticated) {
+            if (! $result instanceof SessionAuthenticationSuccessResponse || ! $result->authenticated) {
                 return null;
             }
 
@@ -171,7 +172,7 @@ class CookieSessionManager implements SessionManagerInterface
         try {
             [$result, $newTokens] = $cookieSession->refresh();
 
-            if (! $result->authenticated) {
+            if (! $result instanceof SessionAuthenticationSuccessResponse || ! $result->authenticated) {
                 $this->cachedSession = null;
 
                 return null;
@@ -198,7 +199,24 @@ class CookieSessionManager implements SessionManagerInterface
             roles: $result->user->raw['roles'] ?? [],
             permissions: $result->user->raw['permissions'] ?? [],
             organizationId: $result->organizationId,
-            impersonator: $result->impersonator,
+            impersonator: $this->impersonatorToArray($result->impersonator),
         );
+    }
+
+    /**
+     * Convert an Impersonator object to an array.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function impersonatorToArray(?Impersonator $impersonator): ?array
+    {
+        if ($impersonator === null) {
+            return null;
+        }
+
+        return [
+            'email' => $impersonator->email,
+            'reason' => $impersonator->reason,
+        ];
     }
 }

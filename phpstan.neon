@@ -10,6 +10,4 @@ parameters:
         - src/Models/Concerns
         - src/Audit/Concerns
         - src/Testing/Concerns
-    ignoreErrors:
-        - '#Call to an undefined method [a-zA-Z0-9\\_]+::userManagement\(\)#'
     tmpDir: .phpstan-cache

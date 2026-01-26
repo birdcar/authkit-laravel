@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Listeners;
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
 use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
 use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
@@ -23,69 +25,77 @@ class SyncMembershipFromWebhook
     public function handleDeleted(WorkOSMembershipDeleted $event): void
     {
         $user = $this->findUser($event->userId());
-        if ($user === null) {
+        $organizations = $this->getUserOrganizations($user);
+        if ($organizations === null) {
             return;
         }
 
         $organization = $this->findOrganization($event->organizationId());
         if ($organization !== null) {
-            $user->organizations()->detach($organization->id);
+            $organizations->detach($organization->getKey());
         }
     }
 
     private function syncMembership(string $userId, string $organizationId, ?string $role): void
     {
         $user = $this->findUser($userId);
-        if ($user === null) {
+        $organizations = $this->getUserOrganizations($user);
+        if ($organizations === null) {
             return;
         }
 
         $organization = $this->findOrganization($organizationId);
         if ($organization !== null) {
-            $user->organizations()->syncWithoutDetaching([
-                $organization->id => ['role' => $role],
+            $organizations->syncWithoutDetaching([
+                $organization->getKey() => ['role' => $role],
             ]);
         }
     }
 
     /**
      * Find a user by their WorkOS ID.
-     *
-     * @return object|null User model with organizations() relationship, or null
      */
-    private function findUser(string $userId): ?object
+    private function findUser(string $userId): ?Model
     {
-        /** @var class-string $userModel */
+        /** @var class-string<Model>|null $userModel */
         $userModel = config('workos.user_model');
 
-        if (! method_exists($userModel, 'findByWorkOSId')) {
+        if ($userModel === null || ! method_exists($userModel, 'findByWorkOSId')) {
             return null;
         }
 
-        /** @var object|null $user */
-        $user = $userModel::findByWorkOSId($userId);
+        /** @var Model|null */
+        return $userModel::findByWorkOSId($userId);
+    }
 
+    /**
+     * Get the organizations relationship from a user model.
+     *
+     * @return BelongsToMany<Model, Model>|null
+     */
+    private function getUserOrganizations(?Model $user): ?BelongsToMany
+    {
         if ($user === null || ! method_exists($user, 'organizations')) {
             return null;
         }
 
-        return $user;
+        /** @var BelongsToMany<Model, Model> */
+        return $user->organizations();
     }
 
     /**
      * Find an organization by its WorkOS ID.
-     *
-     * @return object|null Organization model, or null
      */
-    private function findOrganization(string $organizationId): ?object
+    private function findOrganization(string $organizationId): ?Model
     {
-        /** @var class-string $organizationModel */
+        /** @var class-string<Model>|null $organizationModel */
         $organizationModel = config('workos.organization_model');
 
-        if (! method_exists($organizationModel, 'where')) {
+        if ($organizationModel === null || ! method_exists($organizationModel, 'where')) {
             return null;
         }
 
+        /** @var Model|null */
         return $organizationModel::where('workos_id', $organizationId)->first();
     }
 }

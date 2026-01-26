@@ -70,6 +70,7 @@ class OrganizationController extends Controller
         // Fetch invitation to verify it belongs to the organization
         $invitation = $userManagement->getInvitation($invitationId);
 
+        /** @phpstan-ignore property.notFound (organizationId accessed via magic __get) */
         if ($invitation->organizationId !== $organizationId) {
             return back()->withErrors(['invitation' => 'Invitation does not belong to this organization.']);
         }
