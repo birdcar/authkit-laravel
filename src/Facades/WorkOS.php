@@ -14,7 +14,9 @@ use WorkOS\AuthKit\Auth\WorkOSSession;
  * @method static string loginUrl(?string $organizationId = null, ?array<string, mixed> $state = null)
  * @method static string|null getLogoutUrl(?string $returnTo = null)
  * @method static string logoutUrl(?string $returnTo = null)
+ *
  * @deprecated logoutUrl() is deprecated, use getLogoutUrl() instead
+ *
  * @method static bool isAuthenticated()
  * @method static bool isImpersonating()
  * @method static bool hasPermission(string $permission)

@@ -34,9 +34,17 @@ use WorkOS\AuthKit\Http\Middleware\DetectImpersonation;
 use WorkOS\AuthKit\Http\Middleware\EnsureWorkOSAuthenticated;
 use WorkOS\AuthKit\Http\Middleware\SetCurrentOrganization;
 use WorkOS\AuthKit\Http\Middleware\ShareWorkOSData;
+use WorkOS\AuthKit\Install\AuthSystemInstaller;
+use WorkOS\AuthKit\Install\EnvManager;
+use WorkOS\AuthKit\Install\LaravelWorkosMigrator;
+use WorkOS\AuthKit\Install\MigrationPlanGenerator;
+use WorkOS\AuthKit\Install\RouteInstaller;
+use WorkOS\AuthKit\Install\WebhookInstaller;
+use WorkOS\AuthKit\Install\WizardFlow;
 use WorkOS\AuthKit\Listeners\SyncMembershipFromWebhook;
 use WorkOS\AuthKit\Listeners\SyncOrganizationFromWebhook;
 use WorkOS\AuthKit\Listeners\SyncUserFromWebhook;
+use WorkOS\AuthKit\Support\EnvironmentDetector;
 
 class WorkOSServiceProvider extends ServiceProvider
 {
@@ -58,6 +66,42 @@ class WorkOSServiceProvider extends ServiceProvider
             return new AuditLogger(
                 new \WorkOS\AuditLogs,
                 $app->make(SessionManagerInterface::class)
+            );
+        });
+
+        $this->app->singleton(EnvironmentDetector::class, function ($app) {
+            return new EnvironmentDetector(
+                $app->make('files'),
+                $app->basePath()
+            );
+        });
+
+        $this->registerInstallers();
+    }
+
+    protected function registerInstallers(): void
+    {
+        $this->app->singleton(RouteInstaller::class);
+        $this->app->singleton(AuthSystemInstaller::class);
+        $this->app->singleton(WebhookInstaller::class);
+        $this->app->singleton(LaravelWorkosMigrator::class);
+
+        $this->app->singleton(EnvManager::class, function ($app) {
+            return new EnvManager($app->basePath('.env'));
+        });
+
+        $this->app->singleton(MigrationPlanGenerator::class, function ($app) {
+            return new MigrationPlanGenerator($app->storagePath());
+        });
+
+        $this->app->singleton(WizardFlow::class, function ($app) {
+            return new WizardFlow(
+                $app->make(RouteInstaller::class),
+                $app->make(AuthSystemInstaller::class),
+                $app->make(WebhookInstaller::class),
+                $app->make(LaravelWorkosMigrator::class),
+                $app->make(EnvManager::class),
+                $app->make(MigrationPlanGenerator::class),
             );
         });
     }
