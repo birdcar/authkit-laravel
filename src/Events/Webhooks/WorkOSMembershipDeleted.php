@@ -4,20 +4,11 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Events\Webhooks;
 
-use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Queue\SerializesModels;
+use WorkOS\AuthKit\Events\Webhooks\Concerns\HasWebhookData;
 
 class WorkOSMembershipDeleted
 {
-    use Dispatchable;
-    use SerializesModels;
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    public function __construct(
-        public readonly array $data,
-    ) {}
+    use HasWebhookData;
 
     public function membershipId(): string
     {
