@@ -231,8 +231,8 @@ class WorkOSServiceProvider extends ServiceProvider
             __DIR__.'/../config/workos.php' => config_path('workos.php'),
         ], 'workos-config');
 
-        $this->publishes([
-            __DIR__.'/../database/migrations/' => database_path('migrations'),
+        $this->publishesMigrations([
+            __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'workos-migrations');
     }
 
