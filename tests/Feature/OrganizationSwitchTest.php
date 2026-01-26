@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -12,7 +13,13 @@ use WorkOS\AuthKit\Events\OrganizationSwitched;
 use WorkOS\AuthKit\Models\Concerns\HasOrganization;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;
-use WorkOS\AuthKit\Models\Organization;
+
+class TestSwitchOrganization extends Model
+{
+    protected $table = 'organizations';
+
+    protected $fillable = ['workos_id', 'name', 'slug'];
+}
 
 class TestSwitchUser extends Authenticatable
 {
@@ -41,6 +48,12 @@ function createSwitchTestSession(?string $organizationId = null): WorkOSSession
 }
 
 beforeEach(function () {
+    // Configure models for tests
+    config(['workos.user_model' => TestSwitchUser::class]);
+    config(['workos.organization_model' => TestSwitchOrganization::class]);
+    // Disable auth requirement for organization routes in tests
+    config(['workos.routes.middleware' => ['web']]);
+
     // Set up database
     $this->app['db']->connection()->getSchemaBuilder()->create('users', function ($table) {
         $table->id();
@@ -58,7 +71,7 @@ beforeEach(function () {
         $table->timestamps();
     });
 
-    $this->app['db']->connection()->getSchemaBuilder()->create('organization_user', function ($table) {
+    $this->app['db']->connection()->getSchemaBuilder()->create('organization_memberships', function ($table) {
         $table->id();
         $table->foreignId('user_id')->constrained()->cascadeOnDelete();
         $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
@@ -66,11 +79,6 @@ beforeEach(function () {
         $table->timestamps();
         $table->unique(['user_id', 'organization_id']);
     });
-
-    // Configure user model
-    config(['workos.user_model' => TestSwitchUser::class]);
-    // Disable auth requirement for organization routes in tests
-    config(['workos.routes.middleware' => ['web']]);
 });
 
 it('switches organization via endpoint', function () {
@@ -82,7 +90,7 @@ it('switches organization via endpoint', function () {
         'name' => 'Test User',
     ]);
 
-    $org = Organization::create([
+    $org = TestSwitchOrganization::create([
         'workos_id' => 'org_456',
         'name' => 'Test Organization',
     ]);
@@ -205,7 +213,7 @@ it('middleware allows users with valid organization', function () {
         'name' => 'Test User',
     ]);
 
-    $org = Organization::create([
+    $org = TestSwitchOrganization::create([
         'workos_id' => 'org_456',
         'name' => 'Test Organization',
     ]);
@@ -239,7 +247,7 @@ it('middleware checks role when specified', function () {
         'name' => 'Test User',
     ]);
 
-    $org = Organization::create([
+    $org = TestSwitchOrganization::create([
         'workos_id' => 'org_456',
         'name' => 'Test Organization',
     ]);

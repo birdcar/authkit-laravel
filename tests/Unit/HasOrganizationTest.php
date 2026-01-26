@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\Event;
 use WorkOS\AuthKit\Auth\SessionManagerInterface;
@@ -11,7 +12,13 @@ use WorkOS\AuthKit\Events\OrganizationSwitched;
 use WorkOS\AuthKit\Models\Concerns\HasOrganization;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;
-use WorkOS\AuthKit\Models\Organization;
+
+class TestOrganization extends Model
+{
+    protected $table = 'organizations';
+
+    protected $fillable = ['workos_id', 'name', 'slug'];
+}
 
 class TestUserWithOrganization extends Authenticatable
 {
@@ -40,6 +47,9 @@ function createTestOrganizationSession(array $roles = [], array $permissions = [
 }
 
 beforeEach(function () {
+    // Configure the organization model for tests
+    config(['workos.organization_model' => TestOrganization::class]);
+
     // Set up database for organization tests
     $this->app['db']->connection()->getSchemaBuilder()->create('users', function ($table) {
         $table->id();
@@ -57,7 +67,7 @@ beforeEach(function () {
         $table->timestamps();
     });
 
-    $this->app['db']->connection()->getSchemaBuilder()->create('organization_user', function ($table) {
+    $this->app['db']->connection()->getSchemaBuilder()->create('organization_memberships', function ($table) {
         $table->id();
         $table->foreignId('user_id')->constrained()->cascadeOnDelete();
         $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
@@ -84,7 +94,7 @@ it('checks if user belongs to organization', function () {
         'name' => 'Test User',
     ]);
 
-    $org = Organization::create([
+    $org = TestOrganization::create([
         'workos_id' => 'org_456',
         'name' => 'Test Organization',
     ]);
@@ -104,7 +114,7 @@ it('gets organization role', function () {
         'name' => 'Test User',
     ]);
 
-    $org = Organization::create([
+    $org = TestOrganization::create([
         'workos_id' => 'org_456',
         'name' => 'Test Organization',
     ]);
@@ -122,7 +132,7 @@ it('checks organization role', function () {
         'name' => 'Test User',
     ]);
 
-    $org = Organization::create([
+    $org = TestOrganization::create([
         'workos_id' => 'org_456',
         'name' => 'Test Organization',
     ]);
@@ -140,7 +150,7 @@ it('gets current organization', function () {
         'name' => 'Test User',
     ]);
 
-    $org = Organization::create([
+    $org = TestOrganization::create([
         'workos_id' => 'org_456',
         'name' => 'Test Organization',
     ]);
@@ -174,7 +184,7 @@ it('switches organization and fires event', function () {
         'name' => 'Test User',
     ]);
 
-    $org = Organization::create([
+    $org = TestOrganization::create([
         'workos_id' => 'org_456',
         'name' => 'Test Organization',
     ]);
