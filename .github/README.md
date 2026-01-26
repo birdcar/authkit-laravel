@@ -55,10 +55,46 @@ composer require workos/authkit-laravel:v0.1.0
 php artisan workos:install
 ```
 
-This will:
-- Publish the configuration file
-- Add WorkOS environment variables to `.env`
-- Run migrations for user/organization tables
+The install command runs an interactive wizard that:
+
+1. **Detects your environment** - Scans for existing auth packages (Breeze, Jetstream, Fortify) and any prior WorkOS setup
+2. **Generates a migration plan** - If existing auth is detected, creates a detailed markdown guide at `storage/workos-migration-plan.md`
+3. **Handles laravel/workos migration** - If you're migrating from the official `laravel/workos` package, offers options to replace, augment, or run alongside
+4. **Selects components** - Lets you choose which parts to install (routes, auth system, webhooks)
+5. **Configures environment** - Updates your `.env` with required WorkOS variables
+6. **Runs migrations** - Optionally runs database migrations
+
+For a minimal install that only publishes config with setup instructions:
+
+```bash
+php artisan workos:install --mini
+```
+
+### Migrating from Existing Auth
+
+If you have Laravel Breeze, Jetstream, or Fortify installed, the wizard detects this and generates a comprehensive migration plan. The plan includes:
+
+- **Pre-migration checklist** - Backup reminders and WorkOS account setup
+- **Files to remove** - Lists auth controllers and views that are no longer needed
+- **Database changes** - Required schema updates
+- **User model updates** - Traits to add for WorkOS integration
+- **Data migration options** - How to handle existing users (re-authenticate or pre-link via API)
+- **Post-migration testing** - Verification steps
+- **Rollback plan** - How to revert if needed
+
+The migration plan is saved to `storage/workos-migration-plan.md` for reference.
+
+### Migrating from laravel/workos
+
+If you're using the official `laravel/workos` package, the wizard offers three strategies:
+
+| Strategy | Description |
+|----------|-------------|
+| **Replace** | Migrate config and remove the old package (recommended) |
+| **Augment** | Add AuthKit features alongside existing setup |
+| **Keep both** | Install without any migration |
+
+Your existing `WORKOS_*` environment variables are compatible with AuthKit - no changes needed
 
 ## Configuration
 
@@ -435,7 +471,9 @@ The package dispatches these events:
 
 | Command | Description |
 |---------|-------------|
-| `workos:install` | Install and configure the package |
+| `workos:install` | Interactive wizard to install and configure the package |
+| `workos:install --mini` | Minimal install - config only with setup instructions |
+| `workos:install --force` | Overwrite existing configuration files |
 | `workos:sync-users` | Sync users from WorkOS |
 | `workos:prune-sessions` | Remove expired sessions |
 | `workos:events:listen` | Listen to WorkOS events (development) |
