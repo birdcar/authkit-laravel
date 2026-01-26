@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Helpers;
+namespace WorkOS\AuthKit\Tests\Helpers;
 
 use WorkOS\AuthKit\Support\DetectionResult;
 

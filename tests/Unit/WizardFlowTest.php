@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Console\Command;
-use Tests\Helpers\DetectionResultFactory;
+use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 use WorkOS\AuthKit\Install\AuthSystemInstaller;
 use WorkOS\AuthKit\Install\EnvManager;
 use WorkOS\AuthKit\Install\LaravelWorkosMigrator;

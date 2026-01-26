@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
-use Tests\Helpers\DetectionResultFactory;
+use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 use WorkOS\AuthKit\Install\EnvManager;
 use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Support\EnvironmentDetector;

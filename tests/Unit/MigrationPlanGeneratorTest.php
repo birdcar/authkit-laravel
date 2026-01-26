@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Tests\Helpers\DetectionResultFactory;
+use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Install\Plans\BreezeMigrationPlan;
 use WorkOS\AuthKit\Install\Plans\FortifyMigrationPlan;

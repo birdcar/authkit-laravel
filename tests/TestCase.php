@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Tests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Orchestra\Testbench\TestCase as Orchestra;
 use WorkOS\AuthKit\Auth\WorkOSSession;
@@ -35,6 +36,32 @@ abstract class TestCase extends Orchestra
         $app['config']->set('workos.redirect_uri', 'http://localhost/auth/callback');
         // Use Laravel session-based session manager for tests
         $app['config']->set('workos.session.cookie_session', false);
+    }
+
+    /**
+     * Create a test WorkOS session with optional parameters.
+     *
+     * @param  array<string>  $roles
+     * @param  array<string>  $permissions
+     * @param  array<string, mixed>|null  $impersonator
+     */
+    protected function createTestSession(
+        array $roles = [],
+        array $permissions = [],
+        ?string $organizationId = null,
+        ?array $impersonator = null,
+    ): WorkOSSession {
+        return new WorkOSSession(
+            userId: 'user_123',
+            accessToken: 'token_abc',
+            refreshToken: null,
+            expiresAt: Carbon::now()->addHour(),
+            sessionId: 'session_456',
+            roles: $roles,
+            permissions: $permissions,
+            organizationId: $organizationId,
+            impersonator: $impersonator,
+        );
     }
 
     protected function actingAsWorkOSUser(WorkOSSession $session): static

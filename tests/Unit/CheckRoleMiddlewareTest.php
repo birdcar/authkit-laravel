@@ -2,41 +2,15 @@
 
 declare(strict_types=1);
 
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use WorkOS\AuthKit\Auth\WorkOSSession;
+use WorkOS\AuthKit\Tests\Fixtures\TestUser;
+use WorkOS\AuthKit\Tests\Helpers\WorkOSSessionFactory;
 use WorkOS\AuthKit\Exceptions\MissingRoleException;
 use WorkOS\AuthKit\Http\Middleware\CheckRole;
-use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;
-
-class RoleTestUser
-{
-    use HasWorkOSPermissions;
-
-    public function getAuthIdentifier(): string
-    {
-        return 'user_123';
-    }
-}
-
-function createRoleTestSession(array $roles = []): WorkOSSession
-{
-    return new WorkOSSession(
-        userId: 'user_123',
-        accessToken: 'token_abc',
-        refreshToken: null,
-        expiresAt: Carbon::now()->addHour(),
-        sessionId: 'session_456',
-        roles: $roles,
-        permissions: [],
-        organizationId: null,
-        impersonator: null,
-    );
-}
 
 it('passes when user has required role', function () {
-    $user = new RoleTestUser;
-    $user->setWorkOSSession(createRoleTestSession(roles: ['admin']));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::withRoles(['admin']));
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
@@ -48,8 +22,8 @@ it('passes when user has required role', function () {
 });
 
 it('passes when user has any of required roles', function () {
-    $user = new RoleTestUser;
-    $user->setWorkOSSession(createRoleTestSession(roles: ['editor']));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::withRoles(['editor']));
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
@@ -79,8 +53,8 @@ it('throws exception when user is missing trait', function () {
 })->throws(MissingRoleException::class, 'User model missing HasWorkOSPermissions trait');
 
 it('throws exception when user does not have required role', function () {
-    $user = new RoleTestUser;
-    $user->setWorkOSSession(createRoleTestSession(roles: ['viewer']));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::withRoles(['viewer']));
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
@@ -90,8 +64,8 @@ it('throws exception when user does not have required role', function () {
 })->throws(MissingRoleException::class);
 
 it('throws exception with role list in message', function () {
-    $user = new RoleTestUser;
-    $user->setWorkOSSession(createRoleTestSession(roles: []));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::create());
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
@@ -112,8 +86,8 @@ it('throws exception with role list in message', function () {
 });
 
 it('returns 403 status code', function () {
-    $user = new RoleTestUser;
-    $user->setWorkOSSession(createRoleTestSession(roles: []));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::create());
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);

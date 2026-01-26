@@ -2,41 +2,15 @@
 
 declare(strict_types=1);
 
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use WorkOS\AuthKit\Auth\WorkOSSession;
+use WorkOS\AuthKit\Tests\Fixtures\TestUser;
+use WorkOS\AuthKit\Tests\Helpers\WorkOSSessionFactory;
 use WorkOS\AuthKit\Exceptions\MissingPermissionException;
 use WorkOS\AuthKit\Http\Middleware\CheckPermission;
-use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;
-
-class PermissionTestUser
-{
-    use HasWorkOSPermissions;
-
-    public function getAuthIdentifier(): string
-    {
-        return 'user_123';
-    }
-}
-
-function createPermissionTestSession(array $permissions = []): WorkOSSession
-{
-    return new WorkOSSession(
-        userId: 'user_123',
-        accessToken: 'token_abc',
-        refreshToken: null,
-        expiresAt: Carbon::now()->addHour(),
-        sessionId: 'session_456',
-        roles: [],
-        permissions: $permissions,
-        organizationId: null,
-        impersonator: null,
-    );
-}
 
 it('passes when user has required permission', function () {
-    $user = new PermissionTestUser;
-    $user->setWorkOSSession(createPermissionTestSession(permissions: ['read']));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::withPermissions(['read']));
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
@@ -48,8 +22,8 @@ it('passes when user has required permission', function () {
 });
 
 it('passes when user has all required permissions', function () {
-    $user = new PermissionTestUser;
-    $user->setWorkOSSession(createPermissionTestSession(permissions: ['read', 'write', 'delete']));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::withPermissions(['read', 'write', 'delete']));
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
@@ -79,8 +53,8 @@ it('throws exception when user is missing trait', function () {
 })->throws(MissingPermissionException::class, 'User model missing HasWorkOSPermissions trait');
 
 it('throws exception when user is missing one of required permissions', function () {
-    $user = new PermissionTestUser;
-    $user->setWorkOSSession(createPermissionTestSession(permissions: ['read']));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::withPermissions(['read']));
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
@@ -90,8 +64,8 @@ it('throws exception when user is missing one of required permissions', function
 })->throws(MissingPermissionException::class);
 
 it('throws exception with permission list in message', function () {
-    $user = new PermissionTestUser;
-    $user->setWorkOSSession(createPermissionTestSession(permissions: []));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::create());
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
@@ -112,8 +86,8 @@ it('throws exception with permission list in message', function () {
 });
 
 it('returns 403 status code', function () {
-    $user = new PermissionTestUser;
-    $user->setWorkOSSession(createPermissionTestSession(permissions: []));
+    $user = new TestUser;
+    $user->setWorkOSSession(WorkOSSessionFactory::create());
 
     $request = Request::create('/test');
     $request->setUserResolver(fn () => $user);
