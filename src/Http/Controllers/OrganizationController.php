@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use WorkOS\AuthKit\Events\InvitationRevoked;
 use WorkOS\AuthKit\Events\InvitationSent;
-use WorkOS\UserManagement;
+use WorkOS\AuthKit\Facades\WorkOS;
 
 class OrganizationController extends Controller
 {
@@ -43,7 +43,8 @@ class OrganizationController extends Controller
             'role' => 'nullable|string',
         ]);
 
-        $userManagement = new UserManagement;
+        /** @var \WorkOS\UserManagement $userManagement */
+        $userManagement = WorkOS::userManagement();
 
         /** @var string $email */
         $email = $request->input('email');
@@ -63,7 +64,15 @@ class OrganizationController extends Controller
 
     public function revokeInvitation(Request $request, string $organizationId, string $invitationId): RedirectResponse
     {
-        $userManagement = new UserManagement;
+        /** @var \WorkOS\UserManagement $userManagement */
+        $userManagement = WorkOS::userManagement();
+
+        // Fetch invitation to verify it belongs to the organization
+        $invitation = $userManagement->getInvitation($invitationId);
+
+        if ($invitation->organizationId !== $organizationId) {
+            return back()->withErrors(['invitation' => 'Invitation does not belong to this organization.']);
+        }
 
         $userManagement->revokeInvitation($invitationId);
 
