@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
-use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 use WorkOS\AuthKit\Install\EnvManager;
 use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Support\EnvironmentDetector;
+use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 
 // Mark all tests in this file as serial to avoid parallel test conflicts
 // These tests publish files to shared paths (config, models) which causes race conditions

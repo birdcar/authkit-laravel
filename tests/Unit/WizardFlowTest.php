@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Illuminate\Console\Command;
-use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 use WorkOS\AuthKit\Install\AuthSystemInstaller;
 use WorkOS\AuthKit\Install\EnvManager;
 use WorkOS\AuthKit\Install\LaravelWorkosMigrator;
@@ -11,6 +10,7 @@ use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Install\RouteInstaller;
 use WorkOS\AuthKit\Install\WebhookInstaller;
 use WorkOS\AuthKit\Install\WizardFlow;
+use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 
 beforeEach(function () {
     $this->routeInstaller = Mockery::mock(RouteInstaller::class);

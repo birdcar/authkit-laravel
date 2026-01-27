@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Install\Plans\BreezeMigrationPlan;
 use WorkOS\AuthKit\Install\Plans\FortifyMigrationPlan;
 use WorkOS\AuthKit\Install\Plans\JetstreamMigrationPlan;
+use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 
 beforeEach(function () {
     $this->storagePath = sys_get_temp_dir().'/workos-test-'.uniqid();

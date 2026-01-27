@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Request;
-use WorkOS\AuthKit\Tests\Fixtures\TestUser;
-use WorkOS\AuthKit\Tests\Helpers\WorkOSSessionFactory;
 use WorkOS\AuthKit\Exceptions\MissingRoleException;
 use WorkOS\AuthKit\Http\Middleware\CheckRole;
+use WorkOS\AuthKit\Tests\Fixtures\TestUser;
+use WorkOS\AuthKit\Tests\Helpers\WorkOSSessionFactory;
 
 it('passes when user has required role', function () {
     $user = new TestUser;

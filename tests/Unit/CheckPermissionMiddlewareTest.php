@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Request;
-use WorkOS\AuthKit\Tests\Fixtures\TestUser;
-use WorkOS\AuthKit\Tests\Helpers\WorkOSSessionFactory;
 use WorkOS\AuthKit\Exceptions\MissingPermissionException;
 use WorkOS\AuthKit\Http\Middleware\CheckPermission;
+use WorkOS\AuthKit\Tests\Fixtures\TestUser;
+use WorkOS\AuthKit\Tests\Helpers\WorkOSSessionFactory;
 
 it('passes when user has required permission', function () {
     $user = new TestUser;
