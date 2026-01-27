@@ -10,7 +10,7 @@ use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 
 // Mark all tests in this file as serial to avoid parallel test conflicts
 // These tests publish files to shared paths (config, models) which causes race conditions
-pest()->group('serial');
+uses()->group('serial');
 
 beforeEach(function () {
     // Clean up any published files from previous tests
