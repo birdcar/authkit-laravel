@@ -23,7 +23,7 @@ use WorkOS\Webhook;
 class WebhookController
 {
     /** @var array<string, class-string> */
-    public const EVENT_MAP = [
+    public const array EVENT_MAP = [
         'user.created' => WorkOSUserCreated::class,
         'user.updated' => WorkOSUserUpdated::class,
         'user.deleted' => WorkOSUserDeleted::class,

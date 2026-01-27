@@ -17,12 +17,13 @@ use WorkOS\AuthKit\Facades\WorkOS;
  */
 class SessionManager implements SessionManagerInterface
 {
-    private const SESSION_KEY = 'workos_session';
+    private const string SESSION_KEY = 'workos_session';
 
     public function __construct(
         private readonly Session $store,
     ) {}
 
+    #[\Override]
     public function getSession(): ?WorkOSSession
     {
         /** @var array<string, mixed>|null $data */
@@ -31,6 +32,7 @@ class SessionManager implements SessionManagerInterface
         return $data ? WorkOSSession::fromArray($data) : null;
     }
 
+    #[\Override]
     public function getValidSession(): ?WorkOSSession
     {
         $session = $this->getSession();
@@ -55,6 +57,7 @@ class SessionManager implements SessionManagerInterface
     /**
      * @param  array<string, mixed>  $authResponse
      */
+    #[\Override]
     public function store(#[SensitiveParameter] array $authResponse): WorkOSSession
     {
         $session = WorkOSSession::fromAuthResponse($authResponse);
@@ -63,21 +66,25 @@ class SessionManager implements SessionManagerInterface
         return $session;
     }
 
+    #[\Override]
     public function destroy(): void
     {
         $this->store->forget(self::SESSION_KEY);
     }
 
+    #[\Override]
     public function isImpersonating(): bool
     {
         return $this->getSession()?->impersonator !== null;
     }
 
+    #[\Override]
     public function getOrganizationId(): ?string
     {
         return $this->getSession()?->organizationId;
     }
 
+    #[\Override]
     public function setOrganizationId(string $organizationId): void
     {
         $session = $this->getSession();
@@ -90,11 +97,13 @@ class SessionManager implements SessionManagerInterface
         $this->store->put(self::SESSION_KEY, $data);
     }
 
+    #[\Override]
     public function hasPermission(string $permission): bool
     {
         return $this->getSession()?->hasPermission($permission) ?? false;
     }
 
+    #[\Override]
     public function hasRole(string $role): bool
     {
         return $this->getSession()?->hasRole($role) ?? false;

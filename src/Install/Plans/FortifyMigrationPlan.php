@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 
 class FortifyMigrationPlan extends BaseMigrationPlan
 {
+    #[\Override]
     public function generate(string $projectPath): string
     {
         $features = $this->detectFortifyFeatures($projectPath);
@@ -126,11 +127,13 @@ If migration fails:
 MARKDOWN;
     }
 
+    #[\Override]
     public function getRiskLevel(): string
     {
         return 'Medium - Fortify is headless, less to remove';
     }
 
+    #[\Override]
     public function getSummary(): string
     {
         return 'Laravel Fortify';

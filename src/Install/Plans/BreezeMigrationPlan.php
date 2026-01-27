@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 
 class BreezeMigrationPlan extends BaseMigrationPlan
 {
+    #[\Override]
     public function generate(string $projectPath): string
     {
         $stack = $this->detectBreezeStack($projectPath);
@@ -103,11 +104,13 @@ If migration fails:
 MARKDOWN;
     }
 
+    #[\Override]
     public function getRiskLevel(): string
     {
         return 'Medium - Existing user authentication will change';
     }
 
+    #[\Override]
     public function getSummary(): string
     {
         return 'Laravel Breeze';

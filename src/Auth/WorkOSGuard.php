@@ -19,16 +19,19 @@ class WorkOSGuard implements Guard
         protected Request $request,
     ) {}
 
+    #[\Override]
     public function check(): bool
     {
         return $this->user() !== null;
     }
 
+    #[\Override]
     public function guest(): bool
     {
         return ! $this->check();
     }
 
+    #[\Override]
     public function user(): ?Authenticatable
     {
         if ($this->user !== null) {
@@ -50,6 +53,7 @@ class WorkOSGuard implements Guard
         return $this->user;
     }
 
+    #[\Override]
     public function id(): mixed
     {
         return $this->user()?->getAuthIdentifier();
@@ -58,16 +62,19 @@ class WorkOSGuard implements Guard
     /**
      * @param  array<string, mixed>  $credentials
      */
+    #[\Override]
     public function validate(array $credentials = []): bool
     {
         return $this->session->getSession() !== null;
     }
 
+    #[\Override]
     public function hasUser(): bool
     {
         return $this->user !== null;
     }
 
+    #[\Override]
     public function setUser(Authenticatable $user): static
     {
         $this->user = $user;

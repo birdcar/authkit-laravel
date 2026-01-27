@@ -28,6 +28,7 @@ class CookieSessionManager implements SessionManagerInterface
         private readonly string $cookieName = 'wos-session',
     ) {}
 
+    #[\Override]
     public function getSession(): ?WorkOSSession
     {
         if ($this->cachedSession !== null) {
@@ -54,6 +55,7 @@ class CookieSessionManager implements SessionManagerInterface
         }
     }
 
+    #[\Override]
     public function getValidSession(): ?WorkOSSession
     {
         $session = $this->getSession();
@@ -77,6 +79,7 @@ class CookieSessionManager implements SessionManagerInterface
      *
      * @param  array<string, mixed>  $authResponse
      */
+    #[\Override]
     public function store(array $authResponse): WorkOSSession
     {
         // Clear cached session so next getSession() reads fresh cookie
@@ -90,17 +93,20 @@ class CookieSessionManager implements SessionManagerInterface
     /**
      * Destroy is a no-op for cookie sessions - logout via WorkOS clears the cookie.
      */
+    #[\Override]
     public function destroy(): void
     {
         $this->cachedSession = null;
         $this->cookieSession = null;
     }
 
+    #[\Override]
     public function isImpersonating(): bool
     {
         return $this->getSession()?->impersonator !== null;
     }
 
+    #[\Override]
     public function getOrganizationId(): ?string
     {
         return $this->getSession()?->organizationId;
@@ -109,6 +115,7 @@ class CookieSessionManager implements SessionManagerInterface
     /**
      * Organization switching requires re-authentication with WorkOS.
      */
+    #[\Override]
     public function setOrganizationId(string $organizationId): void
     {
         // For cookie-based sessions, org switching requires going through
@@ -116,11 +123,13 @@ class CookieSessionManager implements SessionManagerInterface
         // This is intentionally a no-op as the caller should redirect to login
     }
 
+    #[\Override]
     public function hasPermission(string $permission): bool
     {
         return $this->getSession()?->hasPermission($permission) ?? false;
     }
 
+    #[\Override]
     public function hasRole(string $role): bool
     {
         return $this->getSession()?->hasRole($role) ?? false;

@@ -22,7 +22,7 @@ class WorkOS
     private array $instances = [];
 
     /** @var array<string, class-string> */
-    private const SERVICE_MAP = [
+    private const array SERVICE_MAP = [
         'auditLogs' => \WorkOS\AuditLogs::class,
         'directorySync' => \WorkOS\DirectorySync::class,
         'mfa' => \WorkOS\MFA::class,

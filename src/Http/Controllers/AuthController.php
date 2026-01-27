@@ -146,7 +146,7 @@ class AuthController extends Controller
     {
         $state = $request->query('state');
 
-        if (is_string($state)) {
+        if (is_string($state) && json_validate($state)) {
             $decoded = json_decode($state, true);
             if (is_array($decoded) && isset($decoded['return_to'])) {
                 return (string) $decoded['return_to'];

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 
 class JetstreamMigrationPlan extends BaseMigrationPlan
 {
+    #[\Override]
     public function generate(string $projectPath): string
     {
         $hasTeams = $this->detectTeamsFeature($projectPath);
@@ -102,11 +103,13 @@ If migration fails:
 MARKDOWN;
     }
 
+    #[\Override]
     public function getRiskLevel(): string
     {
         return 'High - Jetstream has many integrated features';
     }
 
+    #[\Override]
     public function getSummary(): string
     {
         return 'Laravel Jetstream';
