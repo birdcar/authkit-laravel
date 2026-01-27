@@ -231,9 +231,16 @@ class WorkOSServiceProvider extends ServiceProvider
             __DIR__.'/../config/workos.php' => config_path('workos.php'),
         ], 'workos-config');
 
-        $this->publishesMigrations([
-            __DIR__.'/../database/migrations' => database_path('migrations'),
-        ], 'workos-migrations');
+        // publishesMigrations() was added in Laravel 11
+        if (method_exists($this, 'publishesMigrations')) {
+            $this->publishesMigrations([
+                __DIR__.'/../database/migrations' => database_path('migrations'),
+            ], 'workos-migrations');
+        } else {
+            $this->publishes([
+                __DIR__.'/../database/migrations' => database_path('migrations'),
+            ], 'workos-migrations');
+        }
     }
 
     protected function configureRoutes(): void
