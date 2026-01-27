@@ -16,8 +16,8 @@ Laravel integration for [WorkOS AuthKit](https://workos.com/authkit) - add enter
 
 ## Requirements
 
-- PHP 8.2 or higher
-- Laravel 10, 11, or 12
+- PHP 8.3 or higher
+- Laravel 11 or 12
 - [WorkOS account](https://dashboard.workos.com/)
 
 ## Installation

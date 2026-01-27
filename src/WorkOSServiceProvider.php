@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit;
 
-use Illuminate\Foundation\Application;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
@@ -232,17 +231,9 @@ class WorkOSServiceProvider extends ServiceProvider
             __DIR__.'/../config/workos.php' => config_path('workos.php'),
         ], 'workos-config');
 
-        // publishesMigrations() was added in Laravel 11
-        // @phpstan-ignore-next-line Laravel 10 compatibility check
-        if (version_compare(Application::VERSION, '11.0', '>=')) {
-            $this->publishesMigrations([
-                __DIR__.'/../database/migrations' => database_path('migrations'),
-            ], 'workos-migrations');
-        } else {
-            $this->publishes([
-                __DIR__.'/../database/migrations' => database_path('migrations'),
-            ], 'workos-migrations');
-        }
+        $this->publishesMigrations([
+            __DIR__.'/../database/migrations' => database_path('migrations'),
+        ], 'workos-migrations');
     }
 
     protected function configureRoutes(): void
