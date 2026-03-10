@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Route;
-use WorkOS\AuthKit\Auth\SessionManagerInterface;
+use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\Exceptions\MissingPermissionException;
 use WorkOS\AuthKit\Exceptions\MissingRoleException;
@@ -42,7 +42,7 @@ function createMiddlewareTestSession(
 }
 
 it('blocks unauthenticated access to protected routes', function () {
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturnNull();
 
     $response = $this->get('/protected');
@@ -51,7 +51,7 @@ it('blocks unauthenticated access to protected routes', function () {
 });
 
 it('returns 401 for unauthenticated api requests', function () {
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturnNull();
 
     $response = $this->getJson('/protected');
@@ -63,7 +63,7 @@ it('returns 401 for unauthenticated api requests', function () {
 it('allows authenticated access to protected routes', function () {
     $session = createMiddlewareTestSession();
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
 
     $response = $this->get('/protected');
@@ -75,7 +75,7 @@ it('allows authenticated access to protected routes', function () {
 it('blocks access when user lacks required role', function () {
     $session = createMiddlewareTestSession(roles: ['viewer']);
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnFalse();
@@ -90,7 +90,7 @@ it('blocks access when user lacks required role', function () {
 it('allows access when user has required role', function () {
     $session = createMiddlewareTestSession(roles: ['admin']);
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnFalse();
@@ -104,7 +104,7 @@ it('allows access when user has required role', function () {
 it('allows access when user has any of required roles', function () {
     $session = createMiddlewareTestSession(roles: ['editor']);
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnFalse();
@@ -118,7 +118,7 @@ it('allows access when user has any of required roles', function () {
 it('blocks access when user lacks required permission', function () {
     $session = createMiddlewareTestSession(permissions: ['view']);
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnFalse();
@@ -133,7 +133,7 @@ it('blocks access when user lacks required permission', function () {
 it('allows access when user has required permission', function () {
     $session = createMiddlewareTestSession(permissions: ['read']);
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnFalse();
@@ -147,7 +147,7 @@ it('allows access when user has required permission', function () {
 it('blocks access when user lacks all required permissions', function () {
     $session = createMiddlewareTestSession(permissions: ['read']);
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnFalse();
@@ -162,7 +162,7 @@ it('blocks access when user lacks all required permissions', function () {
 it('allows access when user has all required permissions', function () {
     $session = createMiddlewareTestSession(permissions: ['read', 'write']);
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnFalse();
@@ -177,7 +177,7 @@ it('detects impersonation via middleware', function () {
     $impersonator = ['email' => 'admin@example.com'];
     $session = createMiddlewareTestSession(impersonator: $impersonator);
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnTrue();
@@ -194,7 +194,7 @@ it('detects impersonation via middleware', function () {
 it('does not set impersonation when not impersonating', function () {
     $session = createMiddlewareTestSession();
 
-    $sessionManager = $this->mock(SessionManagerInterface::class);
+    $sessionManager = $this->mock(SessionManager::class);
     $sessionManager->shouldReceive('getValidSession')->andReturn($session);
     $sessionManager->shouldReceive('getSession')->andReturn($session);
     $sessionManager->shouldReceive('isImpersonating')->andReturnFalse();

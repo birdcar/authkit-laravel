@@ -8,12 +8,12 @@ use Closure;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
-use WorkOS\AuthKit\Auth\SessionManagerInterface;
+use WorkOS\AuthKit\Auth\SessionManager;
 
 class ShareWorkOSData
 {
     public function __construct(
-        private readonly SessionManagerInterface $session,
+        private readonly SessionManager $session,
     ) {}
 
     public function handle(Request $request, Closure $next): Response

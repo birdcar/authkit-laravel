@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
-use Illuminate\Contracts\Session\Session;
 use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Audit\Concerns\HasAuditTrail;
@@ -35,8 +34,7 @@ class AuditableModel implements Auditable
 beforeEach(function () {
     Carbon::setTestNow('2024-01-15 12:00:00');
     $this->auditLogs = Mockery::mock(AuditLogs::class);
-    $this->sessionStore = Mockery::mock(Session::class);
-    $this->sessionManager = new SessionManager($this->sessionStore);
+    $this->sessionManager = Mockery::mock(SessionManager::class);
 });
 
 afterEach(function () {
@@ -44,25 +42,9 @@ afterEach(function () {
     Mockery::close();
 });
 
-function createAuditSession(?string $organizationId = 'org_test_123'): array
-{
-    return [
-        'user_id' => 'user_123',
-        'access_token' => 'token_abc',
-        'refresh_token' => null,
-        'expires_at' => Carbon::now()->addHour()->toIso8601String(),
-        'session_id' => 'session_456',
-        'roles' => [],
-        'permissions' => [],
-        'organization_id' => $organizationId,
-        'impersonator' => null,
-    ];
-}
-
 it('is a no-op when feature is disabled', function () {
     config(['workos.features.audit_logs' => false]);
 
-    $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession());
     $this->auditLogs->shouldNotReceive('createEvent');
 
     $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
@@ -72,7 +54,7 @@ it('is a no-op when feature is disabled', function () {
 it('is a no-op when no organization context', function () {
     config(['workos.features.audit_logs' => true]);
 
-    $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession(null));
+    $this->sessionManager->shouldReceive('getOrganizationId')->andReturn(null);
     $this->auditLogs->shouldNotReceive('createEvent');
 
     $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
@@ -82,7 +64,7 @@ it('is a no-op when no organization context', function () {
 it('sends event when feature is enabled and has organization', function () {
     config(['workos.features.audit_logs' => true]);
 
-    $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession());
+    $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
     $this->auditLogs->shouldReceive('createEvent')
         ->once()
@@ -99,7 +81,7 @@ it('sends event when feature is enabled and has organization', function () {
 it('allows override of actor id', function () {
     config(['workos.features.audit_logs' => true]);
 
-    $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession());
+    $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
     $this->auditLogs->shouldReceive('createEvent')
         ->once()
@@ -114,7 +96,7 @@ it('allows override of actor id', function () {
 it('normalizes auditable model targets', function () {
     config(['workos.features.audit_logs' => true]);
 
-    $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession());
+    $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
     $model = new AuditableModel;
 
@@ -134,7 +116,7 @@ it('normalizes auditable model targets', function () {
 it('normalizes array targets', function () {
     config(['workos.features.audit_logs' => true]);
 
-    $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession());
+    $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
     $this->auditLogs->shouldReceive('createEvent')
         ->once()
@@ -154,7 +136,7 @@ it('normalizes array targets', function () {
 it('includes metadata', function () {
     config(['workos.features.audit_logs' => true]);
 
-    $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession());
+    $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
     $this->auditLogs->shouldReceive('createEvent')
         ->once()
@@ -169,7 +151,7 @@ it('includes metadata', function () {
 it('catches and reports API exceptions', function () {
     config(['workos.features.audit_logs' => true]);
 
-    $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession());
+    $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
     $exception = new Exception('API Error');
 
@@ -195,7 +177,7 @@ it('humanizes action names correctly', function () {
     ];
 
     foreach ($testCases as $input => $expected) {
-        $this->sessionStore->shouldReceive('get')->with('workos_session')->andReturn(createAuditSession());
+        $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
         $this->auditLogs->shouldReceive('createEvent')
             ->once()

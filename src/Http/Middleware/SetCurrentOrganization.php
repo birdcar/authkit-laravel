@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
 use Symfony\Component\HttpFoundation\Response;
-use WorkOS\AuthKit\Auth\SessionManagerInterface;
+use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Facades\WorkOS;
 
 class SetCurrentOrganization
 {
     public function __construct(
-        private readonly SessionManagerInterface $sessionManager,
+        private readonly SessionManager $sessionManager,
     ) {}
 
     public function handle(Request $request, Closure $next): Response

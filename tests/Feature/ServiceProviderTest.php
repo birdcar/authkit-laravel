@@ -46,10 +46,6 @@ it('publishes config file', function () {
     expect(config('workos.redirect_uri'))->toBe('http://localhost/auth/callback');
 });
 
-it('has default session refresh buffer', function () {
-    expect(config('workos.session.refresh_buffer_minutes'))->toBe(5);
-});
-
 it('has default feature flags', function () {
     expect(config('workos.features.audit_logs'))->toBeFalse();
     expect(config('workos.features.organizations'))->toBeTrue();

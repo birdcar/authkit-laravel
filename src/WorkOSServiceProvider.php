@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit;
 
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
@@ -12,13 +13,10 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Audit\AuditMiddleware;
-use WorkOS\AuthKit\Auth\CookieSessionManager;
 use WorkOS\AuthKit\Auth\SessionManager;
-use WorkOS\AuthKit\Auth\SessionManagerInterface;
 use WorkOS\AuthKit\Auth\WorkOSGuard;
 use WorkOS\AuthKit\Commands\EventsListenCommand;
 use WorkOS\AuthKit\Commands\InstallCommand;
-use WorkOS\AuthKit\Commands\PruneSessionsCommand;
 use WorkOS\AuthKit\Commands\SyncUsersCommand;
 use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
 use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
@@ -57,7 +55,7 @@ class WorkOSServiceProvider extends ServiceProvider
         $this->app->singleton('workos', function ($app) {
             $this->configureWorkOSSdk();
 
-            return new WorkOS($app->make(SessionManagerInterface::class));
+            return new WorkOS($app->make(SessionManager::class));
         });
 
         $this->app->alias('workos', WorkOS::class);
@@ -65,7 +63,7 @@ class WorkOSServiceProvider extends ServiceProvider
         $this->app->singleton(AuditLogger::class, function ($app) {
             return new AuditLogger(
                 new \WorkOS\AuditLogs,
-                $app->make(SessionManagerInterface::class)
+                $app->make(SessionManager::class)
             );
         });
 
@@ -108,32 +106,22 @@ class WorkOSServiceProvider extends ServiceProvider
 
     protected function registerSessionManager(): void
     {
-        $this->app->singleton(SessionManagerInterface::class, function ($app) {
-            $useCookieSession = config('workos.session.cookie_session', true);
-
-            if ($useCookieSession) {
-                // Use APP_KEY for cookie decryption - it's guaranteed to exist
-                $appKey = config('app.key');
-                if (str_starts_with($appKey, 'base64:')) {
-                    $appKey = base64_decode(substr($appKey, 7));
-                }
-
-                return new CookieSessionManager(
-                    $app['request'],
-                    $appKey,
-                    config('workos.session.cookie_name', 'wos-session')
-                );
+        $this->app->singleton(SessionManager::class, function () {
+            $appKey = config('app.key');
+            if (str_starts_with($appKey, 'base64:')) {
+                $appKey = base64_decode(substr($appKey, 7));
             }
 
-            return new SessionManager($app['session.store']);
+            return new SessionManager(
+                $appKey,
+                config('workos.session.cookie_name', 'wos-session')
+            );
         });
-
-        // Maintain backward compatibility
-        $this->app->alias(SessionManagerInterface::class, SessionManager::class);
     }
 
     public function boot(): void
     {
+        $this->configureCookieEncryption();
         $this->configureGuard();
         $this->configureMiddleware();
         $this->configureBladeDirectives();
@@ -143,6 +131,18 @@ class WorkOSServiceProvider extends ServiceProvider
         $this->configureWebhooks();
         $this->configureEventListeners();
         $this->configureCommands();
+    }
+
+    /**
+     * Exclude the WorkOS session cookie from Laravel's cookie encryption.
+     *
+     * The wos-session cookie is already encrypted using WorkOS's Halite-based
+     * encryption, so Laravel's EncryptCookies middleware must not double-encrypt it.
+     */
+    protected function configureCookieEncryption(): void
+    {
+        $cookieName = config('workos.session.cookie_name', 'wos-session');
+        EncryptCookies::except($cookieName);
     }
 
     protected function configureWorkOSSdk(): void
@@ -163,7 +163,7 @@ class WorkOSServiceProvider extends ServiceProvider
         Auth::extend('workos', function ($app, $name, array $config) {
             return new WorkOSGuard(
                 Auth::createUserProvider($config['provider'] ?? null),
-                $app->make(SessionManagerInterface::class),
+                $app->make(SessionManager::class),
                 $app['request']
             );
         });
@@ -210,7 +210,7 @@ class WorkOSServiceProvider extends ServiceProvider
             return false;
         });
 
-        Blade::if('impersonating', fn () => $this->app->make(SessionManagerInterface::class)->isImpersonating()
+        Blade::if('impersonating', fn () => $this->app->make(SessionManager::class)->isImpersonating()
         );
     }
 
@@ -299,7 +299,6 @@ class WorkOSServiceProvider extends ServiceProvider
             InstallCommand::class,
             SyncUsersCommand::class,
             EventsListenCommand::class,
-            PruneSessionsCommand::class,
         ]);
     }
 }

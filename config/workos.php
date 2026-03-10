@@ -36,23 +36,16 @@ return [
     | Session Configuration
     |--------------------------------------------------------------------------
     |
-    | When 'cookie_session' is true (default), WorkOS's wos-session cookie is
-    | used as the single source of truth for authentication. This is the
-    | recommended approach as it avoids session synchronization issues.
+    | Sessions are managed via WorkOS's sealed wos-session cookie, which is
+    | the single source of truth for authentication state. The cookie is
+    | encrypted using your APP_KEY — no additional configuration needed.
     |
-    | When false, session data is stored in Laravel's session instead. This
-    | gives you more control but requires managing token refresh locally.
-    |
-    | The cookie is decrypted using your APP_KEY - no additional config needed.
-    |
-    | Note: Session DURATION is controlled by your WorkOS Dashboard settings.
+    | Session duration is controlled by your WorkOS Dashboard settings.
     |
     */
 
     'session' => [
-        'cookie_session' => env('WORKOS_COOKIE_SESSION', true),
         'cookie_name' => env('WORKOS_COOKIE_NAME', 'wos-session'),
-        'refresh_buffer_minutes' => env('WORKOS_SESSION_REFRESH_BUFFER', 5),
     ],
 
     /*

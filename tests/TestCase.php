@@ -34,8 +34,6 @@ abstract class TestCase extends Orchestra
         $app['config']->set('workos.api_key', 'test_api_key');
         $app['config']->set('workos.client_id', 'test_client_id');
         $app['config']->set('workos.redirect_uri', 'http://localhost/auth/callback');
-        // Use Laravel session-based session manager for tests
-        $app['config']->set('workos.session.cookie_session', false);
         // Use SQLite in-memory database for tests (consistent across Laravel versions)
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [

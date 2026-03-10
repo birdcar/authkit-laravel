@@ -36,14 +36,16 @@ return [
     | Session Configuration
     |--------------------------------------------------------------------------
     |
-    | Note: Session DURATION is controlled by your WorkOS Dashboard settings,
-    | not here. Only the refresh buffer (how early to refresh before expiry)
-    | is configurable locally.
+    | Sessions are managed via WorkOS's sealed wos-session cookie, which is
+    | the single source of truth for authentication state. The cookie is
+    | encrypted using your APP_KEY — no additional configuration needed.
+    |
+    | Session duration is controlled by your WorkOS Dashboard settings.
     |
     */
 
     'session' => [
-        'refresh_buffer_minutes' => env('WORKOS_SESSION_REFRESH_BUFFER', 5),
+        'cookie_name' => env('WORKOS_COOKIE_NAME', 'wos-session'),
     ],
 
     /*

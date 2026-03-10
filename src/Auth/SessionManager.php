@@ -4,35 +4,50 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Auth;
 
-use Illuminate\Contracts\Session\Session;
-use SensitiveParameter;
+use Illuminate\Support\Facades\Cookie;
 use WorkOS\AuthKit\Facades\WorkOS;
+use WorkOS\CookieSession;
+use WorkOS\Resource\Impersonator;
+use WorkOS\Resource\SessionAuthenticationSuccessResponse;
+use WorkOS\Session\HaliteSessionEncryption;
 
-/**
- * Manages WorkOS sessions using Laravel's session storage.
- *
- * This driver stores WorkOS session data (access token, refresh token, etc.)
- * in Laravel's session. Use this when you need full control over session
- * storage or when cookie-based sessions are not suitable.
- */
-class SessionManager implements SessionManagerInterface
+class SessionManager
 {
-    private const string SESSION_KEY = 'workos_session';
+    private ?WorkOSSession $cachedSession = null;
+
+    private ?CookieSession $cookieSession = null;
 
     public function __construct(
-        private readonly Session $store,
+        private readonly string $cookiePassword,
+        private readonly string $cookieName = 'wos-session',
     ) {}
 
-    #[\Override]
     public function getSession(): ?WorkOSSession
     {
-        /** @var array<string, mixed>|null $data */
-        $data = $this->store->get(self::SESSION_KEY);
+        if ($this->cachedSession !== null) {
+            return $this->cachedSession;
+        }
 
-        return $data ? WorkOSSession::fromArray($data) : null;
+        $cookieSession = $this->getCookieSession();
+        if (! $cookieSession) {
+            return null;
+        }
+
+        try {
+            $result = $cookieSession->authenticate();
+
+            if (! $result instanceof SessionAuthenticationSuccessResponse || ! $result->authenticated) {
+                return null;
+            }
+
+            $this->cachedSession = $this->buildWorkOSSession($result);
+
+            return $this->cachedSession;
+        } catch (\Exception) {
+            return null;
+        }
     }
 
-    #[\Override]
     public function getValidSession(): ?WorkOSSession
     {
         $session = $this->getSession();
@@ -42,96 +57,159 @@ class SessionManager implements SessionManagerInterface
         }
 
         if ($session->isExpired()) {
-            return $this->attemptRefresh($session);
-        }
-
-        /** @var int $bufferMinutes */
-        $bufferMinutes = config('workos.session.refresh_buffer_minutes', 5);
-        if ($session->needsRefresh($bufferMinutes)) {
-            return $this->attemptRefresh($session) ?? $session;
+            return $this->attemptRefresh();
         }
 
         return $session;
     }
 
     /**
+     * Seal and store the session cookie after authentication.
+     *
      * @param  array<string, mixed>  $authResponse
      */
-    #[\Override]
-    public function store(#[SensitiveParameter] array $authResponse): WorkOSSession
+    public function store(array $authResponse): WorkOSSession
     {
-        $session = WorkOSSession::fromAuthResponse($authResponse);
-        $this->store->put(self::SESSION_KEY, $session->toArray());
+        $this->cachedSession = null;
+        $this->cookieSession = null;
 
-        return $session;
+        $accessToken = $authResponse['access_token'] ?? null;
+        $refreshToken = $authResponse['refresh_token'] ?? null;
+
+        if ($accessToken && $refreshToken) {
+            $encryptor = new HaliteSessionEncryption();
+            $sealedSession = $encryptor->seal([
+                'access_token' => $accessToken,
+                'refresh_token' => $refreshToken,
+            ], $this->cookiePassword);
+
+            Cookie::queue(
+                $this->cookieName,
+                $sealedSession,
+                60 * 24 * 30, // 30 days
+                '/',
+                config('session.domain'),
+                config('session.secure', false),
+                true,
+            );
+        }
+
+        return WorkOSSession::fromAuthResponse($authResponse);
     }
 
-    #[\Override]
     public function destroy(): void
     {
-        $this->store->forget(self::SESSION_KEY);
+        $this->cachedSession = null;
+        $this->cookieSession = null;
+        Cookie::queue(Cookie::forget($this->cookieName));
     }
 
-    #[\Override]
     public function isImpersonating(): bool
     {
         return $this->getSession()?->impersonator !== null;
     }
 
-    #[\Override]
     public function getOrganizationId(): ?string
     {
         return $this->getSession()?->organizationId;
     }
 
-    #[\Override]
-    public function setOrganizationId(string $organizationId): void
-    {
-        $session = $this->getSession();
-        if (! $session) {
-            return;
-        }
-
-        $data = $session->toArray();
-        $data['organization_id'] = $organizationId;
-        $this->store->put(self::SESSION_KEY, $data);
-    }
-
-    #[\Override]
     public function hasPermission(string $permission): bool
     {
         return $this->getSession()?->hasPermission($permission) ?? false;
     }
 
-    #[\Override]
     public function hasRole(string $role): bool
     {
         return $this->getSession()?->hasRole($role) ?? false;
     }
 
-    private function attemptRefresh(WorkOSSession $session): ?WorkOSSession
+    public function getLogoutUrl(?string $returnTo = null): ?string
     {
-        if (! $session->refreshToken) {
-            $this->destroy();
-
+        $cookieSession = $this->getCookieSession();
+        if (! $cookieSession) {
             return null;
         }
 
         try {
-            /** @var string $clientId */
-            $clientId = config('workos.client_id');
-            $response = WorkOS::userManagement()->authenticateWithRefreshToken(
-                clientId: $clientId,
-                refreshToken: $session->refreshToken,
-            );
-
-            // Use the raw property which contains the original API response array
-            // (array) cast doesn't properly convert nested resource objects
-            return $this->store($response->raw);
+            return $cookieSession->getLogoutUrl([
+                'returnTo' => $returnTo,
+            ]);
         } catch (\Exception) {
-            $this->destroy();
+            return null;
+        }
+    }
+
+    private function getCookieSession(): ?CookieSession
+    {
+        if ($this->cookieSession !== null) {
+            return $this->cookieSession;
+        }
+
+        $sealedSession = request()->cookie($this->cookieName);
+
+        if (! $sealedSession || ! is_string($sealedSession)) {
+            return null;
+        }
+
+        $this->cookieSession = WorkOS::userManagement()->loadSealedSession($sealedSession, $this->cookiePassword);
+
+        return $this->cookieSession;
+    }
+
+    private function attemptRefresh(): ?WorkOSSession
+    {
+        $cookieSession = $this->getCookieSession();
+        if (! $cookieSession) {
+            return null;
+        }
+
+        try {
+            [$result, $newTokens] = $cookieSession->refresh();
+
+            if (! $result instanceof SessionAuthenticationSuccessResponse || ! $result->authenticated) {
+                $this->cachedSession = null;
+
+                return null;
+            }
+
+            $this->cachedSession = $this->buildWorkOSSession($result);
+
+            return $this->cachedSession;
+        } catch (\Exception) {
+            $this->cachedSession = null;
 
             return null;
         }
+    }
+
+    private function buildWorkOSSession(SessionAuthenticationSuccessResponse $result): WorkOSSession
+    {
+        return new WorkOSSession(
+            userId: $result->user->id ?? '',
+            accessToken: $result->accessToken ?? '',
+            refreshToken: $result->refreshToken,
+            expiresAt: \Carbon\Carbon::now()->addHour(),
+            sessionId: $result->sessionId,
+            roles: $result->user->raw['roles'] ?? [],
+            permissions: $result->user->raw['permissions'] ?? [],
+            organizationId: $result->organizationId,
+            impersonator: $this->impersonatorToArray($result->impersonator),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function impersonatorToArray(?Impersonator $impersonator): ?array
+    {
+        if ($impersonator === null) {
+            return null;
+        }
+
+        return [
+            'email' => $impersonator->email,
+            'reason' => $impersonator->reason,
+        ];
     }
 }
