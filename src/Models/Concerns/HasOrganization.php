@@ -6,8 +6,6 @@ namespace WorkOS\AuthKit\Models\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use WorkOS\AuthKit\Auth\SessionManagerInterface;
-use WorkOS\AuthKit\Events\OrganizationSwitched;
 
 /**
  * @mixin \Illuminate\Database\Eloquent\Model
@@ -44,19 +42,6 @@ trait HasOrganization
         }
 
         return $this->organizations()->where('workos_id', $orgId)->first();
-    }
-
-    public function switchOrganization(string $organizationId): bool
-    {
-        if (! $this->belongsToOrganization($organizationId)) {
-            return false;
-        }
-
-        app(SessionManagerInterface::class)->setOrganizationId($organizationId);
-
-        event(new OrganizationSwitched($this, $organizationId));
-
-        return true;
     }
 
     public function belongsToOrganization(string $organizationId): bool

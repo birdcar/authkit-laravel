@@ -19,21 +19,19 @@ class OrganizationController extends Controller
             'organization_id' => 'required|string',
         ]);
 
-        $user = $request->user();
         /** @var string $orgId */
         $orgId = $request->input('organization_id');
 
-        if (! $user || ! method_exists($user, 'switchOrganization')) {
-            return back()->withErrors(['organization' => 'User does not support organization switching.']);
+        $user = $request->user();
+        if ($user && method_exists($user, 'belongsToOrganization')) {
+            /** @var callable $belongsToOrganization */
+            $belongsToOrganization = [$user, 'belongsToOrganization'];
+            if (! $belongsToOrganization($orgId)) {
+                return back()->withErrors(['organization' => 'You do not belong to this organization.']);
+            }
         }
 
-        /** @var callable $switchOrganization */
-        $switchOrganization = [$user, 'switchOrganization'];
-        if (! $switchOrganization($orgId)) {
-            return back()->withErrors(['organization' => 'You do not belong to this organization.']);
-        }
-
-        return redirect()->intended('/');
+        return redirect(WorkOS::loginUrl(organizationId: $orgId));
     }
 
     public function invite(Request $request, string $organizationId): RedirectResponse

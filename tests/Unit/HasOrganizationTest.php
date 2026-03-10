@@ -5,10 +5,7 @@ declare(strict_types=1);
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Support\Facades\Event;
-use WorkOS\AuthKit\Auth\SessionManagerInterface;
 use WorkOS\AuthKit\Auth\WorkOSSession;
-use WorkOS\AuthKit\Events\OrganizationSwitched;
 use WorkOS\AuthKit\Models\Concerns\HasOrganization;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;
@@ -173,54 +170,6 @@ it('returns null for current organization when no session', function () {
     ]);
 
     expect($user->currentOrganization())->toBeNull();
-});
-
-it('switches organization and fires event', function () {
-    Event::fake([OrganizationSwitched::class]);
-
-    $user = TestUserWithOrganization::create([
-        'workos_id' => 'user_123',
-        'email' => 'test@example.com',
-        'name' => 'Test User',
-    ]);
-
-    $org = TestOrganization::create([
-        'workos_id' => 'org_456',
-        'name' => 'Test Organization',
-    ]);
-
-    $user->organizations()->attach($org->id);
-
-    // Mock the session manager
-    $sessionManager = Mockery::mock(SessionManagerInterface::class);
-    $sessionManager->shouldReceive('setOrganizationId')
-        ->once()
-        ->with('org_456');
-    $this->app->instance(SessionManagerInterface::class, $sessionManager);
-
-    $result = $user->switchOrganization('org_456');
-
-    expect($result)->toBeTrue();
-
-    Event::assertDispatched(OrganizationSwitched::class, function ($event) use ($user) {
-        return $event->user->is($user) && $event->organizationId === 'org_456';
-    });
-});
-
-it('fails to switch to organization user does not belong to', function () {
-    Event::fake([OrganizationSwitched::class]);
-
-    $user = TestUserWithOrganization::create([
-        'workos_id' => 'user_123',
-        'email' => 'test@example.com',
-        'name' => 'Test User',
-    ]);
-
-    $result = $user->switchOrganization('org_nonexistent');
-
-    expect($result)->toBeFalse();
-
-    Event::assertNotDispatched(OrganizationSwitched::class);
 });
 
 it('checks organization permission from session', function () {

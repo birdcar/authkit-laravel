@@ -5,11 +5,9 @@ declare(strict_types=1);
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSSession;
-use WorkOS\AuthKit\Events\OrganizationSwitched;
 use WorkOS\AuthKit\Models\Concerns\HasOrganization;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;
@@ -81,9 +79,7 @@ beforeEach(function () {
     });
 });
 
-it('switches organization via endpoint', function () {
-    Event::fake([OrganizationSwitched::class]);
-
+it('switches organization via endpoint by redirecting to WorkOS login', function () {
     $user = TestSwitchUser::create([
         'workos_id' => 'user_123',
         'email' => 'test@example.com',
@@ -97,17 +93,6 @@ it('switches organization via endpoint', function () {
 
     $user->organizations()->attach($org->id);
 
-    $session = createSwitchTestSession();
-    $user->setWorkOSSession($session);
-
-    // Store session data
-    $this->app->make(SessionManager::class)->store([
-        'user' => ['id' => 'user_123'],
-        'access_token' => 'token_abc',
-        'expires_in' => 3600,
-    ]);
-
-    // Register a simple test route for switching
     Route::post('/test-org-switch', function (\Illuminate\Http\Request $request) {
         return app(\WorkOS\AuthKit\Http\Controllers\OrganizationController::class)->switch($request);
     })->middleware(['web']);
@@ -117,24 +102,17 @@ it('switches organization via endpoint', function () {
             'organization_id' => 'org_456',
         ]);
 
-    $response->assertRedirect('/');
-
-    Event::assertDispatched(OrganizationSwitched::class);
+    $response->assertRedirect();
+    expect($response->headers->get('Location'))->toContain('organization_id=org_456');
 });
 
 it('fails to switch to organization user does not belong to', function () {
-    Event::fake([OrganizationSwitched::class]);
-
     $user = TestSwitchUser::create([
         'workos_id' => 'user_123',
         'email' => 'test@example.com',
         'name' => 'Test User',
     ]);
 
-    $session = createSwitchTestSession();
-    $user->setWorkOSSession($session);
-
-    // Register a simple test route for switching
     Route::post('/test-org-switch-fail', function (\Illuminate\Http\Request $request) {
         return app(\WorkOS\AuthKit\Http\Controllers\OrganizationController::class)->switch($request);
     })->middleware(['web']);
@@ -147,8 +125,6 @@ it('fails to switch to organization user does not belong to', function () {
 
     $response->assertRedirect('/dashboard');
     $response->assertSessionHasErrors('organization');
-
-    Event::assertNotDispatched(OrganizationSwitched::class);
 });
 
 it('requires organization_id parameter', function () {
@@ -190,12 +166,8 @@ it('middleware blocks users without selected organization', function () {
         'name' => 'Test User',
     ]);
 
-    // Session without organization
-    $this->app->make(SessionManager::class)->store([
-        'user' => ['id' => 'user_123'],
-        'access_token' => 'token_abc',
-        'expires_in' => 3600,
-    ]);
+    $sessionManager = $this->mock(SessionManager::class);
+    $sessionManager->shouldReceive('getOrganizationId')->andReturn(null);
 
     $response = $this->actingAs($user)->get('/test-org-no-org');
 
@@ -220,16 +192,8 @@ it('middleware allows users with valid organization', function () {
 
     $user->organizations()->attach($org->id);
 
-    // Session with organization
-    $this->app->make(SessionManager::class)->store([
-        'user' => ['id' => 'user_123'],
-        'access_token' => 'token_abc',
-        'expires_in' => 3600,
-        'organization_id' => 'org_456',
-    ]);
-
-    $session = createSwitchTestSession(organizationId: 'org_456');
-    $user->setWorkOSSession($session);
+    $sessionManager = $this->mock(SessionManager::class);
+    $sessionManager->shouldReceive('getOrganizationId')->andReturn('org_456');
 
     $response = $this->actingAs($user)->get('/test-org-valid');
 
@@ -255,16 +219,8 @@ it('middleware checks role when specified', function () {
     // Attach with 'member' role, not 'admin'
     $user->organizations()->attach($org->id, ['role' => 'member']);
 
-    // Session with organization
-    $this->app->make(SessionManager::class)->store([
-        'user' => ['id' => 'user_123'],
-        'access_token' => 'token_abc',
-        'expires_in' => 3600,
-        'organization_id' => 'org_456',
-    ]);
-
-    $session = createSwitchTestSession(organizationId: 'org_456');
-    $user->setWorkOSSession($session);
+    $sessionManager = $this->mock(SessionManager::class);
+    $sessionManager->shouldReceive('getOrganizationId')->andReturn('org_456');
 
     $response = $this->actingAs($user)->get('/test-admin');
 
