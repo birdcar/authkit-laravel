@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
 use WorkOS\AuthKit\Install\EnvManager;
 use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Support\EnvironmentDetector;
@@ -581,4 +582,65 @@ it('mini install skips migration plan generation', function () {
 
     $this->artisan('workos:install --mini')
         ->assertExitCode(0);
+});
+
+// NodeToolingDetector integration tests
+
+it('install command falls back gracefully when no node tooling detected', function () {
+    Process::fake([
+        cmdStr(['command', '-v', 'bun']) => Process::result('', '', 1),
+        cmdStr(['command', '-v', 'npx']) => Process::result('', '', 1),
+        cmdStr(['command', '-v', 'pnpm']) => Process::result('', '', 1),
+    ]);
+
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::freshInstall());
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $this->artisan('workos:install --mini')
+        ->assertExitCode(0);
+});
+
+it('doctor not called when no node tooling detected', function () {
+    Process::fake([
+        cmdStr(['command', '-v', 'bun']) => Process::result('', '', 1),
+        cmdStr(['command', '-v', 'npx']) => Process::result('', '', 1),
+        cmdStr(['command', '-v', 'pnpm']) => Process::result('', '', 1),
+    ]);
+
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::freshInstall());
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $this->artisan('workos:install --mini')
+        ->assertExitCode(0);
+
+    Process::assertNotRan(fn ($process) => in_array('doctor', cmdArray($process->command)));
+});
+
+it('install command delegates to workos cli when node tooling available', function () {
+    $installArgs = ['bunx', 'workos@latest', 'install', '--integration', 'php-laravel', '--no-branch', '--no-commit'];
+    $doctorArgs = ['bunx', 'workos@latest', 'doctor', '--skip-ai'];
+
+    Process::fake([
+        cmdStr(['command', '-v', 'bun']) => Process::result('', '', 0),
+        cmdStr($installArgs) => Process::result('', '', 0),
+        cmdStr($doctorArgs) => Process::result('', '', 0),
+    ]);
+
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::freshInstall());
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $this->artisan('workos:install --mini')
+        ->expectsOutputToContain('Detected Node tooling')
+        ->assertExitCode(0);
+
+    Process::assertRan(fn ($process) => in_array('install', cmdArray($process->command))
+        && in_array('--no-branch', cmdArray($process->command))
+    );
+
+    Process::assertRan(fn ($process) => in_array('doctor', cmdArray($process->command))
+        && in_array('--skip-ai', cmdArray($process->command))
+    );
 });

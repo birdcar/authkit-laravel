@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use WorkOS\AuthKit\Install\WizardFlow;
 use WorkOS\AuthKit\Support\DetectionResult;
 use WorkOS\AuthKit\Support\EnvironmentDetector;
+use WorkOS\AuthKit\Support\NodeToolingDetector;
 
 class InstallCommand extends Command
 {
@@ -20,6 +21,7 @@ class InstallCommand extends Command
     public function __construct(
         private EnvironmentDetector $detector,
         private WizardFlow $wizard,
+        private NodeToolingDetector $nodeDetector,
     ) {
         parent::__construct();
     }
@@ -30,11 +32,29 @@ class InstallCommand extends Command
 
         $this->displayDetectionResults($result);
 
-        if ($this->option('mini')) {
-            return $this->handleMiniInstall($result);
+        // D-01: Detect Node tooling and delegate env setup to WorkOS CLI
+        $runner = $this->nodeDetector->detect();
+        if ($runner) {
+            $this->components->info("Detected Node tooling ({$runner}), delegating env setup to WorkOS CLI...");
+            $cliSuccess = $this->nodeDetector->runInstall($this);
+            if (! $cliSuccess) {
+                // D-02: CLI failed — fall back to built-in env setup
+                $this->components->warn('WorkOS CLI setup did not complete. Continuing with built-in env setup...');
+            }
         }
 
-        return $this->handleFullInstall($result);
+        if ($this->option('mini')) {
+            $exitCode = $this->handleMiniInstall($result);
+        } else {
+            $exitCode = $this->handleFullInstall($result);
+        }
+
+        // D-03: Run doctor post-install ONLY when Node tooling was detected
+        if ($runner && $exitCode === self::SUCCESS) {
+            $this->nodeDetector->runDoctor($this);
+        }
+
+        return $exitCode;
     }
 
     private function displayDetectionResults(DetectionResult $result): void
