@@ -56,6 +56,11 @@ Plans:
   3. Running with `--mini` publishes only the config file and prints setup instructions — no file manipulation
   4. Running `workos:install` twice produces identical output with no duplicate env vars or conflicting configs
   5. Every file modification step either succeeds and is verified, or falls through to printed manual instructions
+**Plans**: 3 plans
+Plans:
+- [ ] 03-01-PLAN.md — Create NodeToolingDetector and integrate WorkOS CLI delegation into InstallCommand
+- [ ] 03-02-PLAN.md — Harden --force mode (bypass all prompts) and --mini mode (write env placeholders)
+- [ ] 03-03-PLAN.md — Post-write verification hardening and per-key duplicate guards
 
 ### Phase 4: Workbench Example App
 **Goal**: Developers evaluating the package can run a complete, working Laravel 12 app that demonstrates every package feature with a realistic test suite
@@ -88,6 +93,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Inertia Middleware | 0/1 | Not started | - |
 | 2. Testing Utilities | 0/2 | Not started | - |
-| 3. Smart Install | 0/? | Not started | - |
+| 3. Smart Install | 0/3 | Not started | - |
 | 4. Workbench Example App | 0/? | Not started | - |
 | 5. CI/CD and Documentation | 0/? | Not started | - |
