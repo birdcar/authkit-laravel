@@ -28,7 +28,7 @@ trait InteractsWithWorkOS
         return WorkOS::fake();
     }
 
-    protected function tearDownWorkOS(): void
+    protected function tearDownInteractsWithWorkOS(): void
     {
         WorkOS::restore();
     }
