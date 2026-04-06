@@ -36,6 +36,9 @@ Laravel developers can install this package and have production-ready WorkOS Aut
 - ✓ PHPStan level 8 static analysis — existing
 - ✓ Pest test suite with 295 tests — existing
 - ✓ ShareWorkOSData middleware for Inertia.js apps — Phase 1
+- ✓ WorkOS::fake() and WorkOS::actingAs() test utilities — Phase 2
+- ✓ Test assertions (assertAudited, assertNotAudited) — Phase 2
+- ✓ InteractsWithWorkOS trait with auto-tearDown — Phase 2
 
 ### Active
 
@@ -51,8 +54,7 @@ Laravel developers can install this package and have production-ready WorkOS Aut
 - [ ] Example App: Basic feature test suite demonstrating testing with the package
 - [ ] Documentation: Comprehensive README in .github/README.md
 - [ ] Documentation: Installation guide, feature docs, code examples, contributing guidelines
-- [ ] WorkOS::fake() and WorkOS::actingAs() test utilities
-- [ ] Test assertions (assertAudited, assertNotAudited)
+
 
 ### Out of Scope
 
@@ -113,4 +115,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-06 after Phase 1 completion*
+*Last updated: 2026-04-06 after Phase 2 completion*
