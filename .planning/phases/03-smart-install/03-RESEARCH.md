@@ -471,17 +471,17 @@ All Node runners available on dev machine. Detection order: `bun` -> `npx` -> `p
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **WorkOS CLI install interactivity level for Laravel**
    - What we know: CLI is AI-powered, interactive; supports `--api-key` and `--client-id` for non-interactive mode
    - What is unclear: Whether `--api-key --client-id --integration php-laravel --no-branch --no-commit` runs fully non-interactively without any stdin prompts
-   - Recommendation: Test in isolation with flags before assuming non-interactive. Fallback (D-02): skip WorkOS CLI and use EnvManager directly.
+   - **Resolution:** D-02 fallback covers this — if CLI prompts or hangs, `Process::run()` with timeout will fail, and InstallCommand falls through to EnvManager. The streaming output callback in Plan 03-01 Task 2 shows CLI output to the user in real-time so they can see if interaction is needed.
 
 2. **Exact files `workos install --integration php-laravel` creates or modifies**
    - What we know: CLI generates "auth routes, middleware, env vars, SDK installation, UI components"
    - What is unclear: Whether it modifies auth.php or creates controllers -- potential conflict with AuthSystemInstaller
-   - Recommendation: Test in a blank Laravel app before assuming no conflict. Safest boundary: use WorkOS CLI for env/credential setup only.
+   - **Resolution:** D-02 fallback covers this — if CLI creates conflicting files, Plan 03-03's idempotency hardening (D-10) ensures re-running the Laravel-specific installers skips already-present entries. The WorkOS CLI is invoked before Laravel config changes, so any conflicts are detected by the existing `str_contains` guards.
 
 ---
 
