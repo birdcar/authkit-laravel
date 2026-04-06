@@ -58,25 +58,23 @@ class WebhookController
             return response('Webhook secret not configured', 500);
         }
 
-        try {
-            $result = $this->webhook->constructEvent(
-                $signature,
-                $payload,
-                $secret,
-                180 // 3 minute tolerance
-            );
-
-            if ($result !== 'pass' && ! is_object($result)) {
-                return response('Invalid signature', 400);
-            }
-
-            /** @var array{event: string, data: array<string, mixed>} $event */
-            $event = json_decode($payload, true);
-        } catch (\Exception $e) {
-            report($e);
-
+        if (empty($signature)) {
             return response('Invalid signature', 400);
         }
+
+        $result = $this->webhook->constructEvent(
+            $signature,
+            $payload,
+            $secret,
+            180,
+        );
+
+        if (is_string($result)) {
+            return response('Invalid signature', 400);
+        }
+
+        /** @var array{event: string, data: array<string, mixed>} $event */
+        $event = json_decode($payload, true);
 
         $eventType = $event['event'];
         $eventData = $event['data'];

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\Models\Concerns\HasOrganization;
@@ -81,7 +82,7 @@ it('returns organizations relationship', function () {
         'name' => 'Test User',
     ]);
 
-    expect($user->organizations())->toBeInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsToMany::class);
+    expect($user->organizations())->toBeInstanceOf(BelongsToMany::class);
 });
 
 it('checks if user belongs to organization', function () {

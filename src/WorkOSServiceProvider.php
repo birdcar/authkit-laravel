@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit;
 
+use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Audit\AuditMiddleware;
 use WorkOS\AuthKit\Auth\SessionManager;
@@ -62,7 +64,7 @@ class WorkOSServiceProvider extends ServiceProvider
 
         $this->app->singleton(AuditLogger::class, function ($app) {
             return new AuditLogger(
-                new \WorkOS\AuditLogs,
+                new AuditLogs,
                 $app->make(SessionManager::class)
             );
         });
@@ -149,13 +151,19 @@ class WorkOSServiceProvider extends ServiceProvider
     {
         $config = config('workos');
 
-        if ($config['api_key']) {
-            \WorkOS\WorkOS::setApiKey($config['api_key']);
+        $apiKey = $config['api_key'] ?? null;
+        $clientId = $config['client_id'] ?? null;
+
+        if (! is_string($apiKey) || $apiKey === '') {
+            throw Exceptions\WorkOSException::missingConfiguration('WORKOS_API_KEY');
         }
 
-        if ($config['client_id']) {
-            \WorkOS\WorkOS::setClientId($config['client_id']);
+        if (! is_string($clientId) || $clientId === '') {
+            throw Exceptions\WorkOSException::missingConfiguration('WORKOS_CLIENT_ID');
         }
+
+        \WorkOS\WorkOS::setApiKey($apiKey);
+        \WorkOS\WorkOS::setClientId($clientId);
     }
 
     protected function configureGuard(): void
@@ -187,7 +195,7 @@ class WorkOSServiceProvider extends ServiceProvider
     protected function configureBladeDirectives(): void
     {
         Blade::if('workosRole', function (string $role) {
-            /** @var \Illuminate\Contracts\Auth\Guard $guard */
+            /** @var Guard $guard */
             $guard = auth();
             $user = $guard->user();
 
@@ -199,7 +207,7 @@ class WorkOSServiceProvider extends ServiceProvider
         });
 
         Blade::if('workosPermission', function (string $permission) {
-            /** @var \Illuminate\Contracts\Auth\Guard $guard */
+            /** @var Guard $guard */
             $guard = auth();
             $user = $guard->user();
 

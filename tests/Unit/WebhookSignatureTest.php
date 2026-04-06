@@ -2,6 +2,17 @@
 
 declare(strict_types=1);
 
+use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationDeleted;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationUpdated;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionRevoked;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSUserDeleted;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
 use WorkOS\AuthKit\Http\Controllers\WebhookController;
 
 beforeEach(function () {
@@ -10,87 +21,87 @@ beforeEach(function () {
 
 it('maps user created event to correct class', function () {
     expect(WebhookController::EVENT_MAP['user.created'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated::class);
+        ->toBe(WorkOSUserCreated::class);
 });
 
 it('maps user updated event to correct class', function () {
     expect(WebhookController::EVENT_MAP['user.updated'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated::class);
+        ->toBe(WorkOSUserUpdated::class);
 });
 
 it('maps user deleted event to correct class', function () {
     expect(WebhookController::EVENT_MAP['user.deleted'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSUserDeleted::class);
+        ->toBe(WorkOSUserDeleted::class);
 });
 
 it('maps organization created event to correct class', function () {
     expect(WebhookController::EVENT_MAP['organization.created'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated::class);
+        ->toBe(WorkOSOrganizationCreated::class);
 });
 
 it('maps organization updated event to correct class', function () {
     expect(WebhookController::EVENT_MAP['organization.updated'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationUpdated::class);
+        ->toBe(WorkOSOrganizationUpdated::class);
 });
 
 it('maps organization deleted event to correct class', function () {
     expect(WebhookController::EVENT_MAP['organization.deleted'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationDeleted::class);
+        ->toBe(WorkOSOrganizationDeleted::class);
 });
 
 it('maps membership created event to correct class', function () {
     expect(WebhookController::EVENT_MAP['organization_membership.created'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated::class);
+        ->toBe(WorkOSMembershipCreated::class);
 });
 
 it('maps membership updated event to correct class', function () {
     expect(WebhookController::EVENT_MAP['organization_membership.updated'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated::class);
+        ->toBe(WorkOSMembershipUpdated::class);
 });
 
 it('maps membership deleted event to correct class', function () {
     expect(WebhookController::EVENT_MAP['organization_membership.deleted'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted::class);
+        ->toBe(WorkOSMembershipDeleted::class);
 });
 
 it('maps session created event to correct class', function () {
     expect(WebhookController::EVENT_MAP['session.created'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated::class);
+        ->toBe(WorkOSSessionCreated::class);
 });
 
 it('maps authentication email verification succeeded event to correct class', function () {
     expect(WebhookController::EVENT_MAP['authentication.email_verification_succeeded'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated::class);
+        ->toBe(WorkOSSessionCreated::class);
 });
 
 it('maps authentication magic auth succeeded event to correct class', function () {
     expect(WebhookController::EVENT_MAP['authentication.magic_auth_succeeded'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated::class);
+        ->toBe(WorkOSSessionCreated::class);
 });
 
 it('maps authentication mfa succeeded event to correct class', function () {
     expect(WebhookController::EVENT_MAP['authentication.mfa_succeeded'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated::class);
+        ->toBe(WorkOSSessionCreated::class);
 });
 
 it('maps authentication oauth succeeded event to correct class', function () {
     expect(WebhookController::EVENT_MAP['authentication.oauth_succeeded'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated::class);
+        ->toBe(WorkOSSessionCreated::class);
 });
 
 it('maps authentication password succeeded event to correct class', function () {
     expect(WebhookController::EVENT_MAP['authentication.password_succeeded'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated::class);
+        ->toBe(WorkOSSessionCreated::class);
 });
 
 it('maps authentication sso succeeded event to correct class', function () {
     expect(WebhookController::EVENT_MAP['authentication.sso_succeeded'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated::class);
+        ->toBe(WorkOSSessionCreated::class);
 });
 
 it('maps session revoked event to correct class', function () {
     expect(WebhookController::EVENT_MAP['user.session_revoked'])
-        ->toBe(\WorkOS\AuthKit\Events\Webhooks\WorkOSSessionRevoked::class);
+        ->toBe(WorkOSSessionRevoked::class);
 });
 
 it('has all expected event mappings', function () {

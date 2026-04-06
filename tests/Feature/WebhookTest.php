@@ -45,7 +45,7 @@ it('returns 500 when webhook secret is not configured', function () {
 it('returns 400 when signature verification fails', function () {
     $this->mock(Webhook::class, function ($mock) {
         $mock->shouldReceive('constructEvent')
-            ->andThrow(new \Exception('Invalid signature'));
+            ->andReturn('Constructed signature does not match WorkOS Header Signature');
     });
 
     $response = $this->postJson('/webhooks/workos', [

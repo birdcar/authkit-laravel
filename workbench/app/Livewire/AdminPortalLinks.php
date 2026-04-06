@@ -8,6 +8,7 @@ use App\Models\Organization;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 use WorkOS\AuthKit\Facades\WorkOS;
+use WorkOS\Portal;
 
 class AdminPortalLinks extends Component
 {
@@ -53,7 +54,7 @@ class AdminPortalLinks extends Component
         }
 
         try {
-            /** @var \WorkOS\Portal $portal */
+            /** @var Portal $portal */
             $portal = WorkOS::portal();
 
             $link = $portal->generateLink(

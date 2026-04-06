@@ -12,6 +12,7 @@ use SensitiveParameter;
 use WorkOS\AuthKit\Events\UserAuthenticated;
 use WorkOS\AuthKit\Events\UserLoggedOut;
 use WorkOS\AuthKit\Facades\WorkOS;
+use WorkOS\Exception\BaseRequestException;
 
 class AuthController extends Controller
 {
@@ -101,7 +102,7 @@ class AuthController extends Controller
             // Use the raw property which contains the original API response array
             // (array) cast doesn't properly convert nested resource objects
             return $response->raw;
-        } catch (\Exception) {
+        } catch (BaseRequestException) {
             return null;
         }
     }
@@ -127,8 +128,6 @@ class AuthController extends Controller
 
         if (method_exists($userModel, 'findOrCreateByWorkOS')) {
             $user = $userModel::findOrCreateByWorkOS($workosUser);
-        } elseif (method_exists($userModel, 'findOrCreateFromWorkOS')) {
-            $user = $userModel::findOrCreateFromWorkOS($workosUser);
         } else {
             $user = $userModel::updateOrCreate(
                 ['workos_id' => $workosUser['id']],

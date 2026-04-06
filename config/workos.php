@@ -46,6 +46,7 @@ return [
 
     'session' => [
         'cookie_name' => env('WORKOS_COOKIE_NAME', 'wos-session'),
+        'access_token_lifetime' => env('WORKOS_ACCESS_TOKEN_LIFETIME', 60),
     ],
 
     /*

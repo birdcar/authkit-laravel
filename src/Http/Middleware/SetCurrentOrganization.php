@@ -6,12 +6,15 @@ namespace WorkOS\AuthKit\Http\Middleware;
 
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
 use Symfony\Component\HttpFoundation\Response;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Facades\WorkOS;
+use WorkOS\Exception\BaseRequestException;
 
 class SetCurrentOrganization
 {
@@ -47,7 +50,7 @@ class SetCurrentOrganization
         }
 
         // Try to find in user's organizations first (dynamic relationship)
-        /** @var \Illuminate\Database\Eloquent\Collection<int, Model> $organizations */
+        /** @var Collection<int, Model> $organizations */
         $organizations = $user->organizations; // @phpstan-ignore property.notFound
 
         /** @var Model|null $organization */
@@ -103,13 +106,13 @@ class SetCurrentOrganization
 
             // Link user to organization if not already linked (requires organizations relationship)
             if (method_exists($user, 'organizations')) {
-                /** @var \Illuminate\Database\Eloquent\Collection<int, Model> $userOrgs */
+                /** @var Collection<int, Model> $userOrgs */
                 $userOrgs = $user->organizations; // @phpstan-ignore property.notFound
 
                 if (! $userOrgs->contains($organization->getKey())) {
                     /** @var callable $relationshipMethod */
                     $relationshipMethod = [$user, 'organizations'];
-                    /** @var \Illuminate\Database\Eloquent\Relations\BelongsToMany<Model, Model> $relationship */
+                    /** @var BelongsToMany<Model, Model> $relationship */
                     $relationship = $relationshipMethod();
                     $relationship->attach($organization->getKey(), ['role' => 'member']);
 
@@ -120,7 +123,7 @@ class SetCurrentOrganization
             }
 
             return $organization;
-        } catch (\Exception $e) {
+        } catch (BaseRequestException $e) {
             report($e);
 
             return null;

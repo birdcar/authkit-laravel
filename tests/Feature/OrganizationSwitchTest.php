@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSSession;
+use WorkOS\AuthKit\Http\Controllers\OrganizationController;
 use WorkOS\AuthKit\Models\Concerns\HasOrganization;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;
@@ -93,8 +95,8 @@ it('switches organization via endpoint by redirecting to WorkOS login', function
 
     $user->organizations()->attach($org->id);
 
-    Route::post('/test-org-switch', function (\Illuminate\Http\Request $request) {
-        return app(\WorkOS\AuthKit\Http\Controllers\OrganizationController::class)->switch($request);
+    Route::post('/test-org-switch', function (Request $request) {
+        return app(OrganizationController::class)->switch($request);
     })->middleware(['web']);
 
     $response = $this->actingAs($user)
@@ -113,8 +115,8 @@ it('fails to switch to organization user does not belong to', function () {
         'name' => 'Test User',
     ]);
 
-    Route::post('/test-org-switch-fail', function (\Illuminate\Http\Request $request) {
-        return app(\WorkOS\AuthKit\Http\Controllers\OrganizationController::class)->switch($request);
+    Route::post('/test-org-switch-fail', function (Request $request) {
+        return app(OrganizationController::class)->switch($request);
     })->middleware(['web']);
 
     $response = $this->actingAs($user)
@@ -135,8 +137,8 @@ it('requires organization_id parameter', function () {
     ]);
 
     // Register a simple test route for switching
-    Route::post('/test-org-switch-validate', function (\Illuminate\Http\Request $request) {
-        return app(\WorkOS\AuthKit\Http\Controllers\OrganizationController::class)->switch($request);
+    Route::post('/test-org-switch-validate', function (Request $request) {
+        return app(OrganizationController::class)->switch($request);
     })->middleware(['web']);
 
     $response = $this->actingAs($user)

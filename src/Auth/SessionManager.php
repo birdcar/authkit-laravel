@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Auth;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cookie;
 use WorkOS\AuthKit\Facades\WorkOS;
 use WorkOS\CookieSession;
+use WorkOS\Exception\BaseRequestException;
+use WorkOS\Exception\UnexpectedValueException;
 use WorkOS\Resource\Impersonator;
+use WorkOS\Resource\RoleResponse;
 use WorkOS\Resource\SessionAuthenticationSuccessResponse;
 use WorkOS\Session\HaliteSessionEncryption;
 
@@ -43,7 +47,7 @@ class SessionManager
             $this->cachedSession = $this->buildWorkOSSession($result);
 
             return $this->cachedSession;
-        } catch (\Exception) {
+        } catch (BaseRequestException|UnexpectedValueException) {
             return null;
         }
     }
@@ -77,7 +81,7 @@ class SessionManager
         $refreshToken = $authResponse['refresh_token'] ?? null;
 
         if ($accessToken && $refreshToken) {
-            $encryptor = new HaliteSessionEncryption();
+            $encryptor = new HaliteSessionEncryption;
             $sealedSession = $encryptor->seal([
                 'access_token' => $accessToken,
                 'refresh_token' => $refreshToken,
@@ -135,7 +139,7 @@ class SessionManager
             return $cookieSession->getLogoutUrl([
                 'returnTo' => $returnTo,
             ]);
-        } catch (\Exception) {
+        } catch (UnexpectedValueException) {
             return null;
         }
     }
@@ -176,7 +180,7 @@ class SessionManager
             $this->cachedSession = $this->buildWorkOSSession($result);
 
             return $this->cachedSession;
-        } catch (\Exception) {
+        } catch (BaseRequestException|UnexpectedValueException) {
             $this->cachedSession = null;
 
             return null;
@@ -185,14 +189,23 @@ class SessionManager
 
     private function buildWorkOSSession(SessionAuthenticationSuccessResponse $result): WorkOSSession
     {
+        /** @var array<RoleResponse> $resultRoles */
+        $resultRoles = $result->roles ?? [];
+        $roles = array_map(
+            fn (RoleResponse $role): string => $role->slug,
+            $resultRoles,
+        );
+
         return new WorkOSSession(
             userId: $result->user->id ?? '',
             accessToken: $result->accessToken ?? '',
             refreshToken: $result->refreshToken,
-            expiresAt: \Carbon\Carbon::now()->addHour(),
+            expiresAt: Carbon::now()->addMinutes(
+                (int) config('workos.session.access_token_lifetime', 60)
+            ),
             sessionId: $result->sessionId,
-            roles: $result->user->raw['roles'] ?? [],
-            permissions: $result->user->raw['permissions'] ?? [],
+            roles: $roles,
+            permissions: $result->permissions ?? [],
             organizationId: $result->organizationId,
             impersonator: $this->impersonatorToArray($result->impersonator),
         );

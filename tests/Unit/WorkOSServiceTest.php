@@ -3,9 +3,15 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
+use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\WorkOS;
+use WorkOS\DirectorySync;
+use WorkOS\Organizations;
+use WorkOS\SSO;
+use WorkOS\UserManagement;
+use WorkOS\Webhook;
 
 beforeEach(function () {
     Carbon::setTestNow('2024-01-15 12:00:00');
@@ -19,12 +25,12 @@ afterEach(function () {
 });
 
 it('proxies to SDK services', function () {
-    expect($this->workos->userManagement())->toBeInstanceOf(\WorkOS\UserManagement::class)
-        ->and($this->workos->sso())->toBeInstanceOf(\WorkOS\SSO::class)
-        ->and($this->workos->organizations())->toBeInstanceOf(\WorkOS\Organizations::class)
-        ->and($this->workos->directorySync())->toBeInstanceOf(\WorkOS\DirectorySync::class)
-        ->and($this->workos->auditLogs())->toBeInstanceOf(\WorkOS\AuditLogs::class)
-        ->and($this->workos->webhook())->toBeInstanceOf(\WorkOS\Webhook::class);
+    expect($this->workos->userManagement())->toBeInstanceOf(UserManagement::class)
+        ->and($this->workos->sso())->toBeInstanceOf(SSO::class)
+        ->and($this->workos->organizations())->toBeInstanceOf(Organizations::class)
+        ->and($this->workos->directorySync())->toBeInstanceOf(DirectorySync::class)
+        ->and($this->workos->auditLogs())->toBeInstanceOf(AuditLogs::class)
+        ->and($this->workos->webhook())->toBeInstanceOf(Webhook::class);
 });
 
 it('caches SDK service instances', function () {

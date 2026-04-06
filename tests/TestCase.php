@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Orchestra\Testbench\TestCase as Orchestra;
 use WorkOS\AuthKit\Auth\WorkOSSession;
+use WorkOS\AuthKit\Facades\WorkOS;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;
 use WorkOS\AuthKit\WorkOSServiceProvider;
@@ -24,7 +25,7 @@ abstract class TestCase extends Orchestra
     protected function getPackageAliases($app): array
     {
         return [
-            'WorkOS' => \WorkOS\AuthKit\Facades\WorkOS::class,
+            'WorkOS' => WorkOS::class,
         ];
     }
 

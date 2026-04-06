@@ -8,10 +8,19 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Guard;
 use InvalidArgumentException;
 use SensitiveParameter;
+use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\Testing\WorkOSFake;
+use WorkOS\DirectorySync;
+use WorkOS\MFA;
+use WorkOS\Organizations;
+use WorkOS\Passwordless;
+use WorkOS\Portal;
+use WorkOS\SSO;
+use WorkOS\UserManagement;
+use WorkOS\Webhook;
 
 class WorkOS
 {
@@ -23,15 +32,15 @@ class WorkOS
 
     /** @var array<string, class-string> */
     private const array SERVICE_MAP = [
-        'auditLogs' => \WorkOS\AuditLogs::class,
-        'directorySync' => \WorkOS\DirectorySync::class,
-        'mfa' => \WorkOS\MFA::class,
-        'organizations' => \WorkOS\Organizations::class,
-        'passwordless' => \WorkOS\Passwordless::class,
-        'portal' => \WorkOS\Portal::class,
-        'sso' => \WorkOS\SSO::class,
-        'userManagement' => \WorkOS\UserManagement::class,
-        'webhook' => \WorkOS\Webhook::class,
+        'auditLogs' => AuditLogs::class,
+        'directorySync' => DirectorySync::class,
+        'mfa' => MFA::class,
+        'organizations' => Organizations::class,
+        'passwordless' => Passwordless::class,
+        'portal' => Portal::class,
+        'sso' => SSO::class,
+        'userManagement' => UserManagement::class,
+        'webhook' => Webhook::class,
     ];
 
     public function __construct(
@@ -52,40 +61,40 @@ class WorkOS
         return $this->instances[$name] ??= new (self::SERVICE_MAP[$name]);
     }
 
-    public function userManagement(): \WorkOS\UserManagement
+    public function userManagement(): UserManagement
     {
-        /** @var \WorkOS\UserManagement */
-        return $this->instances['userManagement'] ??= new \WorkOS\UserManagement;
+        /** @var UserManagement */
+        return $this->instances['userManagement'] ??= new UserManagement;
     }
 
-    public function organizations(): \WorkOS\Organizations
+    public function organizations(): Organizations
     {
-        /** @var \WorkOS\Organizations */
-        return $this->instances['organizations'] ??= new \WorkOS\Organizations;
+        /** @var Organizations */
+        return $this->instances['organizations'] ??= new Organizations;
     }
 
-    public function sso(): \WorkOS\SSO
+    public function sso(): SSO
     {
-        /** @var \WorkOS\SSO */
-        return $this->instances['sso'] ??= new \WorkOS\SSO;
+        /** @var SSO */
+        return $this->instances['sso'] ??= new SSO;
     }
 
-    public function directorySync(): \WorkOS\DirectorySync
+    public function directorySync(): DirectorySync
     {
-        /** @var \WorkOS\DirectorySync */
-        return $this->instances['directorySync'] ??= new \WorkOS\DirectorySync;
+        /** @var DirectorySync */
+        return $this->instances['directorySync'] ??= new DirectorySync;
     }
 
-    public function auditLogs(): \WorkOS\AuditLogs
+    public function auditLogs(): AuditLogs
     {
-        /** @var \WorkOS\AuditLogs */
-        return $this->instances['auditLogs'] ??= new \WorkOS\AuditLogs;
+        /** @var AuditLogs */
+        return $this->instances['auditLogs'] ??= new AuditLogs;
     }
 
-    public function webhook(): \WorkOS\Webhook
+    public function webhook(): Webhook
     {
-        /** @var \WorkOS\Webhook */
-        return $this->instances['webhook'] ??= new \WorkOS\Webhook;
+        /** @var Webhook */
+        return $this->instances['webhook'] ??= new Webhook;
     }
 
     public function user(): ?Authenticatable
@@ -111,7 +120,7 @@ class WorkOS
      */
     public function loginUrl(?string $organizationId = null, ?array $state = null): string
     {
-        /** @var \WorkOS\UserManagement $userManagement */
+        /** @var UserManagement $userManagement */
         $userManagement = $this->userManagement();
 
         return $userManagement->getAuthorizationUrl(

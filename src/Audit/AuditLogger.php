@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace WorkOS\AuthKit\Audit;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Guard;
 use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\Contracts\Auditable;
 use WorkOS\AuthKit\Auth\SessionManager;
+use WorkOS\Exception\BaseRequestException;
 
 class AuditLogger
 {
@@ -35,7 +37,7 @@ class AuditLogger
             return;
         }
 
-        /** @var \Illuminate\Contracts\Auth\Guard $guard */
+        /** @var Guard $guard */
         $guard = auth();
         /** @var Authenticatable|null $user */
         $user = $guard->user();
@@ -62,7 +64,7 @@ class AuditLogger
 
         try {
             $this->auditLogs->createEvent($orgId, $event);
-        } catch (\Exception $e) {
+        } catch (BaseRequestException $e) {
             report($e);
         }
     }

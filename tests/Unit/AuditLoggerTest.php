@@ -9,6 +9,8 @@ use WorkOS\AuthKit\Audit\Concerns\HasAuditTrail;
 use WorkOS\AuthKit\Audit\Contracts\Auditable;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;
+use WorkOS\Exception\BaseRequestException;
+use WorkOS\Resource\Response;
 
 class AuditTestUser
 {
@@ -153,7 +155,12 @@ it('catches and reports API exceptions', function () {
 
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
-    $exception = new Exception('API Error');
+    $response = new Response(
+        '{"error":"API Error"}',
+        ['x-request-id' => 'req_123'],
+        500,
+    );
+    $exception = new BaseRequestException($response);
 
     $this->auditLogs->shouldReceive('createEvent')
         ->once()

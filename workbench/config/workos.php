@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Models\Organization;
 
 return [
     /*
@@ -120,5 +121,5 @@ return [
     |
     */
 
-    'organization_model' => env('WORKOS_ORGANIZATION_MODEL', App\Models\Organization::class),
+    'organization_model' => env('WORKOS_ORGANIZATION_MODEL', Organization::class),
 ];
