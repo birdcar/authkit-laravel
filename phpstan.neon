@@ -6,7 +6,6 @@ parameters:
     paths:
         - src
     excludePaths:
-        - src/Traits
         - src/Models/Concerns
         - src/Audit/Concerns
         - src/Testing/Concerns

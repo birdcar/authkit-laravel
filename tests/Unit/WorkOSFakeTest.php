@@ -42,6 +42,14 @@ it('WorkOS::fake() replaces workos service in container', function () {
     expect(app('workos'))->toBe($fake);
 });
 
+it('WorkOS::fake() causes DI-injected WorkOS to resolve to the fake', function () {
+    $fake = WorkOS::fake();
+
+    $resolved = app(WorkOS::class);
+
+    expect($resolved)->toBe($fake);
+});
+
 it('WorkOS::isFaked() returns true when faked', function () {
     expect(WorkOS::isFaked())->toBeFalse();
 
