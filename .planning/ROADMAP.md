@@ -41,6 +41,10 @@ Plans:
   3. `assertAudited()` and `assertNotAudited()` pass or fail based on what the code under test actually logged
   4. Fake state does not bleed between tests — each `WorkOS::fake()` call produces a fresh instance
   5. Workbench example tests demonstrate the fake and actingAs patterns in working, runnable form
+**Plans**: 2 plans
+Plans:
+- [ ] 02-01-PLAN.md — Fix InteractsWithWorkOS teardown method name and add DI injection test
+- [ ] 02-02-PLAN.md — Create WorkOSFakeExampleTest.php and convert one AuthTest to fake pattern
 
 ### Phase 3: Smart Install
 **Goal**: Developers can run `workos:install` against any Laravel app — including those with Breeze, Jetstream, Fortify, or laravel/workos — and get a correct, non-destructive installation
@@ -83,7 +87,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Inertia Middleware | 0/1 | Not started | - |
-| 2. Testing Utilities | 0/? | Not started | - |
+| 2. Testing Utilities | 0/2 | Not started | - |
 | 3. Smart Install | 0/? | Not started | - |
 | 4. Workbench Example App | 0/? | Not started | - |
 | 5. CI/CD and Documentation | 0/? | Not started | - |
