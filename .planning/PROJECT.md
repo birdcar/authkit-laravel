@@ -35,6 +35,7 @@ Laravel developers can install this package and have production-ready WorkOS Aut
 - ✓ Configurable session access token lifetime — existing
 - ✓ PHPStan level 8 static analysis — existing
 - ✓ Pest test suite with 295 tests — existing
+- ✓ ShareWorkOSData middleware for Inertia.js apps — Phase 1
 
 ### Active
 
@@ -52,7 +53,6 @@ Laravel developers can install this package and have production-ready WorkOS Aut
 - [ ] Documentation: Installation guide, feature docs, code examples, contributing guidelines
 - [ ] WorkOS::fake() and WorkOS::actingAs() test utilities
 - [ ] Test assertions (assertAudited, assertNotAudited)
-- [ ] ShareWorkOSData middleware for Inertia.js apps
 
 ### Out of Scope
 
@@ -113,4 +113,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-06 after initialization*
+*Last updated: 2026-04-06 after Phase 1 completion*
