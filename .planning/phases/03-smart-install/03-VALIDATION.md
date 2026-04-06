@@ -2,8 +2,8 @@
 phase: 3
 slug: smart-install
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-06
 ---
 
@@ -38,14 +38,13 @@ created: 2026-04-06
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 03-01-01 | 01 | 1 | INST-01 | — | N/A | unit | `composer test -- --filter=EnvironmentDetector` | ✅ | ⬜ pending |
-| 03-01-02 | 01 | 1 | INST-07 | — | N/A | unit | `composer test -- --filter=Install` | ❌ W0 | ⬜ pending |
-| 03-01-03 | 01 | 1 | INST-08 | — | N/A | unit | `composer test -- --filter=EnvManager` | ❌ W0 | ⬜ pending |
-| 03-02-01 | 02 | 1 | INST-02 | — | N/A | feature | `composer test -- --filter=InstallCommand` | ✅ | ⬜ pending |
-| 03-02-02 | 02 | 1 | INST-03 | — | N/A | feature | `composer test -- --filter=InstallCommand` | ✅ | ⬜ pending |
-| 03-02-03 | 02 | 1 | INST-04 | — | N/A | feature | `composer test -- --filter=InstallCommand` | ✅ | ⬜ pending |
-| 03-02-04 | 02 | 1 | INST-05 | — | N/A | unit | `composer test -- --filter=LaravelWorkosMigrator` | ❌ W0 | ⬜ pending |
-| 03-02-05 | 02 | 1 | INST-06 | — | N/A | unit | `composer test -- --filter=MigrationPlan` | ❌ W0 | ⬜ pending |
+| 03-01-01 | 01 | 1 | INST-01 | T-03-01 | array args prevent injection | unit | `composer test -- --filter=NodeToolingDetectorTest` | ❌ W0 | ⬜ pending |
+| 03-01-02 | 01 | 1 | INST-02 | — | N/A | feature | `composer test -- --filter=InstallCommandTest` | ✅ | ⬜ pending |
+| 03-02-01a | 02 | 2 | INST-02, INST-03, INST-04 | — | N/A | unit+feature | `composer test -- --filter=WizardFlowTest\|InstallCommandTest` | ✅ | ⬜ pending |
+| 03-02-01b | 02 | 2 | INST-05 | — | N/A | unit | `composer test -- --filter=LaravelWorkosMigratorTest` | ❌ W0 | ⬜ pending |
+| 03-02-02 | 02 | 2 | INST-06 | T-03-04 | empty placeholders only | feature | `composer test -- --filter=InstallCommandTest` | ✅ | ⬜ pending |
+| 03-03-01 | 03 | 3 | INST-07 | T-03-05 | regex fallback to manual | unit | `composer test -- --filter=AuthSystemInstallerTest` | ❌ W0 | ⬜ pending |
+| 03-03-02 | 03 | 3 | INST-08 | T-03-06 | per-key dedup | unit | `composer test -- --filter=EnvManagerTest` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -53,10 +52,10 @@ created: 2026-04-06
 
 ## Wave 0 Requirements
 
-- [ ] `tests/Unit/NodeToolingDetectorTest.php` — stubs for Node runtime detection
-- [ ] `tests/Unit/LaravelWorkosMigratorTest.php` — stubs for config migration
-- [ ] `tests/Unit/AuthSystemInstallerTest.php` — stubs for idempotent file edits
-- [ ] `tests/Unit/EnvManagerTest.php` — stubs for duplicate key prevention
+- [ ] `tests/Unit/NodeToolingDetectorTest.php` — created by Plan 03-01 Task 1
+- [ ] `tests/Unit/LaravelWorkosMigratorTest.php` — created by Plan 03-02 Task 1
+- [ ] `tests/Unit/AuthSystemInstallerTest.php` — created by Plan 03-03 Task 1
+- [ ] `tests/Unit/EnvManagerTest.php` — created by Plan 03-03 Task 2
 
 *Existing `tests/Feature/InstallCommandTest.php`, `tests/Unit/WizardFlowTest.php`, and `tests/Unit/EnvironmentDetectorTest.php` cover baseline.*
 
@@ -74,11 +73,11 @@ created: 2026-04-06
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
 - [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
