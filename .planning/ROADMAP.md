@@ -43,8 +43,8 @@ Plans:
   5. Workbench example tests demonstrate the fake and actingAs patterns in working, runnable form
 **Plans**: 2 plans
 Plans:
-- [ ] 02-01-PLAN.md — Fix InteractsWithWorkOS teardown method name and add DI injection test
-- [ ] 02-02-PLAN.md — Create WorkOSFakeExampleTest.php and convert one AuthTest to fake pattern
+- [x] 02-01-PLAN.md — Fix InteractsWithWorkOS teardown method name and add DI injection test
+- [x] 02-02-PLAN.md — Create WorkOSFakeExampleTest.php and convert one AuthTest to fake pattern
 
 ### Phase 3: Smart Install
 **Goal**: Developers can run `workos:install` against any Laravel app — including those with Breeze, Jetstream, Fortify, or laravel/workos — and get a correct, non-destructive installation
