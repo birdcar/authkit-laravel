@@ -1,0 +1,128 @@
+# Requirements: AuthKit Laravel
+
+**Defined:** 2026-04-06
+**Core Value:** Laravel developers can install this package and have production-ready WorkOS AuthKit authentication without manually wiring up guards, sessions, middleware, or authorization logic.
+
+## v1 Requirements
+
+### Inertia Support
+
+- [ ] **INRT-01**: ShareWorkOSData middleware shares auth state (user, org, roles, permissions, impersonation) to Inertia props
+- [ ] **INRT-02**: ShareWorkOSData guards with class_exists check — no hard Inertia dependency
+
+### Testing Utilities
+
+- [ ] **TEST-01**: WorkOS::fake() replaces container binding via swap() so both facade and DI usage are faked
+- [ ] **TEST-02**: WorkOS::actingAs() sets up authenticated user with roles, permissions, and org context
+- [ ] **TEST-03**: assertAudited() and assertNotAudited() verify audit log behavior in tests
+- [ ] **TEST-04**: InteractsWithWorkOS trait auto-tears down fake in test lifecycle
+- [ ] **TEST-05**: Workbench example tests demonstrate WorkOS::fake() and actingAs() usage patterns
+
+### Smart Install
+
+- [ ] **INST-01**: Detect existing auth setups (laravel/workos, Breeze, Jetstream, Fortify) via Composer\InstalledVersions
+- [ ] **INST-02**: Wizard mode (default) interactively asks which components to install
+- [ ] **INST-03**: --force flag overwrites all existing auth configuration without prompting
+- [ ] **INST-04**: --mini flag publishes only config and displays setup instructions
+- [ ] **INST-05**: Config migration from services.php to workos.php when laravel/workos detected
+- [ ] **INST-06**: Migration assistant generates actionable guidance for existing auth systems
+- [ ] **INST-07**: Post-write verification for all file modifications (no silent failures)
+- [ ] **INST-08**: Zero duplicate env vars or conflicting configs after install
+
+### Workbench Example App
+
+- [ ] **WORK-01**: Todo app with create, complete, and delete functionality
+- [ ] **WORK-02**: Organization switching with separate todo lists per org
+- [ ] **WORK-03**: All Admin Portal intents (SSO, Directory Sync, Audit Logs, Log Streams, Domain Verification)
+- [ ] **WORK-04**: Audit log shows user actions
+- [ ] **WORK-05**: Basic Pest feature tests for key flows
+- [ ] **WORK-06**: auth.json excluded from git (credential protection)
+- [ ] **WORK-07**: workbench/composer.json PHP constraint aligned to ^8.3
+
+### CI/CD
+
+- [ ] **CICD-01**: GitHub Actions CI workflow runs tests, PHPStan, Pint on all PRs
+- [ ] **CICD-02**: CI matrix covers PHP 8.3+8.4 x Laravel 11+12
+- [ ] **CICD-03**: Automated release workflow using birdcar/actions/auto-release (label-driven)
+- [ ] **CICD-04**: CI badge visible in README
+
+### Documentation
+
+- [ ] **DOCS-01**: Comprehensive README in .github/README.md
+- [ ] **DOCS-02**: Installation and configuration guide (< 5 minutes)
+- [ ] **DOCS-03**: Feature documentation with code examples
+- [ ] **DOCS-04**: Contributing section with local development instructions
+
+## v2 Requirements
+
+### Advanced Testing
+
+- **TEST-V2-01**: WorkOS::assertFaked() to verify fake was activated
+- **TEST-V2-02**: Webhook testing utilities (simulate webhook delivery in tests)
+
+### Developer Experience
+
+- **DX-V2-01**: workos:doctor command to diagnose common configuration issues
+- **DX-V2-02**: workos:upgrade command for version migrations
+- **DX-V2-03**: Laravel Herd/Valet HTTPS setup guidance in installer
+
+### Monitoring
+
+- **MON-V2-01**: Session refresh failure alerting
+- **MON-V2-02**: Webhook delivery health monitoring
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| UI components | Package is headless; WorkOS hosts auth UI externally |
+| Directory Sync webhooks | WorkOS recommends Events API |
+| MFA/Passwordless flows | Focus on AuthKit OAuth flow only |
+| Vue/React components | Separate package if needed |
+| Mobile app support | Web/server-side only |
+| Workbench CI (Flux Pro) | Requires paid credentials; local-only testing accepted |
+| --prefer-lowest CI | Thin dependency graph makes it noise |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| INRT-01 | Phase 1 | Pending |
+| INRT-02 | Phase 1 | Pending |
+| TEST-01 | Phase 2 | Pending |
+| TEST-02 | Phase 2 | Pending |
+| TEST-03 | Phase 2 | Pending |
+| TEST-04 | Phase 2 | Pending |
+| TEST-05 | Phase 2 | Pending |
+| INST-01 | Phase 3 | Pending |
+| INST-02 | Phase 3 | Pending |
+| INST-03 | Phase 3 | Pending |
+| INST-04 | Phase 3 | Pending |
+| INST-05 | Phase 3 | Pending |
+| INST-06 | Phase 3 | Pending |
+| INST-07 | Phase 3 | Pending |
+| INST-08 | Phase 3 | Pending |
+| WORK-01 | Phase 4 | Pending |
+| WORK-02 | Phase 4 | Pending |
+| WORK-03 | Phase 4 | Pending |
+| WORK-04 | Phase 4 | Pending |
+| WORK-05 | Phase 4 | Pending |
+| WORK-06 | Phase 4 | Pending |
+| WORK-07 | Phase 4 | Pending |
+| CICD-01 | Phase 5 | Pending |
+| CICD-02 | Phase 5 | Pending |
+| CICD-03 | Phase 5 | Pending |
+| CICD-04 | Phase 5 | Pending |
+| DOCS-01 | Phase 5 | Pending |
+| DOCS-02 | Phase 5 | Pending |
+| DOCS-03 | Phase 5 | Pending |
+| DOCS-04 | Phase 5 | Pending |
+
+**Coverage:**
+- v1 requirements: 30 total
+- Mapped to phases: 30
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-04-06*
+*Last updated: 2026-04-06 after initial definition*
