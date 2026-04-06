@@ -4,251 +4,216 @@
 
 ## Pattern Overview
 
-**Overall:** Service Provider with Event-Driven Webhook Synchronization
-
-This is a Laravel package that wraps the WorkOS SDK and provides authentication, organization management, and real-time data sync via webhooks. The architecture follows a clear separation between authentication concerns, session management, data synchronization, and audit logging.
+**Overall:** Service Provider-based Laravel library with layered authentication and organization management
 
 **Key Characteristics:**
-- Service provider-driven dependency injection (Laravel standard)
-- Cookie-based session management using WorkOS's sealed session format
-- Event-driven architecture for webhook processing and data sync
-- Guard implementation for Laravel's authentication system
-- Middleware-based authorization and impersonation detection
-- Support for organizations with role-based access control (RBAC)
+- Laravel service provider integration pattern for library bootstrapping
+- Guard-based authentication system extending Laravel's built-in auth contracts
+- Facade for ergonomic service access to WorkOS PHP SDK
+- Event-driven webhook synchronization for external state management
+- Cookie-based session management using WorkOS's Halite encryption
 
 ## Layers
 
-**Service Registration Layer:**
-- Purpose: Bootstrap the package, register bindings, configure Laravel framework
-- Location: `src/WorkOSServiceProvider.php`
-- Contains: Service provider with registration and boot phases
-- Depends on: Laravel service container, configuration files
-- Used by: Laravel framework during bootstrap
-
-**Authentication Layer:**
-- Purpose: Manage user sessions, validate tokens, provide guard implementation
-- Location: `src/Auth/`
-  - `WorkOSGuard.php`: Implements Laravel's `Guard` contract for WorkOS
-  - `SessionManager.php`: Manages sealed cookie sessions from WorkOS SDK
-  - `WorkOSSession.php`: Value object representing authenticated session state
-- Contains: Guard, session management, session value objects
-- Depends on: WorkOS SDK, Laravel authentication contracts, Laravel cookies
-- Used by: Middleware, controllers, guard resolution
-
-**HTTP Request Handling Layer:**
-- Purpose: Handle OAuth flow, webhooks, and organization management
-- Location: `src/Http/`
-  - `Controllers/AuthController.php`: OAuth callback, session storage, logout
-  - `Controllers/WebhookController.php`: Validate and dispatch webhook events
-  - `Controllers/OrganizationController.php`: Switch organizations, manage invitations
-  - `Middleware/`: Request-scoped concerns (auth checks, impersonation detection, org context)
-- Contains: Controllers, middleware, request validation
-- Depends on: Authentication layer, events, WorkOS SDK
-- Used by: HTTP router, request pipeline
-
-**Model Traits Layer:**
-- Purpose: Extend application User/Organization models with WorkOS capabilities
-- Location: `src/Models/Concerns/`
-  - `HasWorkOSPermissions.php`: Role/permission checking, org context
-  - `HasWorkOSId.php`: WorkOS ID mapping
-  - `HasOrganization.php`: Organization relationship
-- Contains: Trait mixins for model enrichment
-- Depends on: WorkOSSession value object, Laravel Eloquent
-- Used by: Application User model
-
-**Event & Webhook Layer:**
-- Purpose: Handle real-time sync from WorkOS via webhooks
-- Location: `src/Events/` and `src/Listeners/`
-  - `Http/Controllers/WebhookController.php`: Entry point, signature validation, event dispatch
-  - `Events/Webhooks/`: Specific webhook events (WorkOSUserCreated, etc.)
-  - `Listeners/`: Handle sync to local database
-- Contains: Event classes, listener handlers
-- Depends on: HTTP layer, models, Laravel events
-- Used by: Webhook HTTP endpoint, event dispatcher
-
-**Audit Layer:**
-- Purpose: Log user actions to WorkOS Audit Logs API
-- Location: `src/Audit/`
-  - `AuditLogger.php`: Format and send audit events
-  - `AuditMiddleware.php`: Capture request context for audit
-  - `Concerns/HasAuditTrail.php`: Model interface for auditable objects
-- Contains: Audit event formatting, logging, middleware
-- Depends on: SessionManager, WorkOS SDK audit service, Laravel auth
-- Used by: Controllers, middleware, application code via facade
-
-**Installation Layer:**
-- Purpose: Interactive wizard and configuration for initial setup
-- Location: `src/Install/`
-  - `WizardFlow.php`: Orchestrates multi-step installation
-  - `AuthSystemInstaller.php`: Configure auth guard/provider
-  - `RouteInstaller.php`: Publish routes
-  - `WebhookInstaller.php`: Configure webhook endpoint
-  - `MigrationPlanGenerator.php`: Detect existing auth and plan migration
-- Contains: CLI command orchestration, file publishing, env configuration
-- Depends on: File system, environment manager, Laravel console
-- Used by: InstallCommand
-
-**Facade & Public API Layer:**
-- Purpose: Provide convenient access to WorkOS functionality
-- Location: `src/Facades/WorkOS.php` and `src/helpers.php`
-- Contains: Facade definition, global helper function
-- Depends on: WorkOS main class, Laravel facade system
-- Used by: Application code, controllers, tests
-
-**Central Coordination:**
+**Service Layer (`src/WorkOS.php`):**
+- Purpose: Provides high-level API to WorkOS SDK functionality with caching
 - Location: `src/WorkOS.php`
-- Purpose: Main entry point, lazy-loads WorkOS SDK services, coordinates session access
-- Acts as service locator for SDK services and session management
-- Used by: Controllers, facade, middleware
+- Contains: Service method mapping, session management, authentication helpers
+- Depends on: SessionManager, AuditLogger, WorkOS PHP SDK
+- Used by: Controllers, Listeners, Blade directives, application code via Facade
+
+**Authentication Layer (`src/Auth/`):**
+- Purpose: Implements Laravel Guard contract and manages session lifecycle
+- Location: `src/Auth/`
+- Contains: WorkOSGuard (guard implementation), SessionManager (cookie+token handling), WorkOSSession (data model)
+- Depends on: Laravel auth contracts, WorkOS PHP SDK's CookieSession
+- Used by: WorkOSServiceProvider, middleware, controllers
+
+**HTTP Layer (`src/Http/`):**
+- Purpose: Routes and middleware for handling authentication flows
+- Location: `src/Http/`
+- Contains: AuthController (login/callback/logout), OrganizationController (org switching/invitations), WebhookController (event ingestion), middleware for authorization checks
+- Depends on: Authentication layer, Service layer, Event system
+- Used by: Routes registered via ServiceProvider
+
+**Event & Listener Layer (`src/Events/`, `src/Listeners/`):**
+- Purpose: Decouples webhook processing from database synchronization
+- Location: `src/Events/` and `src/Listeners/`
+- Contains: Webhook event classes (WorkOSUserCreated, etc.), listeners that sync to local User/Organization models
+- Depends on: User/Organization models (via config), event system
+- Used by: WebhookController, ServiceProvider event registration
+
+**Model Traits (`src/Models/Concerns/`):**
+- Purpose: Extend user/organization models with WorkOS-specific functionality
+- Location: `src/Models/Concerns/`
+- Contains: HasWorkOSId (WorkOS ID lookup), HasWorkOSPermissions (role/permission checks), HasOrganization (multi-org support)
+- Depends on: Eloquent models
+- Used by: Application User/Organization models via trait inclusion
+
+**Installation & Setup (`src/Install/`):**
+- Purpose: Interactive wizard and file manipulation for initial setup
+- Location: `src/Install/`
+- Contains: WizardFlow (orchestrates installation steps), installers for routes/auth/webhooks, migration plan generator for legacy auth system migration
+- Depends on: File system, environment detection, console commands
+- Used by: InstallCommand console command
+
+**Middleware (`src/Http/Middleware/`):**
+- Purpose: HTTP request filtering for authentication and authorization
+- Location: `src/Http/Middleware/`
+- Contains: EnsureWorkOSAuthenticated (guards routes), CheckRole/CheckPermission (authorization), SetCurrentOrganization (org context), DetectImpersonation (admin mode)
+- Depends on: SessionManager, request object
+- Used by: Route groups and individual routes
+
+**Audit Layer (`src/Audit/`):**
+- Purpose: Optional WorkOS Audit Logs API integration
+- Location: `src/Audit/`
+- Contains: AuditLogger (formats and sends events), AuditMiddleware (captures requests), Auditable contract
+- Depends on: WorkOS PHP SDK auditLogs service, SessionManager
+- Used by: ApplicationOptionally via WorkOS::audit() or trait inclusion
 
 ## Data Flow
 
 **Authentication Flow:**
 
-1. User requests `/auth/login` → `AuthController::login()`
-2. Controller generates WorkOS login URL with optional org/state parameters
-3. Browser redirects to WorkOS login
-4. User authenticates at WorkOS
-5. Browser redirected to `/auth/callback?code=...&state=...`
-6. `AuthController::callback()` receives auth code
-7. Controller calls `WorkOS::userManagement()->authenticateWithCode()`
-8. Returns token response (access_token, refresh_token, user data)
-9. `SessionManager::store()` encrypts tokens using Halite encryption and sets sealed cookie
-10. `findOrCreateUser()` creates/updates local user record from WorkOS data
-11. `UserAuthenticated` event dispatched
-12. Redirect to home or return_to URL
+1. User visits `/auth/login` → AuthController::login()
+2. Generates WorkOS authorization URL with state parameter (redirect_uri from config)
+3. WorkOS redirects back to `/auth/callback` with authorization code
+4. AuthController::callback() exchanges code for tokens via WorkOS::userManagement()->authenticateWithCode()
+5. SessionManager::store() seals tokens with Halite encryption into wos-session cookie
+6. WorkOSSession created from auth response containing user ID, org, roles/permissions
+7. User model found/created via trait method findOrCreateByWorkOS() or updateOrCreate() fallback
+8. UserAuthenticated event fired for application hooks
 
-**Webhook Sync Flow:**
+**Session Validation Flow:**
 
-1. WorkOS posts webhook to `/webhooks/workos`
-2. `WebhookController::handle()` validates signature using WorkOS SDK
-3. Parses event type and data
-4. Dispatches generic `WebhookReceived` event
-5. Dispatches type-specific event (e.g., `WorkOSUserCreated`)
-6. Listener (e.g., `SyncUserFromWebhook`) handles event
-7. Updates local database with data from webhook payload
+1. Incoming request intercepted by SessionManager
+2. getCookieSession() loads and decrypts wos-session cookie
+3. CookieSession::authenticate() validates token signature
+4. If expired: attemptRefresh() refreshes using refresh_token
+5. WorkOSSession cached per-request in $cachedSession
+6. Guard::user() retrieves cached session and loads User model via provider
 
-**Authorization Flow:**
+**Organization Context Flow:**
 
-1. Request includes sealed `wos-session` cookie
-2. Middleware or controller calls `SessionManager::getValidSession()`
-3. SessionManager decrypts cookie, calls WorkOS SDK to authenticate
-4. Returns `WorkOSSession` with user ID, roles, permissions, org ID
-5. `WorkOSGuard::user()` retrieves local user by ID
-6. Attaches `WorkOSSession` to user via `setWorkOSSession()`
-7. Middleware checks session validity, roles, permissions, organization
-8. Request continues with session available via `auth()` or facade
+1. WorkOS session contains organizationId from multi-org login
+2. SetCurrentOrganization middleware reads from session
+3. CheckOrganization middleware validates user belongs to requested org
+4. User traits query organizations via HasOrganization::organizations() relation
+5. Audit logs include org context via SessionManager::getOrganizationId()
 
-**Session State Management:**
-- `SessionManager` caches session in memory during request
-- Cookie is decrypted once, cached, reused for all checks in request
-- Session refresh attempted if token expired
-- Logout destroys cookie and clears cache
+**Webhook Processing Flow:**
+
+1. POST `/webhooks/workos` → WebhookController::handle()
+2. Validates WorkOS-Signature header against webhook_secret
+3. Maps event type (user.created, organization.updated, etc.) to event class
+4. Dispatches generic WebhookReceived + specific event (WorkOSUserCreated, etc.)
+5. Service Provider wires listeners: SyncUserFromWebhook, SyncOrganizationFromWebhook, SyncMembershipFromWebhook
+6. Listeners call trait methods (findByWorkOSId) to sync to local models
+
+**State Management:**
+
+- **Primary source of truth:** WorkOS wos-session cookie (sealed, encrypted by Halite)
+- **Secondary source:** Local User/Organization models synced via webhooks
+- **Ephemeral state:** WorkOSSession object cached per-request in SessionManager
+- **Session duration:** 30 days (cookie) with hourly expiry checks; refresh token used for automatic renewal
 
 ## Key Abstractions
 
 **WorkOSSession:**
-- Purpose: Immutable value object representing authenticated session state
+- Purpose: Immutable readonly representation of authenticated session
 - Examples: `src/Auth/WorkOSSession.php`
-- Pattern: Value object with factory methods (`fromAuthResponse()`, `fromArray()`)
-- Contains: userId, accessToken, refreshToken, roles, permissions, organizationId, impersonator
-- Used by: Guard, middleware, models, audit logging
+- Pattern: Value object with factory methods (fromAuthResponse, fromArray), expiry/permission checks
+- Properties: userId, accessToken, refreshToken, expiresAt, sessionId, roles, permissions, organizationId, impersonator
 
 **SessionManager:**
-- Purpose: Bridge between HTTP cookie layer and session value object
+- Purpose: Bridge between WorkOS PHP SDK's CookieSession and Laravel's request/response cycle
 - Examples: `src/Auth/SessionManager.php`
-- Pattern: Stateful manager with caching and lazy-loading
-- Responsibilities: Decrypt cookie, call SDK for validation, cache result, handle refresh
-- Used by: Guard, middleware, controllers
+- Pattern: Manages cache invalidation, token refresh, cookie encryption/decryption
+- Key methods: getValidSession(), store(), destroy(), getOrganizationId(), hasPermission(), hasRole()
 
 **WorkOSGuard:**
-- Purpose: Implement Laravel Guard contract using WorkOS sessions
+- Purpose: Implements Laravel's Guard contract for use with auth() helper
 - Examples: `src/Auth/WorkOSGuard.php`
-- Pattern: Adapter implementing `Illuminate\Contracts\Auth\Guard`
-- Delegates session retrieval to SessionManager, user lookup to provider
+- Pattern: Delegates session lookup to SessionManager, user loading to UserProvider
+- Integration: Registered in ServiceProvider::configureGuard() as 'workos' guard
 
-**Event Mapping:**
-- Purpose: Route webhook events to application events
-- Examples: `src/Http/Controllers/WebhookController.php::EVENT_MAP`
-- Pattern: Static event-type-to-class map
-- Allows decoupling webhook processing from event definitions
+**WorkOS Facade:**
+- Purpose: Ergonomic static access to service + SDK methods
+- Examples: `src/Facades/WorkOS.php`, `src/WorkOS.php`
+- Pattern: Exposes high-level auth methods + passes through SDK service methods
+- Usage: WorkOS::loginUrl(), WorkOS::storeSession(), WorkOS::userManagement(), etc.
 
-**Model Traits as Feature Modules:**
-- Purpose: Compose WorkOS capabilities into models
-- Examples: `HasWorkOSPermissions`, `HasWorkOSId`, `HasOrganization`
-- Pattern: Trait-based feature composition
-- Allows selective adoption of WorkOS features in user-provided models
+**Event-Driven Webhook Sync:**
+- Purpose: Decouple webhook ingestion from database mutations
+- Examples: Event classes in `src/Events/Webhooks/`, listeners in `src/Listeners/`
+- Pattern: WebhookController dispatches events → Laravel event dispatcher → specific listeners
+- Flexibility: Applications can listen to same events for custom sync logic
 
 ## Entry Points
 
-**OAuth Login/Logout Routes:**
+**Service Registration:**
+- Location: `src/WorkOS.php` and `src/WorkOSServiceProvider.php`
+- Triggers: Framework service provider boot during app initialization
+- Responsibilities: Register guard, middleware, commands; configure routes and webhooks; load migrations
+
+**Authentication Routes:**
 - Location: `routes/web.php`
-- Routes: `GET /auth/login`, `GET /auth/callback`, `GET|POST /auth/logout`
-- Handler: `AuthController`
-- Triggers: User-initiated authentication, callback from WorkOS, explicit logout
+- Triggers: HTTP requests to /auth/* paths
+- Responsibilities: GET /auth/login (initiate), GET /auth/callback (handle OAuth callback), GET|POST /auth/logout (terminate)
 
-**Organization Management Routes:**
+**Organization Routes:**
 - Location: `routes/organizations.php`
-- Routes: `POST /organizations/switch`, `POST /organizations/{id}/invitations`, `DELETE /organizations/{id}/invitations/{id}`
-- Handler: `OrganizationController`
-- Triggers: Organization switching, user invitations
-- Guarded by: `auth:workos` middleware
+- Triggers: HTTP requests to /organizations/* with auth:workos middleware
+- Responsibilities: POST /organizations/switch (org context change), POST /organizations/{org}/invitations (send), DELETE revoke
 
-**Webhook Endpoint:**
+**Webhook Route:**
 - Location: `routes/webhooks.php`
-- Route: `POST /webhooks/workos`
-- Handler: `WebhookController::handle()`
-- Triggers: WorkOS webhook delivery (user/org/membership/session events)
-- Signature validation: WorkOS SDK `Webhook::constructEvent()`
+- Triggers: POST /webhooks/workos with WorkOS-Signature header
+- Responsibilities: Validate signature, dispatch typed events for user/org/membership changes
 
-**CLI Commands:**
-- `InstallCommand`: Interactive setup wizard
-- `SyncUsersCommand`: Manual user synchronization from WorkOS API
-- `EventsListenCommand`: Debug webhook events
+**Console Commands:**
+- Location: `src/Commands/`
+- Triggers: php artisan workos:install, workos:sync-users, workos:listen-events
+- Responsibilities: InstallCommand (interactive setup), SyncUsersCommand (backfill users), EventsListenCommand (local testing)
 
 ## Error Handling
 
-**Strategy:** Graceful degradation with reporting
+**Strategy:** Fail open with exceptions, catch and report in critical paths
 
 **Patterns:**
-- Try-catch blocks around external API calls (SessionManager, AuthController)
-- Report exceptions to Laravel error handler without crashing request
-- Return null for missing data rather than throwing
-- Middleware returns 401 JSON or redirect to login, not exceptions
-- Webhook handler returns 400 for invalid signature, 500 if webhook secret missing
-- Listener exceptions caught and reported, don't halt event processing
 
-Examples:
-- `SessionManager::getSession()`: Returns null if decrypt/validation fails
-- `AuthController::authenticateWithCode()`: Returns null if API call fails
-- `AuditLogger::log()`: Catches and reports exception, returns silently
-- `WebhookController`: Catches exception, reports, returns 400
+- **Authentication failures:** AuthController catches exceptions from authenticateWithCode(), returns null, redirects to login with error
+- **Session validation:** SessionManager catches exceptions from authenticate()/refresh(), returns null (guest), middleware redirects
+- **Webhook validation:** WebhookController catches signature verification exceptions, logs via report(), returns 400
+- **Database lookups:** Listeners check for method existence before calling (findByWorkOSId), silently skip if missing
+- **Audit logs:** AuditLogger catches exceptions from API call, reports but doesn't propagate
 
 ## Cross-Cutting Concerns
 
-**Logging:** No structured logging framework integrated. Uses Laravel's `report()` for exceptions and console `line()` for CLI output.
+**Logging:** No centralized logging layer; exceptions logged via report() to Laravel's error handler
 
 **Validation:** 
-- Controllers use `Request::validate()` for input validation
-- WorkOS SDK validates signatures and tokens
-- SessionManager validates session data structure
+- HTTP inputs validated in controllers via Form Request-style validation
+- Session state validated in SessionManager (expiry checks, token presence)
+- Webhook signature validated via WorkOS::webhook()->constructEvent()
 
 **Authentication:** 
-- Cookie-based using WorkOS sealed session format
-- Encrypted with Laravel app key (Halite encryption)
-- Session refresh handled transparently
-- Impersonation flag propagated from WorkOS
+- Implemented as Guard + SessionManager + WorkOSSession value object
+- Integrated with Laravel's auth() helper and Authenticatable contract
+- Supports custom user providers via config('workos.user_model')
 
 **Authorization:**
-- Middleware checks: `EnsureWorkOSAuthenticated`, `CheckRole`, `CheckPermission`, `CheckOrganization`
-- Model methods: `hasWorkOSRole()`, `hasWorkOSPermission()`, on user model via trait
-- Facade methods: `hasRole()`, `hasPermission()` on WorkOS facade
+- Role-based via WorkOSSession::hasRole()
+- Permission-based via WorkOSSession::hasPermission()
+- Blade directives (@workosRole, @workosPermission) for template checks
+- Middleware (CheckRole, CheckPermission) for route protection
+- Fallback to session permissions; org-specific via HasOrganization trait
 
-**Auditing:**
-- Opt-in per-feature via config flag
-- Captured at middleware level with request context
-- Sent to WorkOS API asynchronously (no wait for response)
-- Supports custom auditable objects via trait
+**Impersonation:**
+- Detected in SessionManager via $session->impersonator property
+- Available to app via WorkOS::isImpersonating()
+- Blade directive @impersonating for UI/audit purposes
+- Tracked in audit logs via AuditLogger
 
 ---
 

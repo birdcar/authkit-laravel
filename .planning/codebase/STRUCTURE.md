@@ -6,279 +6,224 @@
 
 ```
 authkit-laravel/
-├── src/                          # Main package code
-│   ├── Audit/                    # Audit logging system
-│   ├── Auth/                     # Authentication and session management
-│   ├── Commands/                 # CLI commands
-│   ├── Events/                   # Event classes for webhook and lifecycle events
-│   ├── Exceptions/               # Custom exception types
-│   ├── Facades/                  # Laravel facade for WorkOS
-│   ├── Http/                     # HTTP controllers and middleware
-│   │   ├── Controllers/          # Route handlers
-│   │   └── Middleware/           # Request middleware
-│   ├── Install/                  # Installation wizard and configuration
-│   ├── Listeners/                # Event listeners for webhook sync
-│   ├── Models/                   # Model traits and concerns
-│   ├── Support/                  # Utility classes
-│   ├── Testing/                  # Testing utilities and fakes
-│   ├── WorkOS.php                # Main service coordinator
-│   ├── WorkOSServiceProvider.php # Service provider for Laravel
-│   └── helpers.php               # Global helper functions
-├── routes/                       # HTTP route definitions
-│   ├── web.php                   # Auth routes (login, callback, logout)
-│   ├── organizations.php         # Organization management routes
-│   └── webhooks.php              # Webhook endpoint route
-├── config/                       # Package configuration
-│   └── workos.php                # WorkOS configuration template
-├── database/                     # Migrations
-│   └── migrations/               # Database schema migrations
-├── tests/                        # Test suite
-│   ├── Unit/                     # Unit tests for individual classes
-│   └── Fixtures/ (implicit)      # Test data and factories
-├── docs/                         # Documentation
-├── workbench/                    # Development Laravel app for testing
-└── composer.json                 # Package manifest
+├── src/                               # Main library source code
+│   ├── Auth/                          # Authentication system
+│   ├── Http/                          # HTTP layer (controllers, middleware)
+│   ├── Models/Concerns/               # Traits for User/Organization models
+│   ├── Events/                        # Application and webhook events
+│   ├── Listeners/                     # Event listeners
+│   ├── Exceptions/                    # Custom exception classes
+│   ├── Facades/                       # Facade classes
+│   ├── Audit/                         # Audit logging layer
+│   ├── Commands/                      # Artisan console commands
+│   ├── Install/                       # Installation wizard and setup
+│   ├── Support/                       # Utility and helper classes
+│   ├── Testing/                       # Testing utilities for apps
+│   ├── WorkOS.php                     # Main service class
+│   ├── WorkOSServiceProvider.php      # Service provider (entry point)
+│   └── helpers.php                    # Global helper functions
+├── routes/                            # Route definitions
+│   ├── web.php                        # Auth routes (login, callback, logout)
+│   ├── organizations.php              # Organization management routes
+│   └── webhooks.php                   # Webhook ingestion route
+├── config/                            # Configuration files
+│   └── workos.php                     # WorkOS configuration
+├── database/                          # Database files
+│   └── migrations/                    # Package migrations
+├── tests/                             # Test suite
+│   └── ...                            # Various test files
+├── workbench/                         # Development/testing sandbox
+└── composer.json                      # Package manifest
 ```
 
 ## Directory Purposes
 
-**src/Audit/:**
+**`src/Auth/`:**
+- Purpose: Core authentication and session management
+- Contains: WorkOSGuard, SessionManager, WorkOSSession
+- Key files: `WorkOSGuard.php` (implements Guard contract), `SessionManager.php` (cookie encryption/validation), `WorkOSSession.php` (session data model)
+
+**`src/Http/Controllers/`:**
+- Purpose: HTTP request handlers for auth flows and webhooks
+- Contains: AuthController (OAuth flow), OrganizationController (org switching/invitations), WebhookController (webhook ingestion)
+- Key files: `AuthController.php` (login/callback/logout), `WebhookController.php` (event routing)
+
+**`src/Http/Middleware/`:**
+- Purpose: HTTP request filtering and authorization
+- Contains: EnsureWorkOSAuthenticated (auth guard), CheckRole/CheckPermission (authz), SetCurrentOrganization (org context), DetectImpersonation (admin mode)
+- Key files: All 7 middleware classes in this directory
+
+**`src/Models/Concerns/`:**
+- Purpose: Traits to extend User/Organization models with WorkOS functionality
+- Contains: HasWorkOSId, HasOrganization, HasWorkOSPermissions
+- Key files: `HasWorkOSId.php` (WorkOS ID queries), `HasOrganization.php` (org relations), `HasWorkOSPermissions.php` (role/permission checks)
+
+**`src/Events/`:**
+- Purpose: Application and webhook events for event-driven architecture
+- Contains: User events (UserAuthenticated, UserLoggedOut), org events (OrganizationSwitched), webhook events (WorkOSUserCreated, WorkOSMembershipUpdated, etc.)
+- Key files: Subdirectory `Webhooks/` contains specific webhook event classes
+
+**`src/Listeners/`:**
+- Purpose: Event handler logic for syncing external state to database
+- Contains: SyncUserFromWebhook, SyncOrganizationFromWebhook, SyncMembershipFromWebhook
+- Key files: Each listener handles specific event types and calls model trait methods
+
+**`src/Facades/`:**
+- Purpose: Facade classes for ergonomic static access
+- Contains: WorkOS facade providing static access to service layer
+- Key files: `WorkOS.php` (facade definition with @method docblocks)
+
+**`src/Audit/`:**
 - Purpose: Audit logging integration with WorkOS Audit Logs API
-- Contains: Logger, middleware, contracts, model traits
-- Key files: `AuditLogger.php`, `AuditMiddleware.php`
+- Contains: AuditLogger, AuditMiddleware, Auditable contract
+- Key files: `AuditLogger.php` (formats and sends events), `AuditMiddleware.php` (captures HTTP context)
 
-**src/Auth/:**
-- Purpose: Authentication system and session management
-- Contains: Guard implementation, session manager, session value object
-- Key files: `WorkOSGuard.php`, `SessionManager.php`, `WorkOSSession.php`
+**`src/Commands/`:**
+- Purpose: Artisan console commands
+- Contains: InstallCommand (setup wizard), SyncUsersCommand (bulk user sync), EventsListenCommand (webhook testing)
+- Key files: `InstallCommand.php` (main setup entry point)
 
-**src/Commands/:**
-- Purpose: CLI commands for installation and maintenance
-- Contains: Artisan command definitions
-- Key files: `InstallCommand.php`, `SyncUsersCommand.php`, `EventsListenCommand.php`
+**`src/Install/`:**
+- Purpose: Installation and setup orchestration
+- Contains: WizardFlow (step coordinator), installers for routes/auth/webhooks, migration plan generator for legacy auth system migration
+- Key files: `WizardFlow.php` (orchestrator), `AuthSystemInstaller.php` (Guard/user provider setup), `RouteInstaller.php` (adds routes), `LaravelWorkosMigrator.php` (handles laravel/workos migration)
 
-**src/Events/:**
-- Purpose: Event classes for pub/sub system
-- Contains: 
-  - Application lifecycle events: `UserAuthenticated.php`, `UserLoggedOut.php`, `OrganizationSwitched.php`
-  - Webhook-specific events: `Webhooks/` subdirectory with `WorkOSUserCreated.php`, etc.
-  - Generic webhook event: `WebhookReceived.php`
-- Key files: All events in this directory are event classes
-
-**src/Exceptions/:**
-- Purpose: Custom exception types for this package
-- Contains: `AuthenticationException.php`, `MissingRoleException.php`, `MissingPermissionException.php`, `WorkOSException.php`
-
-**src/Facades/:**
-- Purpose: Laravel facade for convenient access to WorkOS services
-- Contains: `WorkOS.php` facade definition
-- Used as: `WorkOS::loginUrl()`, `WorkOS::user()`, etc.
-
-**src/Http/Controllers/:**
-- Purpose: HTTP request handlers
-- Contains:
-  - `AuthController.php`: OAuth flow (login, callback, logout)
-  - `WebhookController.php`: Webhook endpoint, event dispatching
-  - `OrganizationController.php`: Organization switching, invitations
-- Routing: Routes defined in `routes/` directory
-
-**src/Http/Middleware/:**
-- Purpose: HTTP middleware for request-scoped concerns
-- Contains:
-  - `EnsureWorkOSAuthenticated.php`: Require valid session
-  - `CheckRole.php`: Check user has required role
-  - `CheckPermission.php`: Check user has required permission
-  - `CheckOrganization.php`: Require membership in organization
-  - `SetCurrentOrganization.php`: Load current organization context
-  - `DetectImpersonation.php`: Detect admin impersonation
-  - `ShareWorkOSData.php`: Share session data with views/Inertia
-  - `AuditMiddleware.php`: Capture request context for audit logs
-
-**src/Install/:**
-- Purpose: Installation wizard and setup automation
-- Contains:
-  - `WizardFlow.php`: Orchestrates multi-step installation
-  - `AuthSystemInstaller.php`: Configure auth guard and provider
-  - `RouteInstaller.php`: Publish built-in routes
-  - `WebhookInstaller.php`: Configure webhook endpoint
-  - `EnvManager.php`: Read/write .env variables
-  - `MigrationPlanGenerator.php`: Analyze existing auth setup and generate migration plan
-  - `LaravelWorkosMigrator.php`: Migrate from laravel/workos package
-  - `Plans/`: Migration plan definitions for different auth scaffolds (Breeze, Fortify, Jetstream)
-
-**src/Listeners/:**
-- Purpose: Event listeners that handle webhook synchronization
-- Contains:
-  - `SyncUserFromWebhook.php`: Update local user from WorkOS webhook
-  - `SyncOrganizationFromWebhook.php`: Update local organization
-  - `SyncMembershipFromWebhook.php`: Manage organization memberships
-- Trigger: Registered in `WorkOSServiceProvider::configureEventListeners()`
-
-**src/Models/Concerns/:**
-- Purpose: Trait-based composition for model enrichment
-- Contains:
-  - `HasWorkOSId.php`: Store/retrieve WorkOS ID mapping
-  - `HasWorkOSPermissions.php`: Role/permission checking, session attachment
-  - `HasOrganization.php`: Organization relationship and context
-- Usage: Mix into your User/Organization models
-
-**src/Support/:**
+**`src/Support/`:**
 - Purpose: Utility and helper classes
-- Contains: `EnvironmentDetector.php` (detects existing auth framework), `DetectionResult.php`
+- Contains: EnvironmentDetector (detects existing auth packages), DetectionResult (detection output model)
+- Key files: `EnvironmentDetector.php` (checks for Breeze/Jetstream/Fortify)
 
-**src/Testing/:**
-- Purpose: Test support utilities and fakes
-- Contains: 
-  - `WorkOSFake.php`: Mock WorkOS for testing
-  - `Concerns/InteractsWithWorkOS.php`: Test helper trait
-- Usage: `WorkOS::fake()` in tests
+**`src/Testing/`:**
+- Purpose: Testing utilities for applications using this library
+- Contains: WorkOSFake (fake implementation), InteractsWithWorkOS trait
+- Key files: `WorkOSFake.php` (test double for WorkOS service), `Concerns/InteractsWithWorkOS.php` (test helper trait)
 
-**routes/:**
-- Purpose: HTTP route definitions
-- Contains:
-  - `web.php`: Auth routes `/auth/login`, `/auth/callback`, `/auth/logout`
-  - `organizations.php`: Org routes `/organizations/switch`, invitations
-  - `webhooks.php`: Webhook route `/webhooks/workos`
-- Registration: Routes loaded conditionally in `WorkOSServiceProvider::configureRoutes()`
+**`src/Exceptions/`:**
+- Purpose: Custom exception classes
+- Contains: WorkOSException (base), AuthenticationException, MissingRoleException, MissingPermissionException
 
-**config/:**
-- Purpose: Package configuration
-- Contains: `workos.php` - template configuration file with all options documented
-- Publishing: `php artisan vendor:publish --tag=workos-config`
+**`routes/`:**
+- Purpose: Route group definitions loaded by ServiceProvider
+- Contains: Auth routes, organization routes, webhook route
+- Key files: `web.php` (login/callback/logout), `organizations.php` (org management), `webhooks.php` (webhook handler)
 
-**database/migrations/:**
-- Purpose: Database schema for package tables
-- Contains:
-  - `create_organizations_table.php`: Organizations table (workos_id, name, slug)
-  - `create_organization_memberships_table.php`: Org membership relationships
-  - `add_workos_id_to_users_table.php`: Add workos_id column to existing users table
-- Registration: Loaded in `WorkOSServiceProvider::configureMigrations()`
+**`config/workos.php`:**
+- Purpose: Configuration schema for WorkOS integration
+- Contains: API credentials, guard name, session settings, feature flags, route prefixes, model class names
+- Used by: ServiceProvider, all services that read config('workos.*')
 
-**tests/Unit/:**
-- Purpose: Unit tests for individual components
-- Contains: Test files matching classes in src/ (e.g., `WorkOSSessionTest.php`, `SessionManagerTest.php`)
-- Framework: Pest PHP (v3)
+**`database/migrations/`:**
+- Purpose: Database schema migrations provided by package
+- Contains: Migrations for organization_memberships table and related schema
 
 ## Key File Locations
 
 **Entry Points:**
-- `src/WorkOSServiceProvider.php`: Package bootstrap and registration
-- `routes/web.php`: OAuth flow entry points
-- `routes/webhooks.php`: Webhook endpoint
-- `src/Commands/InstallCommand.php`: CLI installation entry point
+- `src/WorkOSServiceProvider.php`: Service provider registration point; boots all services, routes, commands, event listeners
+- `src/Commands/InstallCommand.php`: Interactive setup command (php artisan workos:install)
+- `routes/web.php`: Authentication routes (login, callback, logout)
 
 **Configuration:**
-- `config/workos.php`: All package configuration
-- `src/WorkOSServiceProvider.php`: Runtime configuration in boot methods
+- `config/workos.php`: All configuration options and defaults
+- `.env` variables: WORKOS_API_KEY, WORKOS_CLIENT_ID, WORKOS_REDIRECT_URI, WORKOS_WEBHOOK_SECRET, etc.
 
 **Core Logic:**
-- `src/Auth/SessionManager.php`: Session validation and caching
-- `src/Auth/WorkOSGuard.php`: Guard implementation
-- `src/Http/Controllers/AuthController.php`: OAuth flow logic
-- `src/Http/Controllers/WebhookController.php`: Webhook validation and dispatch
-- `src/WorkOS.php`: Service coordinator
-
-**Model Integration:**
-- `src/Models/Concerns/HasWorkOSPermissions.php`: Add to User model
-- `src/Models/Concerns/HasWorkOSId.php`: Add to User model
-- `src/Models/Concerns/HasOrganization.php`: Add to User/Organization models
+- `src/Auth/SessionManager.php`: Cookie encryption/validation, token refresh, session lifecycle
+- `src/Auth/WorkOSGuard.php`: Laravel Guard implementation
+- `src/WorkOS.php`: Facade target; service layer coordinating SDK calls
+- `src/Http/Controllers/AuthController.php`: OAuth callback and token exchange logic
+- `src/Http/Controllers/WebhookController.php`: Webhook signature verification and event dispatch
 
 **Testing:**
-- `src/Testing/WorkOSFake.php`: Faking in tests
-- `src/Testing/Concerns/InteractsWithWorkOS.php`: Test helper trait
+- `src/Testing/WorkOSFake.php`: Fake implementation for testing
+- `src/Testing/Concerns/InteractsWithWorkOS.php`: Test helper methods (WorkOS::fake(), WorkOS::actingAs())
 
 ## Naming Conventions
 
 **Files:**
-- Classes: PascalCase matching class name (e.g., `WorkOSGuard.php` contains `WorkOSGuard` class)
-- Traits: Prefix with `Has` for ability traits (e.g., `HasWorkOSPermissions.php`)
-- Contracts/Interfaces: Named with `Contract` or `Interface` suffix where not following standard (e.g., `Auditable.php`)
-- Commands: Suffix with `Command` (e.g., `InstallCommand.php`)
-
-**Directories:**
-- Controllers: Plural `Controllers/`
-- Middleware: Plural `Middleware/`
-- Events: Plural `Events/`
-- Listeners: Plural `Listeners/`
-- Models: Plural `Models/`
-- Concerns: Plural `Concerns/` (traits directory)
-- Commands: Plural `Commands/`
-- Facades: Plural `Facades/`
+- Controllers: `{Name}Controller.php` (e.g., AuthController.php, OrganizationController.php)
+- Middleware: `{Check|Detect|Set|Share}{Feature}.php` (e.g., EnsureWorkOSAuthenticated.php, DetectImpersonation.php)
+- Events: `{Resource}{Action}.php` or `Webhooks/{Action}.php` (e.g., UserAuthenticated.php, WorkOSUserCreated.php)
+- Listeners: `{Action}FromWebhook.php` (e.g., SyncUserFromWebhook.php)
+- Traits: `Has{Feature}.php` (e.g., HasWorkOSId.php, HasOrganization.php)
+- Exceptions: `{Type}Exception.php` (e.g., AuthenticationException.php, MissingRoleException.php)
 
 **Classes:**
-- Service classes: Noun-based (e.g., `SessionManager`, `AuditLogger`)
-- Guard: `WorkOSGuard`
 - Controllers: Suffix with `Controller`
-- Middleware: `PascalCase` (e.g., `EnsureWorkOSAuthenticated`)
-- Events: `PascalCase` with namespace indicating scope (e.g., `WorkOS\AuthKit\Events\UserAuthenticated`)
-- Traits: Prefix with `Has` (e.g., `HasWorkOSPermissions`)
+- Middleware: Prefix with action verb or feature name (EnsureWorkOSAuthenticated, CheckRole)
+- Traits: Prefix with `Has` for model concerns
+- Events: Use past tense (UserAuthenticated) or resource+action (WorkOSUserCreated)
+- Listeners: Use verb (handle, handleCreated) for methods
 
-**Methods:**
-- Boolean checks: Prefix with `has`, `is`, `can` (e.g., `hasWorkOSRole()`, `isImpersonating()`)
-- Setters: Prefix with `set` (e.g., `setWorkOSSession()`)
-- Getters: Prefix with `get` (e.g., `getLogoutUrl()`)
+**Namespaces:**
+- Root: `WorkOS\AuthKit\`
+- Features: `WorkOS\AuthKit\{Feature\}` (Auth, Http, Models, Events, etc.)
+- Subdirectories: Match directory structure (Http\Controllers, Http\Middleware, etc.)
+- PSR-4 autoload: src/ maps to `WorkOS\AuthKit\`
 
-**Constants:**
-- Config keys: snake_case (e.g., `WORKOS_API_KEY`)
-- Event type map keys: snake_case dot notation (e.g., `'user.created'`, `'organization.updated'`)
+**Method Names:**
+- Guard methods: Implement `Illuminate\Contracts\Auth\Guard` (check, guest, user, id, validate, hasUser, setUser)
+- Manager methods: `get{Resource}()`, `destroy()`, `has{Feature}()` (e.g., getOrganizationId, hasPermission)
+- Controller actions: HTTP verb + action (login, callback, logout, switch, invite, revokeInvitation)
+- Listener handlers: `handle()` or `handle{Action}()` (handle, handleCreated, handleUpdated, handleDeleted)
 
 ## Where to Add New Code
 
-**New Authentication Feature:**
-- Primary code: `src/Auth/` - Add new class or extend existing
-- Middleware: `src/Http/Middleware/` - Add new middleware if needed
-- Tests: `tests/Unit/` - Match structure to src/
-
-**New Webhook Event:**
-- Event class: `src/Events/Webhooks/WorkOS[Entity][Action].php` (e.g., `WorkOSUserCreated.php`)
-- Listener: `src/Listeners/Sync[Entity]FromWebhook.php` (e.g., `SyncUserFromWebhook.php`)
-- Event mapping: Update `WebhookController::EVENT_MAP`
-- Registration: Register listener in `WorkOSServiceProvider::configureEventListeners()`
-
 **New Middleware:**
-- File: `src/Http/Middleware/[YourMiddleware].php`
-- Registration: Add alias in `WorkOSServiceProvider::configureMiddleware()`
-- Usage: Apply via route groups or controller
+- Directory: `src/Http/Middleware/`
+- Implement: `handle(Request $request, Closure $next): Response`
+- Register: Add to WorkOSServiceProvider::configureMiddleware() with router->aliasMiddleware()
 
-**New CLI Command:**
-- File: `src/Commands/[YourCommand].php`
-- Registration: Add to `WorkOSServiceProvider::configureCommands()`
+**New Event:**
+- Directory: `src/Events/` or `src/Events/Webhooks/` for webhook events
+- Extend: Use existing events as template; include $data parameter in constructor
+- Register: Add listener mapping in WorkOSServiceProvider::configureEventListeners() if webhook
+
+**New Listener:**
+- Directory: `src/Listeners/`
+- Implement: `handle({EventClass} $event): void` method
+- Register: Add Event::listen() call in WorkOSServiceProvider::configureEventListeners()
 
 **New Model Trait:**
-- File: `src/Models/Concerns/Has[Capability].php`
-- Pattern: Use trait-based composition like existing `HasWorkOSPermissions.php`
-- Documentation: Include usage example in docblock
+- Directory: `src/Models/Concerns/`
+- Naming: `Has{Feature}.php` (e.g., HasApiTokens.php)
+- Pattern: Use existing traits (HasWorkOSId, HasOrganization) as template
+- Include: Docblock `@mixin \Illuminate\Database\Eloquent\Model` for IDE support
 
-**Utilities:**
-- Location: `src/Support/` for shared utility classes
-- Pattern: Keep utilities stateless and focused
+**New Command:**
+- Directory: `src/Commands/`
+- Extend: `Illuminate\Console\Command`
+- Register: Add to commands array in WorkOSServiceProvider::configureCommands()
 
-**Testing Utilities:**
-- Location: `src/Testing/` and `src/Testing/Concerns/`
-- Pattern: Mirror production structure but prefixed with test concerns
+**New Exception:**
+- Directory: `src/Exceptions/`
+- Extend: WorkOSException or \Exception
+- Pattern: Add a new class file; no base exception class enforcement
+
+**New Facade Accessor:**
+- File: `src/Facades/WorkOS.php` (add @method docblock)
+- Implementation: Add public method to `src/WorkOS.php`
+- Pattern: Use existing methods as template; use @method docblocks for IDE autocomplete
 
 ## Special Directories
 
-**workbench/:**
-- Purpose: Development Laravel application for testing the package
-- Generated: Yes, created by Orchestral Testbench
-- Committed: Partially (composer.json and some config)
-- Usage: `composer serve` spins up dev server with workbench app
+**`database/migrations/`:**
+- Purpose: Database schema migrations
+- Generated: No; committed to repository
+- Auto-loaded: Yes; ServiceProvider::configureMigrations() loads from __DIR__.'/../database/migrations'
+- Published: Yes; applications can publish to their database_path('migrations') via php artisan vendor:publish --tag=workos-migrations
 
-**vendor/:**
-- Purpose: Composer dependencies
-- Generated: Yes
-- Committed: No (in .gitignore)
+**`workbench/`:**
+- Purpose: Development and testing sandbox
+- Generated: Yes; created by package structure
+- Committed: Yes; includes composer.json and Laravel application for testing
+- Use: `composer serve` runs workbench app; `composer test:example` runs tests in workbench context
 
-**.planning/:**
-- Purpose: GSD planning and analysis documents
-- Generated: Yes (by analysis tools)
-- Committed: Yes (part of GSD workflow)
-
-**docs/:**
-- Purpose: Package documentation and guides
-- Generated: No (manually maintained)
-- Committed: Yes
+**`tests/`:**
+- Purpose: Package unit and feature tests
+- Generated: No; committed to repository
+- Pattern: Uses Pest PHP; located next to source files conceptually
+- Run: `composer test` runs all tests; `composer test:coverage` includes coverage reporting
 
 ---
 

@@ -5,197 +5,161 @@
 ## Naming Patterns
 
 **Files:**
-- PascalCase for class files: `WorkOSGuard.php`, `SessionManager.php`, `WizardFlow.php`
-- camelCase for functions/utilities: `helpers.php`
-- Interfaces use `Interface` suffix: `ComponentInstaller`, `Auditable`
-- Factories use `Factory` suffix: `DetectionResultFactory.php`, `WorkOSSessionFactory.php`
-- Trait files use `Concerns` subdirectory: `src/Models/Concerns/HasWorkOSId.php`
-- Test files use the same class name with `Test` suffix: `WorkOSGuardTest.php`
+- Classes: `PascalCase` (e.g., `SessionManager.php`, `EnsureWorkOSAuthenticated.php`)
+- Traits: `PascalCase` with `Concerns/` subdirectory (e.g., `HasWorkOSId.php`, `HasOrganization.php`)
+- Tests: `{SubjectName}Test.php` (e.g., `WorkOSSessionTest.php`, `AuditLoggerTest.php`)
+- Test directories: `Unit/`, `Feature/`, `Fixtures/`, `Helpers/`
 
-**Functions/Methods:**
-- camelCase for all functions and methods: `getSession()`, `setUser()`, `hasPermission()`
-- Private methods use lowercase camelCase: `getCookieSession()`, `buildWorkOSSession()`, `normalizeTargets()`
-- Static factory methods named descriptively: `fresh()`, `freshInstall()`, `withBreeze()`, `admin()`, `impersonating()`
-- Methods that check state use `is*()` or `has*()` pattern: `check()`, `guest()`, `hasUser()`, `isExpired()`, `isImpersonating()`
-- Methods for retrieval use `get*()` pattern: `getSession()`, `getOrganizationId()`, `getLogoutUrl()`
-- Methods for modification use `set*()` or declarative names: `setUser()`, `setWorkOSSession()`, `store()`, `destroy()`
+**Functions:**
+- Methods: `camelCase` (e.g., `getSession()`, `hasPermission()`, `getAuthIdentifier()`)
+- Public methods: expose behavior, not implementation (e.g., `getValidSession()` not `getSessionIfValid()`)
+- Private methods: prefixed with underscore is not used; use private visibility keyword instead
+- Helper functions: `camelCase` (e.g., `workos()` in `helpers.php`)
 
 **Variables:**
-- camelCase for all variable names: `$cookiePassword`, `$userId`, `$cachedSession`
-- Boolean variables use `is*`, `has*`, `can*` prefixes: `$isExpired`, `$hasUser`, `$authenticated`
-- Private properties use `?Type` for nullable: `private ?Authenticatable $user`
-- Array properties explicitly typed in comments: `/** @var array<string> */`
+- Local variables: `camelCase` (e.g., `$cachedSession`, `$cookieSession`, `$accessToken`)
+- Properties (public/private): `camelCase` with visibility keywords (e.g., `private readonly string $cookieName`)
+- Database columns: `snake_case` in migrations (e.g., `workos_id`, `organization_id`)
 
 **Types:**
-- PascalCase for class names: `WorkOSGuard`, `SessionManager`, `WorkOSException`
-- PascalCase for enum names (if used)
-- Type unions use `|` syntax: `?string`, `array<string>`
-- Complex types documented in docblock: `@param array<string, mixed> $data`
-
-**Constants:**
-- SCREAMING_SNAKE_CASE: Following Laravel conventions, app-level config constants
-- Cookie name constant: `wos-session` (using kebab-case for cookie names per HTTP standard)
+- Classes: `PascalCase` (e.g., `WorkOSSession`, `SessionManager`)
+- Namespaces: `PascalCase` with `\` separator (e.g., `WorkOS\AuthKit\Auth\SessionManager`)
+- Interfaces: `PascalCase`, often with `-able` suffix (e.g., `Auditable` contract in `Audit/Contracts/`)
+- Type hints: always use full qualified names or imported classes
 
 ## Code Style
 
 **Formatting:**
-- Tool: Laravel Pint (config: `pint.json`)
-- Preset: `laravel` with strict types enforcement
-- Key rules:
-  - Strict types required (enforced via `declare(strict_types=1)` on every file)
-  - Single blank line between methods
-  - Trailing comma in multiline arrays/argument lists
-  - 4-space indentation
-  - 120-character line length
-  - Space after control structures: `if (...)`, `foreach (...)`
+- Tool: Laravel Pint (PSR-12)
+- Preset: `laravel` (from `pint.json`)
+- Key setting: `declare_strict_types: true` is enforced at file top
+
+**Declaration:**
+- Every PHP file begins with:
+  ```php
+  <?php
+  
+  declare(strict_types=1);
+  
+  namespace [namespace];
+  ```
+- Example: `src/WorkOSServiceProvider.php:1-5`
 
 **Linting:**
 - Tool: PHPStan
-- Config: `phpstan.neon`
-- Level: 8 (bleeding edge configuration)
-- Paths analyzed: `src/` (excluding `Traits`, `Models/Concerns`, `Audit/Concerns`, `Testing/Concerns`)
-- Enforces strict typing and null safety
+- Level: 8 (strict, enables all features)
+- Config: `analyse` composer script runs against `src/` directory only
+- Run: `composer analyse`
+
+**Visibility Keywords:**
+- All properties/methods explicitly declare `public`, `protected`, or `private`
+- Readonly properties used extensively for immutability (e.g., `private readonly string $cookieName`)
+- Constructor property promotion used for dependency injection (e.g., `SessionManager.__construct()`)
 
 ## Import Organization
 
 **Order:**
-1. `declare(strict_types=1);` statement (always first)
-2. Blank line
-3. `namespace` declaration
-4. Blank line
-5. `use` statements organized by:
-   - Illuminate (Laravel framework) imports first
-   - External packages (WorkOS SDK, Carbon)
-   - Internal package imports last
-   - All alphabetically ordered within each group
+1. Root imports from current package (`WorkOS\AuthKit\...`)
+2. Illuminate framework imports (`Illuminate\...`)
+3. External vendor imports (WorkOS SDK, Carbon)
+4. PHP built-ins/standard functions (`\Exception`, `\stdClass`)
 
-**Example from `SessionManager.php`:**
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace WorkOS\AuthKit\Auth;
-
-use Illuminate\Support\Facades\Cookie;
-use WorkOS\AuthKit\Facades\WorkOS;
-use WorkOS\CookieSession;
-use WorkOS\Resource\Impersonator;
-use WorkOS\Resource\SessionAuthenticationSuccessResponse;
-use WorkOS\Session\HaliteSessionEncryption;
-```
+**Example from `src/WorkOSServiceProvider.php:7-46`:**
+- `Illuminate` imports grouped first (Auth, Blade, Event, Route, ServiceProvider)
+- AuthKit internal imports follow (Audit, Auth, Commands, Events, Http, Install, Listeners, Support)
 
 **Path Aliases:**
-- No custom path aliases used; fully qualified namespaces throughout
-- Namespace root: `WorkOS\AuthKit\`
-- Organized by domain: `Install`, `Auth`, `Models`, `Audit`, `Testing`, `Exceptions`, `Support`, `Facades`
+- PSR-4 autoload defined in `composer.json`:
+  - `WorkOS\AuthKit\` maps to `src/`
+  - `WorkOS\AuthKit\Tests\` maps to `tests/`
+- No short aliases used; imports use full namespaces
 
 ## Error Handling
 
 **Patterns:**
-- Use typed exceptions extending base `WorkOSException`
-- Named constructors for common error scenarios:
-  ```php
-  public static function sessionExpired(): self
-  public static function invalidCallback(): self
-  public static function userNotFound(string $workosId): self
-  ```
-- Exceptions in `src/Exceptions/` with domain-specific subclasses
-- Try-catch blocks used for external API calls (WorkOS SDK): catch with generic `\Exception`, log via `report()`
-- Null-coalescing (`??`) for optional values: `$value ?? null`
-- Optional returns indicated with `?Type`: `?WorkOSSession`, `?string`
+- Silent exception catching used for non-critical failures (e.g., `catch (\Exception) { return null; }`)
+- Found in `src/Auth/SessionManager.php:46-48` — session retrieval gracefully returns null instead of throwing
+- Custom exceptions thrown for authorization failures (e.g., `MissingRoleException` in middleware)
+- No generic catches on controllers; specific exception types preferred when possible
 
-**Null Safety Pattern:**
-- Use early returns for null checks:
-  ```php
-  if ($value === null) {
-      return null;
-  }
-  ```
-- Use null-coalescing for chained access: `$session?->userId ?? null`
-- Never assume values; always check first
+**Return Nullability:**
+- Nullable return types used (`?Type`) when operation may fail (e.g., `?WorkOSSession`)
+- Callers must check `if (! $session) { ... }` or use `?->` operator
+- Example: `getSession(): ?WorkOSSession` in `SessionManager`
 
 ## Logging
 
-**Framework:** 
-- Laravel's facade-based logging via `report()` function
-- Used only for exceptions in try-catch blocks
+**Framework:**
+- No centralized logging tool imported; commands use Illuminate console output
+- Installation/setup commands use `$command->info()`, `$command->line()` for user feedback
+- Example: `src/Commands/InstallCommand.php:43-44` uses `$this->components->info()`
 
 **Patterns:**
-- Errors caught from external APIs logged via `report($e)`
-- No debug/info logging throughout codebase
-- Audit logging handled separately via `AuditLogger` class for domain events
+- Audit logging through `AuditLogger` class for application events (e.g., `user.login`)
+- Humanizes action names: `user.login` → `User login`
+- Logs sent to WorkOS API via `WorkOS\AuditLogs`, not local files
+- See `src/Audit/AuditLogger.php` for implementation
 
 ## Comments
 
 **When to Comment:**
-- No explanatory comments for obvious code
-- Comments used for **why**, not **what**
-- Comments on public methods/APIs via PHPDoc docblocks
-
-**JSDoc/TSDoc Pattern:**
-- PHP uses standard PHPDoc format
-- Applied to public methods and properties
-- Type hints in docblocks for complex types:
+- Comments explain the "why" for non-obvious behavior
+- Example from `src/WorkOSServiceProvider.php:136-140`:
   ```php
   /**
-   * @param  array<int, Auditable|array{type?: string, id?: string|int, name?: string|null, metadata?: array<string, mixed>|null}>  $targets
-   * @param  array<string, mixed>  $metadata
+   * Exclude the WorkOS session cookie from Laravel's cookie encryption.
+   *
+   * The wos-session cookie is already encrypted using WorkOS's Halite-based
+   * encryption, so Laravel's EncryptCookies middleware must not double-encrypt it.
    */
-  public function log(
-      string $action,
-      array $targets = [],
-      ?string $actorId = null,
-      array $metadata = [],
-  ): void
   ```
-- Docblocks document contract, not implementation
-- Return types always specified in method signature AND docblock for complex returns
+- Comments sparse elsewhere; code should be self-documenting through clear names
+
+**JSDoc/DocBlock:**
+- Used for public methods with complex parameters or returns
+- Example from `src/Auth/SessionManager.php:66-71`:
+  ```php
+  /**
+   * Seal and store the session cookie after authentication.
+   *
+   * @param  array<string, mixed>  $authResponse
+   */
+  public function store(array $authResponse): WorkOSSession
+  ```
+- Type hints in array parameters: `@param array<string, mixed>`
+- Impersonator type hints: `@return array<string, mixed>|null`
 
 ## Function Design
 
-**Size:** 
-- Methods kept under 40 lines; longer methods broken into private helper methods
-- Private methods named descriptively: `buildWorkOSSession()`, `normalizeTargets()`, `attemptRefresh()`
-- Example: `AuditLogger::log()` delegates to 3 private methods: `normalizeTargets()`, `humanize()`, `getActorId()`
+**Size:**
+- Methods typically 20-50 lines; longer methods broken into private helpers
+- Example: `SessionManager.getSession()` delegates to private methods like `getCookieSession()` and `buildWorkOSSession()`
 
 **Parameters:**
-- Constructor injection preferred: `public function __construct(private readonly Type $property) {}`
-- Maximum 4-5 parameters; use objects for larger parameter sets
-- Use named arguments for optional parameters: `create(organizationId: 'org_123')`
-- Default values used for optional parameters
+- Constructor promotion preferred for dependencies (e.g., `SessionManager.__construct(private readonly string $cookiePassword)`)
+- Method parameters use type hints (e.g., `handle(Request $request, Closure $next, ?string $redirectTo = null)`)
+- Named arguments used in calls for clarity (e.g., `loginUrl(organizationId: $id, state: $state)`)
 
 **Return Values:**
-- Always explicitly typed: `public function check(): bool`
-- Use `?Type` for optional returns: `public function getSession(): ?WorkOSSession`
-- Methods ending in `()` return values
-- Methods ending in `d()` return void (actions): `destroy()`, `store()`
-- Chain-able methods return `static`: `public function setUser(Authenticatable $user): static`
+- Methods return specific types or nullable types: `WorkOSSession`, `?WorkOSSession`, `RedirectResponse`, `int`
+- Early returns preferred to reduce nesting (e.g., `if (! $session) { return null; }`)
+- Void return type when method has side effects only
 
 ## Module Design
 
 **Exports:**
-- No barrel files (index.php) used
-- Full qualified namespace imports required
-- Single responsibility: each class has one reason to change
-- `interface` files used for contracts (`ComponentInstaller`, `Auditable`)
+- Facade pattern used for public API (e.g., `Facades\WorkOS`)
+- Service provider registers singletons in container
+- No barrel exports (no `index.php` files re-exporting from subdirectories)
 
-**Architectural Layers:**
-- `Auth/` - Authentication and session management
-- `Models/Concerns/` - User/Organization model traits
-- `Install/` - Installation commands and wizards
-- `Testing/` - Testing utilities and fixtures
-- `Audit/` - Audit logging functionality
-- `Exceptions/` - Exception hierarchy
-- `Support/` - Utility classes (`DetectionResult`, `EnvironmentDetector`)
-- `Facades/` - Laravel service container facades
+**Concerns/Traits:**
+- Traits for shared model behavior: `HasWorkOSId`, `HasWorkOSPermissions`, `HasOrganization`
+- Located in `src/Models/Concerns/` directory
+- Traits initialize via `initialize{TraitName}()` hook (e.g., `initializeHasWorkOSId()`)
 
-**Class Organization:**
-- Properties declared at top with visibility modifiers and readonly where applicable
-- Constructor with dependency injection
-- Public methods documented
-- Private methods grouped at bottom
-- One public method per file (interfaces) or related group (concrete classes)
+**Static Methods:**
+- Used for factories: `WorkOSSession::fromAuthResponse()`, `User::findByWorkOSId()`
+- Named with `from`, `find`, `findOrCreate` prefix for clarity
 
 ---
 

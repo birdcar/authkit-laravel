@@ -4,237 +4,185 @@
 
 ## Tech Debt
 
-**Session Expiry Fallback Inconsistency:**
-- Issue: `SessionManager::buildWorkOSSession()` hardcodes expiry to 1 hour when no expiry data is available, but `WorkOSSession::fromAuthResponse()` has more sophisticated fallback logic (checking both `expires_at` and `expires_in`)
-- Files: `src/Auth/SessionManager.php:192`, `src/Auth/WorkOSSession.php:40-46`
-- Impact: Session may expire before actual token expiry, causing unexpected logouts
-- Fix approach: Align `buildWorkOSSession()` to use the same fallback logic as `fromAuthResponse()`, or ensure WorkOS cookie responses always include expiry data
+**Broad Exception Handling:**
+- Issue: Multiple catch blocks silently swallow generic `\Exception` without specific type handling
+- Files: `src/Auth/SessionManager.php` (lines 46, 179), `src/Http/Controllers/AuthController.php` (line 104), `src/Http/Controllers/WebhookController.php` (line 75), `src/Http/Middleware/SetCurrentOrganization.php` (line 123)
+- Impact: Makes debugging difficult, masks legitimate errors, prevents proper error recovery strategies
+- Fix approach: Replace generic catches with specific exception types (e.g., `\WorkOS\Exceptions\*`, `\JsonException`, `\RuntimeException`). Add logging/reporting of different error types. Consider chaining specific exceptions with context.
 
-**Broad Exception Catching:**
-- Issue: Multiple places catch generic `\Exception` without specificity, swallowing errors and reducing debuggability
-- Files: `src/Auth/SessionManager.php:46, 138, 179`, `src/Http/Controllers/AuthController.php:104`, `src/Http/Controllers/WebhookController.php:75`, `src/Http/Middleware/SetCurrentOrganization.php:123`, `src/Audit/AuditLogger.php:65`
-- Impact: Silent failures make it hard to diagnose authentication, webhook, or audit logging issues. Errors are reported but context is lost
-- Fix approach: Catch specific exception types (e.g., `WorkOSException`, `InvalidSignatureException`). Log error details with context before reporting
+**Dynamic Method Existence Checks:**
+- Issue: Extensive use of `method_exists()` and `class_exists()` to determine capabilities rather than enforcing contracts
+- Files: `src/Auth/WorkOSGuard.php` (line 49), `src/Http/Controllers/AuthController.php` (lines 128-131), `src/Http/Middleware/CheckOrganization.php` (line 32), `src/Models/Concerns/HasOrganization.php` (line 44), `src/Http/Middleware/SetCurrentOrganization.php` (line 45), `src/Listeners/SyncMembershipFromWebhook.php` (line 63)
+- Impact: Makes code paths unclear, difficult to trace, creates fragile contracts. Behavior depends on runtime implementation details rather than explicit interfaces
+- Fix approach: Create explicit interfaces (`UserHasWorkOS`, `ModelSyncable`) that enforce expected methods. Use interface checks instead of method_exists. Add PHPStan checks to enforce interface implementation at analysis time.
 
-**Configuration File Manipulation via Regex:**
-- Issue: `AuthSystemInstaller::updateAuthConfig()` and `updateWorkosConfigOrganizationModel()` use regex patterns to insert configuration into `config/auth.php` and `config/workos.php`
-- Files: `src/Install/AuthSystemInstaller.php:159-161, 205-208, 216-219`
-- Impact: Regex patterns are fragile and may fail if config file structure is slightly different (whitespace, comments, nested arrays). No rollback if update fails
-- Fix approach: Parse config files into AST or use a config builder library instead of regex substitution. Validate config syntax after modification
+**Silent Fallback Behavior in User Creation:**
+- Issue: `AuthController::findOrCreateUser()` tries multiple method names without clear priority, then falls back to `updateOrCreate()` 
+- Files: `src/Http/Controllers/AuthController.php` (lines 128-139)
+- Impact: Implicit behavior makes it unclear which method will execute. If an app implements wrong method name, will silently use fallback
+- Fix approach: Document the priority order clearly. Consider throwing an exception if user model doesn't implement any expected method. Add logging when fallback is used.
 
-**Magic Property Access in OrganizationController:**
-- Issue: `OrganizationController::revokeInvitation()` accesses `$invitation->organizationId` which is a magic property accessed via WorkOS SDK's `__get` method
-- Files: `src/Http/Controllers/OrganizationController.php:71-72`
-- Impact: Type hints don't reflect actual property availability; IDE autocomplete won't work; code is fragile to SDK changes
-- Fix approach: Extract property early with proper type assertion: `$orgId = $invitation->raw['organization_id'] ?? null`
+**Hardcoded Session Expiry Defaults:**
+- Issue: Multiple locations default session expiry to 1 hour without clear justification
+- Files: `src/Auth/SessionManager.php` (line 192), `src/Auth/WorkOSSession.php` (line 46)
+- Impact: If WorkOS API changes response format, sessions silently expire at wrong time. No way to override default
+- Fix approach: Extract to config option `workos.session_default_expiry_hours`. Add explicit logging when fallback expiry is used. Sync with WorkOS Dashboard settings documentation.
 
-## Known Issues
-
-**Organization Switch Redirect Flow:**
-- Issue: Organization switching redirects through WorkOS login to obtain new access token scoped to target org. This is a workaround for the session architecture
-- Files: `src/Http/Controllers/OrganizationController.php:34`, recent commit `d4884dc`
-- Trigger: User submits organization switch form
-- Symptoms: Full redirect loop through WorkOS instead of in-app state change
-- Workaround: Expected behavior after recent refactor; no workaround needed, but adds redirect latency
-- Note: This is by design (BREAKING CHANGE in recent refactor) and correctly implemented, just worth noting for UX impact
-
-**Null Safety with Method Existence Checks:**
-- Issue: Code relies heavily on runtime `method_exists()` checks for optional trait/concern usage rather than interfaces
-- Files: `src/Auth/SessionManager.php`, `src/Auth/WorkOSGuard.php:49`, `src/Http/Controllers/AuthController.php:128-131`, `src/Http/Middleware/SetCurrentOrganization.php:45, 105`, `src/Listeners/SyncMembershipFromWebhook.php:63, 78, 94`
-- Impact: No compile-time guarantee that expected methods exist; caller must know implementation details
-- Fix approach: Define interfaces for optional behaviors (e.g., `HasWorkOSSession`, `CanFindByWorkOS`) that implementers must explicitly extend
+**Missing Configuration Validation:**
+- Issue: No validation of required config values at boot time
+- Files: `src/WorkOSServiceProvider.php` — registers `WORKOS_API_KEY`, `WORKOS_CLIENT_ID` without checking they're set
+- Impact: Cryptic errors occur only when using features, not at application boot
+- Fix approach: Add `boot()` method to `WorkOSServiceProvider` that validates all required env vars are set. Throw clear exception with setup instructions if missing.
 
 ## Security Considerations
 
-**Cookie Password Derivation:**
-- Risk: `SessionManager` uses Laravel `app.key` as the encryption password for WorkOS session cookies. This couples session security to app.key rotation
-- Files: `src/WorkOSServiceProvider.php:110-114`
-- Current mitigation: Uses standard Laravel encryption; if app.key is compromised, all sessions are compromised
-- Recommendations: 
-  - Consider using a dedicated `WORKOS_SESSION_KEY` env var separate from `APP_KEY` for session encryption
-  - Document that rotating `APP_KEY` requires invalidating all active sessions
+**Cookie Password Not Validated:**
+- Risk: Session encryption depends on `APP_KEY`. If key is weak or compromised, all sessions are at risk
+- Files: `src/Auth/SessionManager.php` (lines 80-84), `config/workos.php` (lines 40-45)
+- Current mitigation: Relies on Laravel's APP_KEY strength validation (in framework)
+- Recommendations: Document in config that session security depends entirely on APP_KEY strength. Consider adding HMAC verification in addition to encryption. Log when sessions cannot be decrypted (possible key rotation issues).
 
 **Webhook Signature Tolerance:**
-- Risk: Webhook handler accepts signatures with 180-second (3-minute) tolerance for timestamp validation
-- Files: `src/Http/Controllers/WebhookController.php:66`
-- Current mitigation: Tolerance is reasonable for clock skew, but hardcoded. No configurable limit
-- Recommendations:
-  - Make tolerance configurable via `config/workos.php`
-  - Document the 3-minute window to security-conscious implementers
-  - Consider reducing to 60 seconds in production-like environments
+- Risk: 180-second tolerance for webhook signatures allows time-based replay attacks
+- Files: `src/Http/Controllers/WebhookController.php` (line 66)
+- Current mitigation: WorkOS SDK validates signature, tolerance is for clock skew
+- Recommendations: Make tolerance configurable via env var. Document why 180s was chosen. Consider stricter tolerance (60s) for production. Add rate limiting on webhook endpoint.
 
-**Organization Access Validation:**
-- Risk: `OrganizationController::switch()` validates user belongs to org, but `invite()` and `revokeInvitation()` do not validate the user's organization permissions
-- Files: `src/Http/Controllers/OrganizationController.php:37-61, 63-81`
-- Current mitigation: Invitation endpoints may rely on route authorization, but it's not explicit in the controller
-- Recommendations:
-  - Add explicit authorization check: `$this->authorize('manage-organization', $organizationId)`
-  - Document what permissions are required for each endpoint
+**Impersonator Data Not Validated:**
+- Risk: Impersonator info from WorkOS is stored without validation in sessions
+- Files: `src/Auth/SessionManager.php` (line 197), `src/Models/Concerns/HasWorkOSPermissions.php` (line 55)
+- Current mitigation: Data comes from WorkOS API, assumed trusted
+- Recommendations: Add validation that impersonator contains expected fields (email, reason). Log all impersonations. Consider audit event for impersonation start/end.
+
+**No Rate Limiting on Auth Endpoints:**
+- Risk: Login/callback endpoints could be targeted for credential enumeration or DoS
+- Files: `src/Http/Controllers/AuthController.php` — no explicit rate limiting middleware
+- Current mitigation: None at package level; apps should add middleware
+- Recommendations: Add rate limiting middleware to default routes. Document that auth routes must be rate-limited. Consider adding configurable threshold.
 
 ## Performance Bottlenecks
 
 **Organization Sync on Every Request:**
-- Problem: `SetCurrentOrganization` middleware can trigger a WorkOS API call (`WorkOS::organizations()->getOrganization()`) if organization not found in local cache
-- Files: `src/Http/Middleware/SetCurrentOrganization.php:75-128`
-- Cause: Full eager-loading of organizations on user load (line 51) may not include the current session's org; fallback queries API
-- Improvement path:
-  - Cache organization lookups in request lifecycle (use `request()->cache()` or similar)
-  - Pre-load current organization from session context
-  - Add database indexes on `workos_id` for faster lookups
+- Problem: `SetCurrentOrganization` middleware calls WorkOS API to sync organization if not found in user's relationship
+- Files: `src/Http/Middleware/SetCurrentOrganization.php` (lines 75-127)
+- Cause: Fetches from API (line 78) and potentially creates/updates record every request if webhook sync is behind
+- Improvement path: Add caching layer - cache organization data for 5-10 minutes. Only sync if cache miss AND org not in local relationship. Consider job queue for async sync rather than blocking request.
 
-**Repeated Method Existence Checks:**
-- Problem: `method_exists()` called repeatedly for the same methods in request lifecycle
-- Files: Multiple middleware and listeners
-- Cause: No caching of method resolution
-- Improvement path:
-  - Define static method registry in service provider boot
-  - Use configuration flags instead of runtime checks
-  - Cache reflection results in container
+**Repeated Config Lookups:**
+- Problem: `config('workos.user_model')`, `config('workos.organization_model')` called multiple times per request across different classes
+- Files: `src/Listeners/SyncUserFromWebhook.php` (line 15), `src/Listeners/SyncMembershipFromWebhook.php` (lines 61, 92), `src/Http/Middleware/SetCurrentOrganization.php` (lines 67, 81)
+- Cause: Config lookups are fast but unnecessary repetition. Each listener/middleware independently retrieves values
+- Improvement path: Create service class that caches resolved model classes at container boot time. Inject `ModelResolver` instead of calling config() directly.
 
-**Webhook Event Mapping:**
-- Problem: Large EVENT_MAP array (16+ entries) in `WebhookController` checked for every webhook
-- Files: `src/Http/Controllers/WebhookController.php:25-44`
-- Current: Linear lookup is fine for small maps, but fragile as new events are added
-- Improvement path:
-  - Consider using a factory pattern or registry for event mapping
-  - Add integration tests to ensure all WorkOS event types are mapped
+**Missing Query Optimization in Listeners:**
+- Problem: Webhook listeners load full relationships without optimization
+- Files: `src/Listeners/SyncMembershipFromWebhook.php` (line 49) calls `syncWithoutDetaching()` without specifying pivot columns
+- Cause: Generic sync may load unnecessary data
+- Improvement path: Explicitly select required columns. Consider batch processing multiple webhooks. Add N+1 query detection to tests.
 
 ## Fragile Areas
 
-**File-Based Config Updates:**
-- Files: `src/Install/AuthSystemInstaller.php`
-- Why fragile: Regex-based config updates can break if:
-  - User has commented-out config values
-  - File has different whitespace or formatting
-  - User has custom code interleaved in config arrays
-  - File encoding differs (UTF-8 with BOM, etc.)
-- Safe modification: 
-  - Test against multiple Laravel config templates
-  - Validate syntax with `php -l` after modification
-  - Provide rollback instructions if update fails
-- Test coverage: No specific tests for config file mutation failures
+**Session Validation Logic:**
+- Files: `src/Auth/SessionManager.php`
+- Why fragile: Multiple conditional paths around cookie validation, decryption, refresh. If any step fails silently returns null. Cookie format from WorkOS SDK could change between versions
+- Safe modification: Add integration tests for each failure path (missing cookie, invalid sealed format, expired). Mock `CookieSession` at all error points. Document expected sealed session structure
+- Test coverage: Tests exist but should cover all exception paths explicitly rather than relying on catch-all
 
-**Migration Plan Detection:**
-- Files: `src/Install/EnvironmentDetector.php`, `src/Support/DetectionResult.php`
-- Why fragile: Detects presence of Laravel auth scaffolding by file/class existence. If user has partial installs or non-standard structures, detection fails
-- Safe modification:
-  - Add logging to detection results
-  - Provide manual override flags in install command
-- Test coverage: `tests/Unit/EnvironmentDetectorTest.php` exists but limited to happy path
+**User Creation Fallback Chain:**
+- Files: `src/Http/Controllers/AuthController.php` (lines 112-142)
+- Why fragile: Tries `findOrCreateByWorkOS` → `findOrCreateFromWorkOS` → fallback `updateOrCreate`. No clear contract. Easy to break if method names are inconsistent
+- Safe modification: Add test for each possible path. Require explicit interface implementation. Document the precedence. Consider factory pattern instead of method chain
+- Test coverage: Has tests but should enumerate all possible method combinations explicitly
 
-**User Model Method Dispatch:**
-- Files: `src/Http/Controllers/AuthController.php:128-131`, `src/Listeners/SyncMembershipFromWebhook.php:58-68`
-- Why fragile: Tries multiple method names (`findOrCreateByWorkOS`, `findOrCreateFromWorkOS`) in fallback chain. If user model implements one method with different signature, will silently fail
-- Safe modification:
-  - Document exact method signature requirements
-  - Validate method signature with Reflection
-  - Throw explicit error if method exists but has wrong signature
-- Test coverage: Tests cover `findOrCreateByWorkOS()` but not fallback chain
+**Webhook Event Mapping:**
+- Files: `src/Http/Controllers/WebhookController.php` (lines 26-44)
+- Why fragile: Hard-coded array maps event strings to classes. Multiple authentication events map to `WorkOSSessionCreated`. If WorkOS adds new event types, they're silently ignored
+- Safe modification: Add logging for unknown event types. Consider creating listener registry rather than hard-coded map. Add test for unknown events
+- Test coverage: Missing test for unmapped event types
 
 **Organization Relationship Assumptions:**
-- Files: `src/Http/Middleware/SetCurrentOrganization.php:44-62`, `src/Models/Concerns/HasOrganization.php`
-- Why fragile: Assumes user model has `organizations()` relationship and uses specific table/pivot names
-- Safe modification:
-  - Validate relationship exists at boot time
-  - Allow configuration of relationship name
-  - Provide clear error messages if relationship is misconfigured
-- Test coverage: Integration tests verify behavior, but no explicit validation tests
-
-## Test Coverage Gaps
-
-**Webhook Event Type Mapping:**
-- What's not tested: Not all WorkOS event types in EVENT_MAP are validated to actually dispatch correct events
-- Files: `src/Http/Controllers/WebhookController.php:26-44`, `tests/Feature/WebhookTest.php` missing comprehensive cases
-- Risk: New event types added but never tested; silent event dispatch failures
-- Priority: High - webhooks are critical to user/org sync
-
-**Error Recovery in Session Manager:**
-- What's not tested: Behavior when token refresh fails, when cookie encryption fails, when WorkOS SDK throws specific exceptions
-- Files: `src/Auth/SessionManager.php`
-- Risk: Silent nulls returned instead of proper error handling; hard to debug in production
-- Priority: High - session management is core auth flow
-
-**Config File Edge Cases:**
-- What's not tested: Installing over existing partial configs, different Laravel versions, Windows file paths, non-ASCII characters in config
-- Files: `src/Install/AuthSystemInstaller.php`
-- Risk: Install command can leave app in broken state if config update fails
-- Priority: Medium - affects first-time setup UX
-
-**Organization Authorization:**
-- What's not tested: Permission checks for organization invite/revoke endpoints; whether users can invite to orgs they don't belong to
-- Files: `src/Http/Controllers/OrganizationController.php:37-81`
-- Risk: Authorization bypass if route guards aren't properly configured
-- Priority: High - security relevant
-
-**Concurrent Request Handling:**
-- What's not tested: Session caching behavior under concurrent requests; whether `$cachedSession` in SessionManager can cause race conditions
-- Files: `src/Auth/SessionManager.php:15-18`
-- Risk: Potential state leakage between requests in high-concurrency environments
-- Priority: Medium - Laravel uses shared memory for request handling
-
-## Missing Critical Features
-
-**Session Invalidation on Role/Permission Changes:**
-- Problem: When user's roles or permissions change in WorkOS, cached session isn't invalidated. User continues with stale permissions until session refreshes or expires
-- Blocks: Real-time permission enforcement for high-security operations
-- Workaround: Call `WorkOS::destroySession()` on permission update, force re-login
-- Impact: Security risk for permission-dependent operations; may need rate-limiting or critical action verification
-
-**Audit Log Failure Handling:**
-- Problem: Audit logging failures are caught and reported but don't affect request flow. Failed audits are silently lost
-- Blocks: Compliance-critical applications cannot guarantee audit trail completeness
-- Workaround: Monitor error reports for audit failures; implement separate audit verification
-- Impact: No way to detect audit log gaps; failed operations may go unrecorded
-
-**Organization Role Hierarchy:**
-- Problem: Org roles are simple strings with no hierarchy or inheritance. Cannot express "admin includes all permissions"
-- Blocks: Fine-grained role-based access control beyond flat role list
-- Workaround: Encode role hierarchy in application code; maintain separate permission matrix
-- Impact: Limits multi-tenant authorization flexibility
-
-## Dependencies at Risk
-
-**WorkOS PHP SDK Breaking Changes:**
-- Risk: Package depends on `workos-inc/sdk-php` but doesn't lock to specific version in docs
-- Impact: Breaking SDK changes (e.g., response object structure, method signatures) could break session handling and webhooks
-- Migration plan:
-  - Pin SDK to known-working version in `composer.lock`
-  - Add integration tests against SDK (not just mocks)
-  - Monitor SDK changelog before upgrading
-
-**Laravel Version Compatibility:**
-- Risk: Dropped Laravel 10 and PHP 8.2 support in recent refactor. Apps on older versions cannot use new code
-- Impact: Users on Laravel 10 must stay on older package version; no upgrade path without environment upgrade
-- Migration plan:
-  - Document version requirements clearly
-  - Maintain separate branch for Laravel 10 backports if needed
-  - Use semantic versioning to signal breaking changes
+- Files: `src/Http/Middleware/SetCurrentOrganization.php`, `src/Models/Concerns/HasOrganization.php`
+- Why fragile: Code assumes `organizations()` returns `BelongsToMany` relationship. Uses dynamic relationship calls with `@phpstan-ignore`. If relationship structure changes, causes runtime errors
+- Safe modification: Add explicit relationship interface/contract. Use type-safe relationship methods. Add relationship existence validation earlier in flow
+- Test coverage: Test with missing/incorrect relationship definition
 
 ## Scaling Limits
 
-**Session Storage via Cookies:**
-- Current capacity: Cookie size limit ~4KB (after base64 encoding)
-- Limit: If user has many roles/permissions, serialized session could exceed cookie limits
-- Scaling path:
-  - Use Redis/cache storage instead of cookies for session data
-  - Store only token reference in cookie; fetch full session from server cache
-  - Implement session pagination if role/permission list grows
+**No Pagination in Sync Commands:**
+- Current capacity: `workos:sync-users` fetches with default 100-user limit, loops through all pages
+- Limit: Will block for large organizations (10k+ users). No progress feedback until completion
+- Scaling path: Add `--chunk` option to process in batches with queue jobs. Add progress bar. Store sync state/cursor to allow resuming. Consider webhook-driven sync instead of bulk command
 
-**Organization Query N+1:**
-- Current capacity: Middleware loads organizations for every request; if user in 100+ orgs, significant overhead
-- Limit: More than ~50-100 organizations per user causes noticeable load
-- Scaling path:
-  - Add pagination/lazy-loading of user's organization list
-  - Cache organization list separately from session
-  - Add database query eager-loading
+**Session Cache Unbounded:**
+- Current capacity: `SessionManager::cachedSession` holds single session indefinitely
+- Limit: Long-running processes (queue workers) may have stale session data
+- Scaling path: Add TTL-based cache invalidation (5 minute max). Clear cache on organization switch. Consider redis-backed cache for multi-process apps
 
-**Webhook Queue Backlog:**
-- Current capacity: Webhooks are processed synchronously
-- Limit: High-frequency WorkOS events can back up request handling
-- Scaling path:
-  - Queue webhook events to job queue (Laravel queue)
-  - Add idempotency tokens to prevent duplicate processing
-  - Implement exponential backoff for failed webhook processing
+## Dependencies at Risk
+
+**Hard Dependency on workos/workos-php 4.29+:**
+- Risk: Sealed session format could change between major versions. Session encryption format might shift
+- Impact: Upgrading could break sessions. No way to migrate sealed session data between versions
+- Migration plan: Lock specific version range. Test sealed session compatibility when upgrading. Consider creating own session encryption wrapper to decouple
+
+**Implicit Dependency on Eloquent for Webhook Sync:**
+- Risk: All webhook listeners assume Eloquent models with specific structure
+- Impact: Cannot use other ORMs or non-Eloquent data sources
+- Migration plan: Consider introducing Repository pattern for data access. Create interface instead of assuming model methods exist
+
+## Missing Critical Features
+
+**No Webhook Replay/Retry Logic:**
+- Problem: If webhook listener fails (listener throws exception), webhook is lost. No retry mechanism
+- Blocks: Apps cannot reliably ensure user/org data stays in sync if webhooks fail
+- Fix approach: Use Laravel's event queue instead of synchronous events. Add retry policy with exponential backoff. Store failed webhooks for manual replay
+
+**No Session Revocation Notification:**
+- Problem: `WorkOSSessionRevoked` event is fired but there's no mechanism to immediately invalidate affected user's local session
+- Blocks: Logout could take several minutes (until cookie expires) if user clears WorkOS session
+- Fix approach: Add cache invalidation when session revoked event received. Clear authenticated user immediately if they revoked their own session
+
+**No Built-in Organization Onboarding Validation:**
+- Problem: No check that user actually belongs to organization when selecting it during login
+- Blocks: If WorkOS data is out of sync, user could login to wrong organization
+- Fix approach: Add validation in `AuthController::callback()` that user belongs to selected organization before storing session
+
+**Missing Configuration for Redirect Targets:**
+- Problem: No way to customize redirect after login beyond `config('workos.routes.home')`
+- Blocks: Cannot redirect to invitation acceptance, welcome flow, or other custom destinations
+- Fix approach: Add `redirect_to` parameter support in login flow. Consider event hook for custom redirect logic
+
+## Test Coverage Gaps
+
+**Webhook Error Handling:**
+- What's not tested: Invalid JSON payloads, malformed event data, missing required fields
+- Files: `src/Http/Controllers/WebhookController.php`
+- Risk: Silent failures when webhook data is corrupted. Events fire with incomplete data
+- Priority: High - affects data consistency
+
+**Session Refresh Path:**
+- What's not tested: Token refresh failure scenarios, partial token updates, expired refresh token
+- Files: `src/Auth/SessionManager.php::attemptRefresh()`
+- Risk: Silent failures mask token expiration issues. Users left in authenticated state with invalid tokens
+- Priority: High - affects security
+
+**Organization Sync Conflicts:**
+- What's not tested: When local org data conflicts with WorkOS data, name/slug changes, soft deletes
+- Files: `src/Http/Middleware/SetCurrentOrganization.php`
+- Risk: Data inconsistency, users accessing wrong organization data
+- Priority: Medium - affects multi-tenant safety
+
+**Impersonation Flow:**
+- What's not tested: Impersonation start/end, impersonator info propagation, audit logging of impersonation
+- Files: `src/Auth/SessionManager.php`, `src/Models/Concerns/HasWorkOSPermissions.php`
+- Risk: No visibility into who impersonated whom or when
+- Priority: Medium - affects compliance
+
+**Permission/Role Permission Middleware:**
+- What's not tested: Missing trait on user model (graceful vs hard error), null roles/permissions arrays
+- Files: `src/Http/Middleware/CheckRole.php`, `src/Http/Middleware/CheckPermission.php`
+- Risk: Exceptions thrown at request time rather than validation time
+- Priority: Medium - affects application stability
 
 ---
 
