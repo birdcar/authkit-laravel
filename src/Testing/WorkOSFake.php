@@ -6,7 +6,7 @@ namespace WorkOS\AuthKit\Testing;
 
 use Carbon\Carbon;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Auth\StatefulGuard;
+use Illuminate\Contracts\Auth\Guard;
 use PHPUnit\Framework\Assert;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 
@@ -49,9 +49,9 @@ class WorkOSFake
             $user->setWorkOSSession($session);
         }
 
-        /** @var StatefulGuard $guard */
+        /** @var Guard $guard */
         $guard = auth(config('workos.guard', 'workos'));
-        $guard->login($user);
+        $guard->setUser($user);
 
         return $this;
     }
