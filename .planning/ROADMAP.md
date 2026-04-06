@@ -28,7 +28,7 @@ This milestone takes a mature, fully-functional auth package and adds the develo
   3. The `workos.inertia` middleware alias resolves to a working class (no silent failure)
 **Plans**: 1 plan
 Plans:
-- [ ] 01-01-PLAN.md — Audit existing ShareWorkOSData implementation and run quality gates
+- [x] 01-01-PLAN.md — Audit existing ShareWorkOSData implementation and run quality gates
 **UI hint**: yes
 
 ### Phase 2: Testing Utilities
