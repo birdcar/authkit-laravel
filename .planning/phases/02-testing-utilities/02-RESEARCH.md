@@ -284,12 +284,10 @@ it('asserts audit events were captured', function () {
 | A1 | `workbench/tests/Feature/AuthTest.php` is the best conversion candidate | Architecture Patterns | Low — Claude's Discretion per CONTEXT.md; planner can choose differently |
 | A2 | Pest 4 and Pest 3 have identical API for `fake()`/`actingAs()` usage patterns shown | Common Pitfalls | Low — documented difference is version only, not API |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `uses(InteractsWithWorkOS::class)` within a `describe()` block trigger `setUpTraits()` in Pest 4?**
-   - What we know: `setUpTraits()` is called in `setUp()` of the test case; Pest's `uses()` applies traits to the test case class
-   - What's unclear: Whether `uses()` inside a `describe()` block creates a scoped sub-class or applies to the parent TestCase
-   - Recommendation: Show both a file-level `uses()` pattern and an `afterEach(fn () => WorkOS::restore())` pattern in the example to be safe; the planner can choose based on testing
+   - **RESOLVED:** Pest's `DescribeCall` does not interact with `uses()` trait application. `uses()` at file level applies traits to the TestCase class and triggers `setUpTraits()`. Inside `describe()` blocks, `uses()` scoping is unreliable for auto-tearDown. **Decision:** Use file-level `uses(InteractsWithWorkOS::class)` for auto-tearDown. Show `afterEach(fn () => WorkOS::restore())` as the pattern for `describe()` blocks.
 
 ## Environment Availability
 
