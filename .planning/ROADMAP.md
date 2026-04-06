@@ -26,7 +26,9 @@ This milestone takes a mature, fully-functional auth package and adds the develo
   1. An Inertia app can read authenticated user, org, roles, permissions, and impersonation state from shared props without additional boilerplate
   2. Installing the package in a non-Inertia app does not trigger any Inertia-related errors or warnings
   3. The `workos.inertia` middleware alias resolves to a working class (no silent failure)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 01-01-PLAN.md — Audit existing ShareWorkOSData implementation and run quality gates
 **UI hint**: yes
 
 ### Phase 2: Testing Utilities
@@ -80,7 +82,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Inertia Middleware | 0/? | Not started | - |
+| 1. Inertia Middleware | 0/1 | Not started | - |
 | 2. Testing Utilities | 0/? | Not started | - |
 | 3. Smart Install | 0/? | Not started | - |
 | 4. Workbench Example App | 0/? | Not started | - |
