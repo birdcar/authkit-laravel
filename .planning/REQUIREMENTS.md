@@ -21,11 +21,11 @@
 ### Smart Install
 
 - [ ] **INST-01**: Detect existing auth setups (laravel/workos, Breeze, Jetstream, Fortify) via Composer\InstalledVersions
-- [ ] **INST-02**: Wizard mode (default) interactively asks which components to install
-- [ ] **INST-03**: --force flag overwrites all existing auth configuration without prompting
-- [ ] **INST-04**: --mini flag publishes only config and displays setup instructions
-- [ ] **INST-05**: Config migration from services.php to workos.php when laravel/workos detected
-- [ ] **INST-06**: Migration assistant generates actionable guidance for existing auth systems
+- [x] **INST-02**: Wizard mode (default) interactively asks which components to install
+- [x] **INST-03**: --force flag overwrites all existing auth configuration without prompting
+- [x] **INST-04**: --mini flag publishes only config and displays setup instructions
+- [x] **INST-05**: Config migration from services.php to workos.php when laravel/workos detected
+- [x] **INST-06**: Migration assistant generates actionable guidance for existing auth systems
 - [ ] **INST-07**: Post-write verification for all file modifications (no silent failures)
 - [ ] **INST-08**: Zero duplicate env vars or conflicting configs after install
 
@@ -95,11 +95,11 @@
 | TEST-04 | Phase 2 | Pending |
 | TEST-05 | Phase 2 | Pending |
 | INST-01 | Phase 3 | Pending |
-| INST-02 | Phase 3 | Pending |
-| INST-03 | Phase 3 | Pending |
-| INST-04 | Phase 3 | Pending |
-| INST-05 | Phase 3 | Pending |
-| INST-06 | Phase 3 | Pending |
+| INST-02 | Phase 3 | Complete |
+| INST-03 | Phase 3 | Complete |
+| INST-04 | Phase 3 | Complete |
+| INST-05 | Phase 3 | Complete |
+| INST-06 | Phase 3 | Complete |
 | INST-07 | Phase 3 | Pending |
 | INST-08 | Phase 3 | Pending |
 | WORK-01 | Phase 4 | Pending |
