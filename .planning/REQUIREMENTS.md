@@ -26,8 +26,8 @@
 - [x] **INST-04**: --mini flag publishes only config and displays setup instructions
 - [x] **INST-05**: Config migration from services.php to workos.php when laravel/workos detected
 - [x] **INST-06**: Migration assistant generates actionable guidance for existing auth systems
-- [ ] **INST-07**: Post-write verification for all file modifications (no silent failures)
-- [ ] **INST-08**: Zero duplicate env vars or conflicting configs after install
+- [x] **INST-07**: Post-write verification for all file modifications (no silent failures)
+- [x] **INST-08**: Zero duplicate env vars or conflicting configs after install
 
 ### Workbench Example App
 
@@ -100,8 +100,8 @@
 | INST-04 | Phase 3 | Complete |
 | INST-05 | Phase 3 | Complete |
 | INST-06 | Phase 3 | Complete |
-| INST-07 | Phase 3 | Pending |
-| INST-08 | Phase 3 | Pending |
+| INST-07 | Phase 3 | Complete |
+| INST-08 | Phase 3 | Complete |
 | WORK-01 | Phase 4 | Pending |
 | WORK-02 | Phase 4 | Pending |
 | WORK-03 | Phase 4 | Pending |
