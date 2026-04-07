@@ -207,15 +207,26 @@ PHP;
 
 PHP;
 
+        $modified = false;
+
         if (str_contains($contents, "'guards' => [")) {
             $result = preg_replace(
                 "/('guards'\s*=>\s*\[)/",
                 "$1\n{$guardToAdd}",
                 $contents
             );
-            if ($result !== null) {
+            if ($result !== null && $result !== $contents) {
                 $contents = $result;
+                $modified = true;
+            } else {
+                $command->warn('Could not automatically update config/auth.php guards section');
+                $command->line("  Please add manually inside the 'guards' array:");
+                $command->line("      'workos' => ['driver' => 'workos', 'provider' => 'users'],");
             }
+        } else {
+            $command->warn('Could not automatically update config/auth.php - guards array not found');
+            $command->line("  Please add manually inside the 'guards' array:");
+            $command->line("      'workos' => ['driver' => 'workos', 'provider' => 'users'],");
         }
 
         if (str_contains($contents, "'providers' => [")) {
@@ -224,13 +235,20 @@ PHP;
                 "$1\n{$providerToAdd}",
                 $contents
             );
-            if ($result !== null) {
+            if ($result !== null && $result !== $contents) {
                 $contents = $result;
+                $modified = true;
+            } else {
+                $command->warn('Could not automatically update config/auth.php providers section');
+                $command->line("  Please add manually inside the 'providers' array:");
+                $command->line("      'workos' => ['driver' => 'eloquent', 'model' => env('WORKOS_USER_MODEL', App\\Models\\User::class)],");
             }
         }
 
-        File::put($authConfigPath, $contents);
-        $command->info('Updated config/auth.php with WorkOS guard');
+        if ($modified) {
+            File::put($authConfigPath, $contents);
+            $command->info('Updated config/auth.php with WorkOS guard');
+        }
     }
 
     private function updateUserModel(Command $command): void
@@ -263,6 +281,16 @@ PHP;
         if ($modified) {
             File::put($userModelPath, $contents);
             $command->info('Added WorkOS traits to User model');
+        } else {
+            $command->warn('Could not automatically add WorkOS traits to User model');
+            if (! $hasWorkOSId) {
+                $command->line('  Add import: use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;');
+                $command->line('  Add to class: use HasWorkOSId;');
+            }
+            if (! $hasWorkOSPermissions) {
+                $command->line('  Add import: use WorkOS\AuthKit\Models\Concerns\HasWorkOSPermissions;');
+                $command->line('  Add to class: use HasWorkOSPermissions;');
+            }
         }
     }
 
