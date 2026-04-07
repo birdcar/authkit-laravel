@@ -72,6 +72,10 @@ Plans:
   3. User actions in the Todo app appear in the audit log view
   4. The Pest feature test suite runs successfully using `WorkOS::fake()` without real API credentials
   5. Running `git ls-files workbench/auth.json` returns no output (credentials are not tracked)
+**Plans**: 2 plans
+Plans:
+- [x] 04-01-PLAN.md — Fix mechanical compliance gaps (root gitignore, PHP constraint)
+- [ ] 04-02-PLAN.md — Convert tests to WorkOS::fake() and add RBAC middleware to routes (gap closure)
 **UI hint**: yes
 
 ### Phase 5: CI/CD and Documentation
@@ -94,5 +98,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Inertia Middleware | 0/1 | Not started | - |
 | 2. Testing Utilities | 0/2 | Not started | - |
 | 3. Smart Install | 3/3 | Complete   | 2026-04-07 |
-| 4. Workbench Example App | 0/? | Not started | - |
+| 4. Workbench Example App | 1/2 | In progress | - |
 | 5. CI/CD and Documentation | 0/? | Not started | - |
