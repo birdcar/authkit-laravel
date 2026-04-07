@@ -55,6 +55,10 @@ class EnvManager
         }
 
         foreach ($changes['add'] as $key => $value) {
+            // Per-key duplicate guard: skip if key already present in file
+            if (str_contains($envContent, "{$key}=")) {
+                continue;
+            }
             $envContent .= "{$key}={$value}\n";
         }
 

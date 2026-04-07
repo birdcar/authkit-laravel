@@ -143,6 +143,29 @@ it('handles missing env file', function () {
     expect($contents)->toContain('WORKOS_CLIENT_ID=');
 });
 
+it('does not duplicate env vars already present in .env file on re-run', function () {
+    $detection = new DetectionResult(
+        hasLaravelWorkos: false,
+        hasBreeze: false,
+        hasJetstream: false,
+        hasFortify: false,
+        hasExistingWorkosConfig: false,
+        hasServicesWorkosConfig: false,
+        envVars: [],
+    );
+
+    // .env already has WORKOS_API_KEY even though DetectionResult doesn't know about it
+    file_put_contents($this->envPath, "APP_NAME=Laravel\nWORKOS_API_KEY=sk_test_existing\n");
+
+    $this->envManager->applyChanges($detection);
+
+    $contents = file_get_contents($this->envPath);
+
+    // Should appear exactly once
+    expect(substr_count($contents, 'WORKOS_API_KEY='))->toBe(1)
+        ->and($contents)->toContain('WORKOS_API_KEY=sk_test_existing');
+});
+
 it('does not modify file when no changes needed', function () {
     $detection = new DetectionResult(
         hasLaravelWorkos: false,
