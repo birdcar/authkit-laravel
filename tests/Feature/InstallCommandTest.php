@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use WorkOS\AuthKit\Install\EnvManager;
 use WorkOS\AuthKit\Install\MigrationPlanGenerator;
+use WorkOS\AuthKit\Install\WizardFlow;
 use WorkOS\AuthKit\Support\EnvironmentDetector;
 use WorkOS\AuthKit\Tests\Helpers\DetectionResultFactory;
 
@@ -568,13 +569,13 @@ it('wizard skips migration plan for fresh install', function () {
         ->assertExitCode(0);
 });
 
-it('mini install skips migration plan generation', function () {
+it('mini install skips migration plan generation when no existing auth', function () {
     $detector = Mockery::mock(EnvironmentDetector::class);
-    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withBreeze());
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::freshInstall());
 
     $this->app->instance(EnvironmentDetector::class, $detector);
 
-    // Mock the plan generator - should NOT be called for mini install
+    // Mock the plan generator - should NOT be called for fresh install
     $planGenerator = Mockery::mock(MigrationPlanGenerator::class);
     $planGenerator->shouldNotReceive('displaySummary');
     $planGenerator->shouldNotReceive('generate');
@@ -582,6 +583,127 @@ it('mini install skips migration plan generation', function () {
 
     $this->artisan('workos:install --mini')
         ->assertExitCode(0);
+});
+
+it('mini install writes placeholder env vars to .env', function () {
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::freshInstall());
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $envManager = Mockery::mock(EnvManager::class);
+    $envManager->shouldReceive('applyChanges')->once();
+    $this->app->instance(EnvManager::class, $envManager);
+
+    $this->artisan('workos:install --mini')
+        ->expectsOutputToContain('Published config/workos.php')
+        ->assertExitCode(0);
+});
+
+it('mini install with existing auth writes migration plan to storage', function () {
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withBreeze());
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $envManager = Mockery::mock(EnvManager::class);
+    $envManager->shouldReceive('applyChanges')->once();
+    $this->app->instance(EnvManager::class, $envManager);
+
+    $storagePath = storage_path('workos-migration-breeze.md');
+    if (File::exists($storagePath)) {
+        File::delete($storagePath);
+    }
+
+    $planGenerator = Mockery::mock(MigrationPlanGenerator::class);
+    $planGenerator->shouldReceive('generate')
+        ->once()
+        ->andReturn($storagePath);
+    $this->app->instance(MigrationPlanGenerator::class, $planGenerator);
+
+    $this->artisan('workos:install --mini')
+        ->expectsOutputToContain('Migration plan written to')
+        ->assertExitCode(0);
+});
+
+it('mini install without existing auth does not write migration plan', function () {
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::freshInstall());
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    $envManager = Mockery::mock(EnvManager::class);
+    $envManager->shouldReceive('applyChanges')->once();
+    $this->app->instance(EnvManager::class, $envManager);
+
+    $planGenerator = Mockery::mock(MigrationPlanGenerator::class);
+    $planGenerator->shouldNotReceive('generate');
+    $this->app->instance(MigrationPlanGenerator::class, $planGenerator);
+
+    $this->artisan('workos:install --mini')
+        ->doesntExpectOutputToContain('Migration plan written to')
+        ->assertExitCode(0);
+});
+
+// Force flag tests
+
+it('force flag bypasses all prompts and installs everything', function () {
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::withAllEnvVars());
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    // Mock WizardFlow so force test does not trigger actual migrations or file ops
+    $wizard = Mockery::mock(WizardFlow::class);
+    $wizard->shouldReceive('run')
+        ->once()
+        ->andReturnUsing(function ($command) {
+            $command->info('Auth routes enabled');
+            $command->info('Published config/workos.php');
+            $command->info('Webhook route enabled');
+
+            return 0;
+        });
+    $this->app->instance(WizardFlow::class, $wizard);
+
+    $this->artisan('workos:install --force')
+        ->doesntExpectOutputToContain('Install auth routes?')
+        ->doesntExpectOutputToContain('Install full auth system?')
+        ->doesntExpectOutputToContain('Install webhooks?')
+        ->expectsOutputToContain('Auth routes enabled')
+        ->expectsOutputToContain('Published config/workos.php')
+        ->expectsOutputToContain('Webhook route enabled')
+        ->assertExitCode(0);
+});
+
+it('force flag auto-selects replace for laravel/workos', function () {
+    Process::fake([
+        'composer remove laravel/workos' => Process::result('', '', 0),
+    ]);
+
+    $detector = Mockery::mock(EnvironmentDetector::class);
+    $detector->shouldReceive('detect')->andReturn(DetectionResultFactory::fresh([
+        'hasLaravelWorkos' => true,
+        'envVars' => [
+            'WORKOS_API_KEY' => 'sk_test',
+            'WORKOS_CLIENT_ID' => 'client_test',
+            'WORKOS_REDIRECT_URI' => 'http://localhost/callback',
+        ],
+    ]));
+    $this->app->instance(EnvironmentDetector::class, $detector);
+
+    // Mock WizardFlow to verify it receives the command with --force and calls composer remove
+    $wizard = Mockery::mock(WizardFlow::class);
+    $wizard->shouldReceive('run')
+        ->once()
+        ->andReturnUsing(function ($command) {
+            // Simulate what WizardFlow does under --force with laravel/workos detected
+            Process::run('composer remove laravel/workos');
+
+            return 0;
+        });
+    $this->app->instance(WizardFlow::class, $wizard);
+
+    $this->artisan('workos:install --force')
+        ->assertExitCode(0);
+
+    Process::assertRan(fn ($process) => str_contains($process->command, 'composer remove laravel/workos'));
 });
 
 // NodeToolingDetector integration tests

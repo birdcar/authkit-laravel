@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace WorkOS\AuthKit\Commands;
 
 use Illuminate\Console\Command;
+use WorkOS\AuthKit\Install\EnvManager;
+use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Install\WizardFlow;
 use WorkOS\AuthKit\Support\DetectionResult;
 use WorkOS\AuthKit\Support\EnvironmentDetector;
@@ -22,6 +24,8 @@ class InstallCommand extends Command
         private EnvironmentDetector $detector,
         private WizardFlow $wizard,
         private NodeToolingDetector $nodeDetector,
+        private EnvManager $envManager,
+        private MigrationPlanGenerator $migrationPlanGenerator,
     ) {
         parent::__construct();
     }
@@ -112,6 +116,17 @@ class InstallCommand extends Command
         $this->newLine();
 
         $this->publishConfig();
+        $this->envManager->applyChanges($result);
+
+        if ($result->hasExistingAuth()) {
+            $planPath = $this->migrationPlanGenerator->generate($result, base_path());
+
+            if ($planPath !== null) {
+                $this->components->info("Migration plan written to {$planPath}");
+                $this->components->warn('Existing auth system detected. Review the migration plan before proceeding.');
+            }
+        }
+
         $this->displayMiniInstructions($result);
 
         return self::SUCCESS;
