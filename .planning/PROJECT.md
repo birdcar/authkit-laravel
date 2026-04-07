@@ -39,13 +39,13 @@ Laravel developers can install this package and have production-ready WorkOS Aut
 - ✓ WorkOS::fake() and WorkOS::actingAs() test utilities — Phase 2
 - ✓ Test assertions (assertAudited, assertNotAudited) — Phase 2
 - ✓ InteractsWithWorkOS trait with auto-tearDown — Phase 2
+- ✓ Smart Install: Detect existing auth setups and adapt installation flow — Phase 3
+- ✓ Smart Install: Three modes (--force, wizard, --mini) with WorkOS CLI delegation — Phase 3
+- ✓ Smart Install: Config migration from services.php to workos.php — Phase 3
+- ✓ Smart Install: Migration assistant with actionable guidance — Phase 3
 
 ### Active
 
-- [ ] Smart Install: Detect existing auth setups (laravel/workos, Breeze, Jetstream, Fortify) and adapt installation flow
-- [ ] Smart Install: Three modes — `--force` (overwrite), wizard (default), `--mini` (config + docs link)
-- [ ] Smart Install: Config migration from `services.php` to `workos.php` when laravel/workos detected
-- [ ] Smart Install: Migration assistant with actionable guidance for existing auth systems
 - [ ] CI/CD: GitHub Actions workflow for tests, PHPStan, Pint on PRs
 - [ ] CI/CD: Automated release workflow using birdcar/actions/auto-release
 - [ ] Example App: Full Laravel 12 Todo app in workbench/ demonstrating all features
@@ -115,4 +115,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-06 after Phase 2 completion*
+*Last updated: 2026-04-07 after Phase 3 completion*
