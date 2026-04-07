@@ -37,6 +37,12 @@ class AuthSystemInstaller implements ComponentInstaller
 
     private function publishOrganizationModel(Command $command): void
     {
+        if ($command->option('force')) {
+            $this->createOrganizationModel($command);
+
+            return;
+        }
+
         // Ask if they have an existing model to map to WorkOS Organizations
         $hasExisting = $command->confirm(
             'Do you have an existing model to use for organizations (e.g., Team, Workspace)?',

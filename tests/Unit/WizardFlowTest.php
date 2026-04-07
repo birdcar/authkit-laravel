@@ -36,6 +36,7 @@ afterEach(function () {
 
 it('skips laravel/workos question when not detected', function () {
     $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(false);
     $command->shouldReceive('newLine')->andReturnSelf();
     $command->shouldReceive('info')->andReturnSelf();
     $command->shouldReceive('warn')->andReturnSelf();
@@ -67,6 +68,7 @@ it('skips laravel/workos question when not detected', function () {
 
 it('asks laravel/workos question when detected', function () {
     $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(false);
     $command->shouldReceive('newLine')->andReturnSelf();
     $command->shouldReceive('info')->andReturnSelf();
     $command->shouldReceive('warn')->andReturnSelf();
@@ -101,6 +103,7 @@ it('asks laravel/workos question when detected', function () {
 
 it('returns correct components based on confirms', function () {
     $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(false);
     $command->shouldReceive('newLine')->andReturnSelf();
     $command->shouldReceive('info')->andReturnSelf();
     $command->shouldReceive('line')->andReturnSelf();
@@ -147,6 +150,7 @@ it('returns correct components based on confirms', function () {
 
 it('runs migrator when replace strategy selected', function () {
     $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(false);
     $command->shouldReceive('newLine')->andReturnSelf();
     $command->shouldReceive('info')->andReturnSelf();
     $command->shouldReceive('warn')->andReturnSelf();
@@ -192,6 +196,7 @@ it('runs migrator when replace strategy selected', function () {
 
 it('does not run migrator when augment strategy selected', function () {
     $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(false);
     $command->shouldReceive('newLine')->andReturnSelf();
     $command->shouldReceive('info')->andReturnSelf();
     $command->shouldReceive('warn')->andReturnSelf();
@@ -235,8 +240,129 @@ it('does not run migrator when augment strategy selected', function () {
     expect($result)->toBe(Command::SUCCESS);
 });
 
+it('force mode selects all components without prompting', function () {
+    $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(true);
+    $command->shouldReceive('newLine')->andReturnSelf();
+    $command->shouldReceive('info')->andReturnSelf();
+    $command->shouldReceive('warn')->andReturnSelf();
+    $command->shouldReceive('line')->andReturnSelf();
+
+    // Should NOT receive any confirm or choice calls
+    $command->shouldNotReceive('confirm');
+    $command->shouldNotReceive('choice');
+
+    $this->envManager->shouldReceive('planChanges')->andReturn(['add' => [], 'modify' => []]);
+    $this->envManager->shouldReceive('applyChanges')->once();
+
+    $this->routeInstaller->shouldReceive('install')->once();
+    $this->authSystemInstaller->shouldReceive('install')->once();
+    $this->webhookInstaller->shouldReceive('install')->once();
+
+    // Force auto-confirms migrations so migrate is called (auth-system is selected)
+    $command->shouldReceive('call')->with('migrate')->once();
+    $command->shouldReceive('components->info')->andReturnSelf();
+
+    $detection = DetectionResultFactory::freshInstall();
+
+    $result = $this->wizard->run($command, $detection);
+
+    expect($result)->toBe(Command::SUCCESS)
+        ->and($this->wizard->getSelectedComponents())->toBe(['routes', 'auth-system', 'webhooks']);
+});
+
+it('force mode auto-confirms env changes', function () {
+    $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(true);
+    $command->shouldReceive('newLine')->andReturnSelf();
+    $command->shouldReceive('info')->andReturnSelf();
+    $command->shouldReceive('warn')->andReturnSelf();
+    $command->shouldReceive('line')->andReturnSelf();
+
+    $command->shouldNotReceive('confirm');
+
+    $this->envManager->shouldReceive('planChanges')->andReturn([
+        'add' => ['WORKOS_API_KEY' => '', 'WORKOS_CLIENT_ID' => ''],
+        'modify' => [],
+    ]);
+    $this->envManager->shouldReceive('applyChanges')->once();
+
+    $this->routeInstaller->shouldReceive('install')->once();
+    $this->authSystemInstaller->shouldReceive('install')->once();
+    $this->webhookInstaller->shouldReceive('install')->once();
+
+    // Force auto-confirms migrations so migrate is called (auth-system is selected)
+    $command->shouldReceive('call')->with('migrate')->once();
+    $command->shouldReceive('components->info')->andReturnSelf();
+
+    $detection = DetectionResultFactory::freshInstall();
+
+    $result = $this->wizard->run($command, $detection);
+
+    expect($result)->toBe(Command::SUCCESS);
+});
+
+it('force mode auto-confirms migrations', function () {
+    $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(true);
+    $command->shouldReceive('newLine')->andReturnSelf();
+    $command->shouldReceive('info')->andReturnSelf();
+    $command->shouldReceive('warn')->andReturnSelf();
+    $command->shouldReceive('line')->andReturnSelf();
+
+    $command->shouldNotReceive('confirm');
+
+    $this->envManager->shouldReceive('planChanges')->andReturn(['add' => [], 'modify' => []]);
+    $this->envManager->shouldReceive('applyChanges')->once();
+
+    $this->routeInstaller->shouldReceive('install')->once();
+    $this->authSystemInstaller->shouldReceive('install')->once();
+    $this->webhookInstaller->shouldReceive('install')->once();
+
+    $command->shouldReceive('call')->with('migrate')->once();
+    $command->shouldReceive('components->info')->andReturnSelf();
+
+    $detection = DetectionResultFactory::freshInstall();
+
+    $result = $this->wizard->run($command, $detection);
+
+    expect($result)->toBe(Command::SUCCESS);
+});
+
+it('force mode auto-selects replace for laravel/workos', function () {
+    $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(true);
+    $command->shouldReceive('newLine')->andReturnSelf();
+    $command->shouldReceive('info')->andReturnSelf();
+    $command->shouldReceive('warn')->andReturnSelf();
+    $command->shouldReceive('line')->andReturnSelf();
+
+    $command->shouldNotReceive('choice');
+    $command->shouldNotReceive('confirm');
+
+    $this->envManager->shouldReceive('planChanges')->andReturn(['add' => [], 'modify' => []]);
+    $this->envManager->shouldReceive('applyChanges')->once();
+
+    $this->migrator->shouldReceive('migrate')->once();
+    $this->routeInstaller->shouldReceive('install')->once();
+    $this->authSystemInstaller->shouldReceive('install')->once();
+    $this->webhookInstaller->shouldReceive('install')->once();
+
+    // Force auto-confirms migrations so migrate is called (auth-system is selected)
+    $command->shouldReceive('call')->with('migrate')->once();
+    $command->shouldReceive('components->info')->andReturnSelf();
+
+    $detection = DetectionResultFactory::withLaravelWorkos();
+
+    $result = $this->wizard->run($command, $detection);
+
+    expect($result)->toBe(Command::SUCCESS)
+        ->and($this->wizard->getLaravelWorkosStrategy())->toBe('replace');
+});
+
 it('returns failure when env changes declined', function () {
     $command = Mockery::mock(Command::class);
+    $command->shouldReceive('option')->with('force')->andReturn(false);
     $command->shouldReceive('newLine')->andReturnSelf();
     $command->shouldReceive('info')->andReturnSelf();
     $command->shouldReceive('warn')->andReturnSelf();

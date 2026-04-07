@@ -56,7 +56,7 @@ class LaravelWorkosMigrator
     {
         $command->newLine();
 
-        if (! $command->confirm('Remove laravel/workos package?', true)) {
+        if (! $command->option('force') && ! $command->confirm('Remove laravel/workos package?', true)) {
             $command->line('  <fg=yellow>Remember to run:</> <fg=cyan>composer remove laravel/workos</>');
 
             return;
@@ -82,7 +82,7 @@ class LaravelWorkosMigrator
 
         $command->newLine();
 
-        if (! $command->confirm('Remove WorkOS config from config/services.php?', true)) {
+        if (! $command->option('force') && ! $command->confirm('Remove WorkOS config from config/services.php?', true)) {
             $command->line('  <fg=yellow>You can manually remove the workos key from config/services.php</>');
 
             return;

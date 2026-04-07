@@ -76,6 +76,10 @@ class WizardFlow
 
     private function askLaravelWorkosStrategy(Command $command): string
     {
+        if ($command->option('force')) {
+            return 'replace';
+        }
+
         $command->newLine();
         $command->warn('laravel/workos package detected');
         $command->newLine();
@@ -99,6 +103,10 @@ class WizardFlow
      */
     private function askComponentSelection(Command $command): array
     {
+        if ($command->option('force')) {
+            return ['routes', 'auth-system', 'webhooks'];
+        }
+
         $command->newLine();
         $command->info('Select which components to install:');
         $command->newLine();
@@ -122,6 +130,10 @@ class WizardFlow
 
     private function confirmEnvChanges(Command $command, DetectionResult $detection): bool
     {
+        if ($command->option('force')) {
+            return true;
+        }
+
         $changes = $this->envManager->planChanges($detection);
 
         if (empty($changes['add']) && empty($changes['modify'])) {
@@ -150,6 +162,10 @@ class WizardFlow
 
     private function confirmMigrations(Command $command): bool
     {
+        if ($command->option('force')) {
+            return true;
+        }
+
         $command->newLine();
 
         return $command->confirm('Run migrations now?', true);
