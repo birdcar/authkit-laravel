@@ -45,6 +45,10 @@ use WorkOS\AuthKit\Install\WizardFlow;
 use WorkOS\AuthKit\Listeners\SyncMembershipFromWebhook;
 use WorkOS\AuthKit\Listeners\SyncOrganizationFromWebhook;
 use WorkOS\AuthKit\Listeners\SyncUserFromWebhook;
+use WorkOS\AuthKit\Livewire\Widgets\UserManagement\InviteUser;
+use WorkOS\AuthKit\Livewire\Widgets\UserManagement\MemberActions;
+use WorkOS\AuthKit\Livewire\Widgets\UserManagement\MembersTable;
+use WorkOS\AuthKit\Livewire\Widgets\UserManagement\UserManagement;
 use WorkOS\AuthKit\Support\EnvironmentDetector;
 
 class WorkOSServiceProvider extends ServiceProvider
@@ -331,5 +335,11 @@ class WorkOSServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../resources/css/widgets.css' => public_path('vendor/workos/widgets.css'),
         ], 'workos-widget-styles');
+
+        $livewire = 'Livewire\Livewire';
+        $livewire::component('workos-members-table', MembersTable::class);
+        $livewire::component('workos-member-actions', MemberActions::class);
+        $livewire::component('workos-invite-user', InviteUser::class);
+        $livewire::component('workos-user-management', UserManagement::class);
     }
 }
