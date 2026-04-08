@@ -1,6 +1,7 @@
 # AuthKit Laravel
 
 [![CI](https://github.com/birdcar/authkit-laravel/actions/workflows/ci.yml/badge.svg)](https://github.com/birdcar/authkit-laravel/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/birdcar/authkit-laravel/graph/badge.svg)](https://codecov.io/gh/birdcar/authkit-laravel)
 [![License](https://img.shields.io/github/license/birdcar/authkit-laravel.svg)](https://github.com/birdcar/authkit-laravel/blob/main/LICENSE)
 
 Laravel integration for [WorkOS AuthKit](https://workos.com/authkit) - add enterprise-grade authentication to your Laravel application in minutes.
@@ -22,31 +23,8 @@ Laravel integration for [WorkOS AuthKit](https://workos.com/authkit) - add enter
 
 ## Installation
 
-### Install from GitHub
-
-Since this package is not yet on Packagist, add the repository to your `composer.json`:
-
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/birdcar/authkit-laravel"
-        }
-    ]
-}
-```
-
-Then install via Composer:
-
 ```bash
-composer require birdcar/authkit-laravel:dev-main
-```
-
-Or to install a specific release:
-
-```bash
-composer require birdcar/authkit-laravel:v0.1.0
+composer require birdcar/authkit-laravel
 ```
 
 ### Run Installation Command

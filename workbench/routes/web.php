@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OrganizationController;
+use App\Models\Todo;
 use Illuminate\Support\Facades\Route;
+use WorkOS\AuthKit\Facades\WorkOS;
 
 // Guest routes
 Route::view('/', 'auth.login')->name('home')->middleware('guest');
@@ -21,10 +23,10 @@ Route::middleware(['auth:workos', 'workos.organization.current'])->group(functio
     })->middleware('workos.permission:todos.read')->name('todos.index');
 
     // Admin-only todo deletion via route (demonstrates workos.role middleware — D-09)
-    Route::delete('/todos/{todo}', function (\App\Models\Todo $todo) {
+    Route::delete('/todos/{todo}', function (Todo $todo) {
         $todo->delete();
 
-        \WorkOS\AuthKit\Facades\WorkOS::audit('todo.deleted', [
+        WorkOS::audit('todo.deleted', [
             ['type' => 'todo', 'id' => (string) $todo->id, 'name' => $todo->title],
         ]);
 

@@ -84,3 +84,32 @@ jobs:
 
       - name: Check code style
         run: composer format:test
+
+  workbench-tests:
+    runs-on: ubuntu-latest
+    name: Workbench Tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, json, curl, sqlite3
+          coverage: pcov
+
+      - name: Install dependencies
+        run: |
+          composer install --prefer-dist --no-interaction
+          cd workbench && composer install --prefer-dist --no-interaction
+
+      - name: Run workbench tests with coverage
+        run: cd workbench && php artisan test --coverage --min=80 --coverage-clover=coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: workbench/coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
