@@ -32,22 +32,8 @@
                 :foregroundColor="$foregroundColor"
                 :appearance="$appearance"
             />
-            <livewire:workos-authentication-info
-                :accentColor="$accentColor"
-                :borderColor="$borderColor"
-                :backgroundColor="$backgroundColor"
-                :foregroundColor="$foregroundColor"
-                :appearance="$appearance"
-            />
         @elseif($activeTab === 'security')
             <livewire:workos-security-settings
-                :accentColor="$accentColor"
-                :borderColor="$borderColor"
-                :backgroundColor="$backgroundColor"
-                :foregroundColor="$foregroundColor"
-                :appearance="$appearance"
-            />
-            <livewire:workos-passkey-management
                 :accentColor="$accentColor"
                 :borderColor="$borderColor"
                 :backgroundColor="$backgroundColor"

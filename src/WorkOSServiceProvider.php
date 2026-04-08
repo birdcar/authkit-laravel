@@ -49,8 +49,6 @@ use WorkOS\AuthKit\Livewire\Widgets\UserManagement\InviteUser;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\MemberActions;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\MembersTable;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\UserManagement;
-use WorkOS\AuthKit\Livewire\Widgets\UserProfile\AuthenticationInfo;
-use WorkOS\AuthKit\Livewire\Widgets\UserProfile\PasskeyManagement;
 use WorkOS\AuthKit\Livewire\Widgets\UserProfile\ProfileInfo;
 use WorkOS\AuthKit\Livewire\Widgets\UserProfile\SecuritySettings;
 use WorkOS\AuthKit\Livewire\Widgets\UserProfile\SessionManagement;
@@ -348,9 +346,7 @@ class WorkOSServiceProvider extends ServiceProvider
         $livewire::component('workos-invite-user', InviteUser::class);
         $livewire::component('workos-user-management', UserManagement::class);
         $livewire::component('workos-profile-info', ProfileInfo::class);
-        $livewire::component('workos-authentication-info', AuthenticationInfo::class);
         $livewire::component('workos-security-settings', SecuritySettings::class);
-        $livewire::component('workos-passkey-management', PasskeyManagement::class);
         $livewire::component('workos-session-management', SessionManagement::class);
         $livewire::component('workos-user-profile', UserProfile::class);
     }

@@ -86,6 +86,18 @@
                         </div>
                         <p class="woswidgets-profile-email">{{ $profile['email'] ?? '' }}</p>
                     @endif
+
+                    @if(!empty($connectedAccounts))
+                        <div class="woswidgets-connected-accounts">
+                            <h4 class="woswidgets-subsection-title">Connected accounts</h4>
+                            @foreach($connectedAccounts as $account)
+                                <div class="woswidgets-card-list-item">
+                                    <span class="woswidgets-connected-provider">{{ $account['provider'] ?? 'Unknown' }}</span>
+                                    <span class="woswidgets-connected-email">{{ $account['email'] ?? '' }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             </div>
         @endif

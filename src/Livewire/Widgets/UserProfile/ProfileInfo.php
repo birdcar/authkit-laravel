@@ -19,6 +19,9 @@ class ProfileInfo extends Component
     /** @var array<string, mixed> */
     public array $profile = [];
 
+    /** @var array<int, array<string, mixed>> */
+    public array $connectedAccounts = [];
+
     public bool $loading = true;
 
     public ?string $error = null;
@@ -50,6 +53,12 @@ class ProfileInfo extends Component
             $this->profile = $result;
             $this->firstName = (string) ($result['firstName'] ?? '');
             $this->lastName = (string) ($result['lastName'] ?? '');
+        }
+
+        $authInfo = $this->widgetGet('/UserProfile/authentication-information');
+        if (! empty($authInfo['data']['connectedAccounts'])) {
+            /** @var array<int, array<string, mixed>> */
+            $this->connectedAccounts = $authInfo['data']['connectedAccounts'];
         }
 
         $this->loading = false;
