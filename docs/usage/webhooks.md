@@ -1,0 +1,474 @@
+# Webhooks
+
+Receive and process real-time events from WorkOS to keep your application in sync.
+
+## Overview
+
+WorkOS sends webhooks when important events occur (user created, organization updated, membership changed, etc.). AuthKit automatically ingests and dispatches these as Laravel events, with built-in listeners for common sync operations.
+
+**Enable the feature** in `config/workos.php`:
+
+```php
+'webhooks' => [
+    'enabled' => true,        // default
+    'prefix' => 'webhooks/workos',
+    'sync_enabled' => true,   // Auto-sync to database
+],
+```
+
+## Webhook Endpoint
+
+The package registers a webhook endpoint at:
+
+```
+POST /webhooks/workos
+```
+
+This endpoint:
+1. Validates the webhook signature using `WORKOS_WEBHOOK_SECRET`
+2. Parses the payload
+3. Dispatches Laravel events
+4. Auto-syncs data (if enabled)
+5. Returns 200 OK
+
+## Setting Up Webhooks in WorkOS
+
+In your WorkOS Dashboard:
+
+1. Go to API Configuration → Webhooks
+2. Set the webhook URL to your application:
+   ```
+   https://yourdomain.com/webhooks/workos
+   ```
+3. Copy the webhook secret and add to `.env`:
+   ```env
+   WORKOS_WEBHOOK_SECRET=whsec_your_secret_here
+   ```
+4. Select events to receive (or select all)
+5. Save and test
+
+## Available Events
+
+The package dispatches Laravel events for these WorkOS events:
+
+### User Events
+
+**WorkOSUserCreated**
+Fired when a user is created in WorkOS.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
+
+Event::listen(WorkOSUserCreated::class, function ($event) {
+    $data = $event->data; // WorkOS user data
+    // $data['id'], $data['email'], $data['first_name'], etc.
+});
+```
+
+**WorkOSUserUpdated**
+Fired when a user is updated in WorkOS.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+
+Event::listen(WorkOSUserUpdated::class, function ($event) {
+    $data = $event->data;
+});
+```
+
+**WorkOSUserDeleted**
+Fired when a user is deleted in WorkOS.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSUserDeleted;
+
+Event::listen(WorkOSUserDeleted::class, function ($event) {
+    $workosUserId = $event->data['id'];
+});
+```
+
+### Organization Events
+
+**WorkOSOrganizationCreated**
+Fired when an organization is created.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated;
+
+Event::listen(WorkOSOrganizationCreated::class, function ($event) {
+    $data = $event->data; // $data['id'], $data['name'], etc.
+});
+```
+
+**WorkOSOrganizationUpdated**
+Fired when an organization is updated.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationUpdated;
+```
+
+**WorkOSOrganizationDeleted**
+Fired when an organization is deleted.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationDeleted;
+```
+
+### Membership Events
+
+**WorkOSMembershipCreated**
+Fired when a user joins an organization.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
+
+Event::listen(WorkOSMembershipCreated::class, function ($event) {
+    $data = $event->data;
+    // $data['id'], $data['user_id'], $data['organization_id'], $data['role']
+});
+```
+
+**WorkOSMembershipUpdated**
+Fired when a membership is updated (role changed, etc.).
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
+```
+
+**WorkOSMembershipDeleted**
+Fired when a user leaves an organization.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
+```
+
+### Session Events
+
+**WorkOSSessionCreated**
+Fired when a user authenticates successfully.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated;
+
+Event::listen(WorkOSSessionCreated::class, function ($event) {
+    $data = $event->data;
+});
+```
+
+**WorkOSSessionRevoked**
+Fired when a user's session is revoked.
+
+```php
+use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionRevoked;
+
+Event::listen(WorkOSSessionRevoked::class, function ($event) {
+    $data = $event->data;
+});
+```
+
+### Generic Webhook Event
+
+All webhooks also fire a generic `WebhookReceived` event:
+
+```php
+use WorkOS\AuthKit\Events\WebhookReceived;
+
+Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
+    $eventType = $event->type;      // 'user.created', 'organization.updated', etc.
+    $eventData = $event->data;      // Raw event data
+});
+```
+
+## Built-in Sync Listeners
+
+When `config('workos.webhooks.sync_enabled')` is true (default), the package automatically:
+
+**SyncUserFromWebhook**
+- `user.created` → Creates or updates the User record
+- `user.updated` → Updates the User record
+
+Customization: Add a `findOrCreateByWorkOS` method to your User model:
+
+```php
+public static function findOrCreateByWorkOS(array $workosUser): self
+{
+    return self::updateOrCreate(
+        ['workos_id' => $workosUser['id']],
+        [
+            'email' => $workosUser['email'],
+            'name' => $workosUser['first_name'].' '.$workosUser['last_name'],
+            'avatar' => $workosUser['profile_image_url'] ?? null,
+        ]
+    );
+}
+```
+
+**SyncOrganizationFromWebhook**
+- `organization.created` → Creates the Organization record
+- `organization.updated` → Updates the Organization record
+
+Customization: Add a `findOrCreateByWorkOS` method to your Organization model:
+
+```php
+public static function findOrCreateByWorkOS(array $workosOrg): self
+{
+    return self::updateOrCreate(
+        ['workos_id' => $workosOrg['id']],
+        [
+            'name' => $workosOrg['name'],
+            'slug' => $workosOrg['slug'] ?? str($workosOrg['name'])->slug(),
+        ]
+    );
+}
+```
+
+**SyncMembershipFromWebhook**
+- `organization_membership.created` → Links user to organization
+- `organization_membership.updated` → Updates user's role in organization
+- `organization_membership.deleted` → Removes user from organization
+
+Requires the `HasOrganization` trait on both User and Organization models.
+
+## Custom Event Listeners
+
+Create custom listeners to extend webhook handling:
+
+```bash
+php artisan make:listener SyncUserAvatarFromWorkOS --event=WorkOSUserUpdated
+```
+
+Edit `app/Listeners/SyncUserAvatarFromWorkOS.php`:
+
+```php
+<?php
+
+namespace App\Listeners;
+
+use App\Models\User;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+
+class SyncUserAvatarFromWorkOS implements ShouldQueue
+{
+    public function handle(WorkOSUserUpdated $event): void
+    {
+        $user = User::where('workos_id', $event->data['id'])->first();
+
+        if ($user) {
+            $user->update([
+                'avatar_url' => $event->data['profile_image_url'] ?? null,
+            ]);
+        }
+    }
+}
+```
+
+Register in `app/Providers/EventServiceProvider.php`:
+
+```php
+protected $listen = [
+    WorkOSUserUpdated::class => [
+        SyncUserAvatarFromWorkOS::class,
+    ],
+];
+```
+
+## Handling Webhook Data
+
+Webhook event objects provide a `data` property with the raw WorkOS event data:
+
+```php
+Event::listen(WorkOSMembershipCreated::class, function ($event) {
+    $event->data = [
+        'id' => 'membership_123abc',
+        'user_id' => 'user_123abc',
+        'organization_id' => 'org_123abc',
+        'role' => 'admin',
+        'created_at' => '2024-01-15T10:30:00Z',
+    ];
+});
+```
+
+Implement your own sync logic:
+
+```php
+Event::listen(WorkOSMembershipCreated::class, function ($event) {
+    $user = User::where('workos_id', $event->data['user_id'])->first();
+    $org = Organization::where('workos_id', $event->data['organization_id'])->first();
+
+    if ($user && $org) {
+        $user->organizations()->attach($org, [
+            'role' => $event->data['role'],
+        ]);
+
+        // Send welcome email
+        Mail::send(new MembershipWelcome($user, $org));
+    }
+});
+```
+
+## Testing Webhooks Locally
+
+Use the provided command to test webhook delivery:
+
+```bash
+php artisan workos:listen-events
+```
+
+This command:
+1. Starts a local webhook server
+2. Displays all incoming events
+3. Useful for development and debugging
+
+Press Ctrl+C to stop.
+
+## Disabling Webhooks
+
+To disable webhook ingestion entirely:
+
+```php
+// config/workos.php
+'webhooks' => [
+    'enabled' => false,
+],
+```
+
+Or disable auto-sync but keep event dispatching:
+
+```php
+'webhooks' => [
+    'enabled' => true,
+    'sync_enabled' => false, // Don't auto-sync, but dispatch events
+],
+```
+
+## Webhook Signature Verification
+
+The webhook endpoint automatically verifies signatures using the `WorkOS-Signature` header and your `WORKOS_WEBHOOK_SECRET`. This is handled by the `WebhookController` and the WorkOS PHP SDK's `Webhook::constructEvent()` method.
+
+Signature validation:
+- Checks timestamp (tolerance: 180 seconds)
+- Verifies HMAC-SHA256 signature
+- Returns 400 if invalid
+- Returns 500 if secret not configured
+
+## Error Handling
+
+If webhook processing fails:
+
+1. **Invalid signature** → Returns 400 Bad Request
+2. **Sync error** → Event dispatches but listener may catch/report exception
+3. **Missing model method** → Silently skips (e.g., if User model doesn't have `findOrCreateByWorkOS`)
+
+To debug webhook issues:
+
+```bash
+# Check recent webhook logs
+tail -f storage/logs/laravel.log | grep webhook
+
+# Enable detailed logging in config/logging.php
+'channels' => [
+    'webhooks' => [
+        'driver' => 'single',
+        'path' => storage_path('logs/webhooks.log'),
+        'level' => 'debug',
+    ],
+],
+```
+
+## Best Practices
+
+### 1. Make Listeners Async
+
+Process webhooks asynchronously to avoid blocking the response:
+
+```php
+class SyncUserFromWebhook implements ShouldQueue
+{
+    // Implements queueable processing
+}
+```
+
+### 2. Idempotent Operations
+
+Webhooks can be retried. Make sync operations safe to repeat:
+
+```php
+// Good - updateOrCreate is idempotent
+User::updateOrCreate(
+    ['workos_id' => $data['id']],
+    ['email' => $data['email']]
+);
+
+// Bad - creates duplicates on retry
+User::create(['workos_id' => $data['id'], 'email' => $data['email']]);
+```
+
+### 3. Validate Webhook Data
+
+Don't assume all fields exist:
+
+```php
+$workosUserId = $event->data['id'] ?? null;
+if (! $workosUserId) {
+    Log::warning('Webhook received without user ID', $event->data);
+    return;
+}
+```
+
+### 4. Log Webhook Activity
+
+Track webhook processing for debugging:
+
+```php
+Event::listen(WorkOSUserCreated::class, function ($event) {
+    Log::info('Webhook: User created', [
+        'workos_id' => $event->data['id'],
+        'email' => $event->data['email'],
+    ]);
+});
+```
+
+### 5. Handle Missing Records Gracefully
+
+Don't fail if related records don't exist:
+
+```php
+Event::listen(WorkOSMembershipCreated::class, function ($event) {
+    $user = User::where('workos_id', $event->data['user_id'])->first();
+    
+    if (! $user) {
+        Log::info('Membership event for unknown user', [
+            'user_id' => $event->data['user_id'],
+        ]);
+        return; // Silently skip rather than failing
+    }
+    
+    // Process membership
+});
+```
+
+## Troubleshooting
+
+**Webhooks not being received**
+1. Verify webhook URL in WorkOS Dashboard
+2. Check that your server is accessible from the internet
+3. Use `php artisan workos:listen-events` to test locally
+4. Check webhook logs in WorkOS Dashboard
+
+**"Webhook secret not configured"**
+Add `WORKOS_WEBHOOK_SECRET` to your `.env` and run `php artisan config:clear`.
+
+**"Invalid signature"**
+Ensure your `WORKOS_WEBHOOK_SECRET` matches exactly what's in your WorkOS Dashboard. Copy-paste carefully.
+
+**Data not syncing**
+1. Ensure `sync_enabled` is true in config
+2. Verify your User and Organization models have the sync methods or traits
+3. Check Laravel logs for sync errors
+4. Manually trigger a sync with `php artisan workos:sync-users`
+
+**Listeners not executing**
+1. Check that the event is registered in `EventServiceProvider`
+2. Verify the listener class exists and is correctly namespaced
+3. Check that the webhook is actually being sent by WorkOS
