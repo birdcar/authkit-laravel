@@ -89,7 +89,7 @@ Plans:
   4. A developer with no prior WorkOS knowledge can install and configure the package in under 5 minutes using only the README
 **Plans**: 1 plan
 Plans:
-- [ ] 05-01-PLAN.md — Verify CI/CD workflows, fix README testing section, expand workbench docs
+- [x] 05-01-PLAN.md — Verify CI/CD workflows, fix README testing section, expand workbench docs
 
 ## Progress
 
