@@ -18,7 +18,18 @@ Route::middleware(['auth:workos', 'workos.organization.current'])->group(functio
         return view('todos.index', [
             'currentOrganization' => request()->attributes->get('current_organization'),
         ]);
-    })->name('todos.index');
+    })->middleware('workos.permission:todos.read')->name('todos.index');
+
+    // Admin-only todo deletion via route (demonstrates workos.role middleware — D-09)
+    Route::delete('/todos/{todo}', function (\App\Models\Todo $todo) {
+        $todo->delete();
+
+        \WorkOS\AuthKit\Facades\WorkOS::audit('todo.deleted', [
+            ['type' => 'todo', 'id' => (string) $todo->id, 'name' => $todo->title],
+        ]);
+
+        return response()->json(['message' => 'Todo deleted']);
+    })->middleware('workos.role:admin')->name('todos.destroy');
 
     // Organization routes
     Route::prefix('organizations')->name('organizations.')->group(function () {

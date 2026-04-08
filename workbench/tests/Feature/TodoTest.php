@@ -8,28 +8,30 @@ use App\Models\Organization;
 use App\Models\Todo;
 use App\Models\User;
 use Livewire\Livewire;
+use WorkOS\AuthKit\WorkOS;
 
 test('user can view todos page', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->create();
     $user->organizations()->attach($org);
 
-    $this->actingAs($user, 'workos')
-        ->withSession(['current_organization_id' => $org->id])
+    WorkOS::fake()->actingAs($user, permissions: ['todos.read']);
+
+    $this->withSession(['current_organization_id' => $org->id])
         ->get('/todos')
         ->assertOk()
         ->assertSee('Todos');
-});
+})->afterEach(fn () => WorkOS::restore());
 
 test('user can create a todo', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->create();
     $user->organizations()->attach($org);
 
+    $fake = WorkOS::fake()->actingAs($user, permissions: ['todos.read']);
     session(['current_organization_id' => $org->id]);
 
-    Livewire::actingAs($user, 'workos')
-        ->test(TodoList::class)
+    Livewire::test(TodoList::class)
         ->set('newTodo', 'My new task')
         ->call('addTodo');
 
@@ -39,7 +41,9 @@ test('user can create a todo', function () {
         'title' => 'My new task',
         'completed' => false,
     ]);
-});
+
+    $fake->assertAudited('todo.created');
+})->afterEach(fn () => WorkOS::restore());
 
 test('user can toggle todo completion', function () {
     $user = User::factory()->create();
@@ -51,12 +55,14 @@ test('user can toggle todo completion', function () {
         'completed' => false,
     ]);
 
-    Livewire::actingAs($user, 'workos')
-        ->test(TodoItem::class, ['todo' => $todo])
+    $fake = WorkOS::fake()->actingAs($user);
+
+    Livewire::test(TodoItem::class, ['todo' => $todo])
         ->call('toggle');
 
     expect($todo->fresh()->completed)->toBeTrue();
-});
+    $fake->assertAudited('todo.completed');
+})->afterEach(fn () => WorkOS::restore());
 
 test('user can delete a todo', function () {
     $user = User::factory()->create();
@@ -67,13 +73,15 @@ test('user can delete a todo', function () {
         'organization_id' => $org->id,
     ]);
 
-    Livewire::actingAs($user, 'workos')
-        ->test(TodoItem::class, ['todo' => $todo])
+    $fake = WorkOS::fake()->actingAs($user);
+
+    Livewire::test(TodoItem::class, ['todo' => $todo])
         ->call('confirmDelete')
         ->call('delete');
 
     $this->assertDatabaseMissing('todos', ['id' => $todo->id]);
-});
+    $fake->assertAudited('todo.deleted');
+})->afterEach(fn () => WorkOS::restore());
 
 test('todos are scoped to organization', function () {
     $user = User::factory()->create();
@@ -84,9 +92,47 @@ test('todos are scoped to organization', function () {
     Todo::factory()->create(['user_id' => $user->id, 'organization_id' => $org1->id, 'title' => 'Org 1 Task']);
     Todo::factory()->create(['user_id' => $user->id, 'organization_id' => $org2->id, 'title' => 'Org 2 Task']);
 
-    $this->actingAs($user, 'workos')
-        ->withSession(['current_organization_id' => $org1->id])
+    WorkOS::fake()->actingAs($user, permissions: ['todos.read']);
+
+    $this->withSession(['current_organization_id' => $org1->id])
         ->get('/todos')
         ->assertSee('Org 1 Task')
         ->assertDontSee('Org 2 Task');
-});
+})->afterEach(fn () => WorkOS::restore());
+
+test('admin can delete any todo via route', function () {
+    $user = User::factory()->create();
+    $org = Organization::factory()->create();
+    $user->organizations()->attach($org);
+    $todo = Todo::factory()->create([
+        'user_id' => $user->id,
+        'organization_id' => $org->id,
+    ]);
+
+    $fake = WorkOS::fake()->actingAs($user, roles: ['admin']);
+
+    $this->withSession(['current_organization_id' => $org->id])
+        ->delete("/todos/{$todo->id}")
+        ->assertOk();
+
+    $this->assertDatabaseMissing('todos', ['id' => $todo->id]);
+    $fake->assertAudited('todo.deleted');
+})->afterEach(fn () => WorkOS::restore());
+
+test('non-admin cannot delete todo via route', function () {
+    $user = User::factory()->create();
+    $org = Organization::factory()->create();
+    $user->organizations()->attach($org);
+    $todo = Todo::factory()->create([
+        'user_id' => $user->id,
+        'organization_id' => $org->id,
+    ]);
+
+    WorkOS::fake()->actingAs($user, roles: ['member']);
+
+    $this->withSession(['current_organization_id' => $org->id])
+        ->delete("/todos/{$todo->id}")
+        ->assertForbidden();
+
+    $this->assertDatabaseHas('todos', ['id' => $todo->id]);
+})->afterEach(fn () => WorkOS::restore());

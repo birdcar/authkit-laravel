@@ -33,7 +33,8 @@ test('authenticated user can access dashboard', function () {
 test('authenticated user can logout', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user, 'workos')
-        ->get('/auth/logout')
+    WorkOS::actingAs($user);
+
+    $this->get('/auth/logout')
         ->assertRedirect();
-});
+})->afterEach(fn () => WorkOS::restore());
