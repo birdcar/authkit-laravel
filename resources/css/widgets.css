@@ -368,3 +368,177 @@
     align-items: center;
     gap: 8px;
 }
+
+/* API Keys */
+.woswidgets-api-key-list .woswidgets-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.woswidgets-api-key-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.woswidgets-api-key-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--woswidgets-foreground-color);
+}
+
+.woswidgets-api-key-obfuscated {
+    font-size: 13px;
+    color: color-mix(in srgb, var(--woswidgets-foreground-color) 60%, transparent);
+    font-family: monospace;
+}
+
+.woswidgets-api-key-secret {
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid hsl(48 96% 53%);
+    border-radius: 8px;
+    background-color: color-mix(in srgb, hsl(48 96% 53%) 10%, var(--woswidgets-background-color));
+}
+
+.woswidgets-api-key-secret-warning {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--woswidgets-foreground-color);
+    margin: 0 0 8px;
+}
+
+.woswidgets-api-key-secret-value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.woswidgets-api-key-secret-value code {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--woswidgets-border-color);
+    border-radius: 6px;
+    font-size: 13px;
+    word-break: break-all;
+    background-color: var(--woswidgets-background-color);
+}
+
+.woswidgets-api-key-create-form {
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--woswidgets-border-color);
+    border-radius: 8px;
+}
+
+.woswidgets-form-field {
+    margin-bottom: 12px;
+}
+
+.woswidgets-form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--woswidgets-foreground-color);
+    margin-bottom: 4px;
+}
+
+.woswidgets-permissions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.woswidgets-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--woswidgets-foreground-color);
+    cursor: pointer;
+}
+
+.woswidgets-form-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Data Integrations */
+.woswidgets-data-integration-list .woswidgets-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.woswidgets-integration-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.woswidgets-integration-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--woswidgets-foreground-color);
+}
+
+.woswidgets-integration-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Directory Sync */
+.woswidgets-directory-list .woswidgets-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.woswidgets-directory-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.woswidgets-directory-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--woswidgets-foreground-color);
+}
+
+.woswidgets-directory-type {
+    font-size: 13px;
+    color: color-mix(in srgb, var(--woswidgets-foreground-color) 60%, transparent);
+}
+
+.woswidgets-directory-status-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Organization Settings */
+.woswidgets-organization-settings .woswidgets-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.woswidgets-settings-key {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--woswidgets-foreground-color);
+}
+
+.woswidgets-settings-value {
+    font-size: 14px;
+    color: color-mix(in srgb, var(--woswidgets-foreground-color) 60%, transparent);
+}

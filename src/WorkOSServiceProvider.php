@@ -48,6 +48,14 @@ use WorkOS\AuthKit\Listeners\SyncUserFromWebhook;
 use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\AdminPortal;
 use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\DomainList;
 use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\SsoConnectionList;
+use WorkOS\AuthKit\Livewire\Widgets\ApiKeys\ApiKeyList;
+use WorkOS\AuthKit\Livewire\Widgets\ApiKeys\ApiKeys;
+use WorkOS\AuthKit\Livewire\Widgets\DataIntegrations\DataIntegrationList;
+use WorkOS\AuthKit\Livewire\Widgets\DataIntegrations\DataIntegrations;
+use WorkOS\AuthKit\Livewire\Widgets\DirectorySync\DirectoryList;
+use WorkOS\AuthKit\Livewire\Widgets\DirectorySync\DirectorySync;
+use WorkOS\AuthKit\Livewire\Widgets\Settings\OrganizationSettings;
+use WorkOS\AuthKit\Livewire\Widgets\Settings\Settings;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\InviteUser;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\MemberActions;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\MembersTable;
@@ -355,5 +363,13 @@ class WorkOSServiceProvider extends ServiceProvider
         $livewire::component('workos-sso-connection-list', SsoConnectionList::class);
         $livewire::component('workos-domain-list', DomainList::class);
         $livewire::component('workos-admin-portal', AdminPortal::class);
+        $livewire::component('workos-api-key-list', ApiKeyList::class);
+        $livewire::component('workos-data-integration-list', DataIntegrationList::class);
+        $livewire::component('workos-directory-list', DirectoryList::class);
+        $livewire::component('workos-organization-settings', OrganizationSettings::class);
+        $livewire::component('workos-api-keys', ApiKeys::class);
+        $livewire::component('workos-data-integrations', DataIntegrations::class);
+        $livewire::component('workos-directory-sync', DirectorySync::class);
+        $livewire::component('workos-settings', Settings::class);
     }
 }
