@@ -137,6 +137,20 @@ class WorkOSFake
         return $this->organizationId;
     }
 
+    public function getLogoutUrl(?string $returnTo = null): ?string
+    {
+        return $returnTo ?? '/';
+    }
+
+    public function destroySession(): void
+    {
+        $this->user = null;
+        $this->roles = [];
+        $this->permissions = [];
+        $this->organizationId = null;
+        $this->impersonator = null;
+    }
+
     /**
      * @param  array<int, mixed>  $targets
      * @param  array<string, mixed>  $metadata
