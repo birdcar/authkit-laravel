@@ -321,3 +321,50 @@
     color: var(--woswidgets-accent-color);
     border-bottom-color: var(--woswidgets-accent-color);
 }
+
+/* Admin Portal */
+.woswidgets-admin-portal-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.woswidgets-sso-connection-list .woswidgets-section-header,
+.woswidgets-domain-list .woswidgets-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.woswidgets-section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--woswidgets-foreground-color);
+    margin: 0;
+}
+
+.woswidgets-connection-info,
+.woswidgets-domain-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.woswidgets-connection-name,
+.woswidgets-domain-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--woswidgets-foreground-color);
+}
+
+.woswidgets-connection-type {
+    font-size: 13px;
+    color: color-mix(in srgb, var(--woswidgets-foreground-color) 60%, transparent);
+}
+
+.woswidgets-domain-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

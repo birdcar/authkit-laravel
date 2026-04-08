@@ -45,6 +45,9 @@ use WorkOS\AuthKit\Install\WizardFlow;
 use WorkOS\AuthKit\Listeners\SyncMembershipFromWebhook;
 use WorkOS\AuthKit\Listeners\SyncOrganizationFromWebhook;
 use WorkOS\AuthKit\Listeners\SyncUserFromWebhook;
+use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\AdminPortal;
+use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\DomainList;
+use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\SsoConnectionList;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\InviteUser;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\MemberActions;
 use WorkOS\AuthKit\Livewire\Widgets\UserManagement\MembersTable;
@@ -349,5 +352,8 @@ class WorkOSServiceProvider extends ServiceProvider
         $livewire::component('workos-security-settings', SecuritySettings::class);
         $livewire::component('workos-session-management', SessionManagement::class);
         $livewire::component('workos-user-profile', UserProfile::class);
+        $livewire::component('workos-sso-connection-list', SsoConnectionList::class);
+        $livewire::component('workos-domain-list', DomainList::class);
+        $livewire::component('workos-admin-portal', AdminPortal::class);
     }
 }
