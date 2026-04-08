@@ -22,10 +22,6 @@ class FakeTestUser extends Authenticatable
     public $name = 'Fake User';
 }
 
-beforeEach(function () {
-    config(['workos.guard' => 'web']);
-});
-
 afterEach(function () {
     WorkOS::restore();
 });

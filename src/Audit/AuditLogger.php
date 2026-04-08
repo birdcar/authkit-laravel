@@ -38,7 +38,7 @@ class AuditLogger
         }
 
         /** @var Guard $guard */
-        $guard = auth();
+        $guard = auth(config('workos.guard', 'workos'));
         /** @var Authenticatable|null $user */
         $user = $guard->user();
 
