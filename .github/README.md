@@ -464,9 +464,10 @@ describe('todo management', function () {
 
         $fake->assertGuest();
     });
-});
-// No afterEach needed — the trait tears down automatically
+})->afterEach(fn () => WorkOS::restore());
 ```
+
+> **Note:** Even with the trait, always include `->afterEach(fn () => WorkOS::restore())` when using `describe()` blocks — Pest's `uses()` inside `describe()` does not trigger Laravel's `setUpTraits()` auto-teardown.
 
 ### Audit Assertions
 
@@ -477,9 +478,10 @@ test('audit events are captured and assertable', function () {
     $user = User::factory()->create();
     $fake = WorkOS::fake()->actingAs($user);
 
-    // Your application code calls WorkOS::audit() internally
-    $fake->audit('todo.created', metadata: ['title' => 'My Task']);
-    $fake->audit('todo.completed', metadata: ['title' => 'My Task']);
+    // Simulate application code that calls WorkOS::audit()
+    // In real usage, your controllers/services call WorkOS::audit() — the fake captures those calls
+    WorkOS::audit('todo.created', metadata: ['title' => 'My Task']);
+    WorkOS::audit('todo.completed', metadata: ['title' => 'My Task']);
 
     $fake->assertAudited('todo.created');
     $fake->assertNotAudited('todo.deleted');
