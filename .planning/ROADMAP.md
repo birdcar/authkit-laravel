@@ -87,6 +87,9 @@ Plans:
   2. Applying a semver label to a merged PR triggers an automated release with CHANGELOG entry
   3. The README CI badge reflects the current build status
   4. A developer with no prior WorkOS knowledge can install and configure the package in under 5 minutes using only the README
+**Plans**: 1 plan
+Plans:
+- [ ] 05-01-PLAN.md — Verify CI/CD workflows, fix README testing section, expand workbench docs
 
 ## Progress
 
@@ -99,4 +102,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Testing Utilities | 0/2 | Not started | - |
 | 3. Smart Install | 3/3 | Complete   | 2026-04-07 |
 | 4. Workbench Example App | 1/2 | In progress | - |
-| 5. CI/CD and Documentation | 0/? | Not started | - |
+| 5. CI/CD and Documentation | 0/1 | Not started | - |
