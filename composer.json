@@ -16,6 +16,9 @@
         "pestphp/pest": "^3.0",
         "phpstan/phpstan": "^2.0"
     },
+    "suggest": {
+        "livewire/livewire": "Required for WorkOS Livewire widget components (^3.0)"
+    },
     "autoload": {
         "psr-4": {
             "WorkOS\\AuthKit\\": "src/"

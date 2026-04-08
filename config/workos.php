@@ -64,6 +64,21 @@ return [
         'organizations' => env('WORKOS_FEATURE_ORGANIZATIONS', true),
         'impersonation' => env('WORKOS_FEATURE_IMPERSONATION', true),
         'webhooks' => env('WORKOS_FEATURE_WEBHOOKS', true),
+        'widgets' => env('WORKOS_FEATURE_WIDGETS', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Widgets Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the WorkOS Widgets API base URL. Override for staging or
+    | local development environments.
+    |
+    */
+
+    'widgets' => [
+        'base_url' => env('WORKOS_BASE_API_URL', 'https://api.workos.com'),
     ],
 
     /*

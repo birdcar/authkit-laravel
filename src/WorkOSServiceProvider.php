@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Component;
 use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Audit\AuditMiddleware;
@@ -133,6 +134,7 @@ class WorkOSServiceProvider extends ServiceProvider
         $this->configureWebhooks();
         $this->configureEventListeners();
         $this->configureCommands();
+        $this->configureLivewireWidgets();
     }
 
     /**
@@ -308,5 +310,26 @@ class WorkOSServiceProvider extends ServiceProvider
             SyncUsersCommand::class,
             EventsListenCommand::class,
         ]);
+    }
+
+    protected function configureLivewireWidgets(): void
+    {
+        if (! class_exists(Component::class)) {
+            return;
+        }
+
+        if (! config('workos.features.widgets', true)) {
+            return;
+        }
+
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'workos');
+
+        $this->publishes([
+            __DIR__.'/../resources/views/livewire/widgets' => resource_path('views/vendor/workos/livewire/widgets'),
+        ], 'workos-widget-views');
+
+        $this->publishes([
+            __DIR__.'/../resources/css/widgets.css' => public_path('vendor/workos/widgets.css'),
+        ], 'workos-widget-styles');
     }
 }

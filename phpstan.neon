@@ -9,4 +9,5 @@ parameters:
         - src/Models/Concerns
         - src/Audit/Concerns
         - src/Testing/Concerns
+        - src/Livewire/Concerns
     tmpDir: .phpstan-cache

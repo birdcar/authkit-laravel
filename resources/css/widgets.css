@@ -1,0 +1,323 @@
+/*
+ * WorkOS Widgets — Base Styles
+ *
+ * CSS custom properties match the official @workos-inc/widgets package.
+ * Override these variables to theme all widget components consistently.
+ *
+ * Publish: php artisan vendor:publish --tag=workos-widget-styles
+ */
+
+:root {
+    --woswidgets-accent-color: hsl(212 100% 50% / 1);
+    --woswidgets-border-color: light-dark(hsl(0 0% 46%), hsl(0 0% 52%));
+    --woswidgets-background-color: light-dark(hsl(0 0% 100%), hsl(0 0% 0%));
+    --woswidgets-foreground-color: light-dark(hsl(0 0% 0%), hsl(0 0% 100%));
+}
+
+/* Root container */
+.woswidgets-root {
+    color: var(--woswidgets-foreground-color);
+    background-color: var(--woswidgets-background-color);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.5;
+}
+
+/* Appearance variants */
+.woswidgets-light {
+    color-scheme: light;
+}
+
+.woswidgets-dark {
+    color-scheme: dark;
+}
+
+/* Card container */
+.woswidgets-card {
+    border: 1px solid var(--woswidgets-border-color);
+    border-radius: 8px;
+    background-color: var(--woswidgets-background-color);
+    padding: 16px;
+}
+
+/* List items */
+.woswidgets-card-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--woswidgets-border-color) 30%, transparent);
+}
+
+.woswidgets-card-list-item:last-child {
+    border-bottom: none;
+}
+
+/* Text fields */
+.woswidgets-text-field {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--woswidgets-border-color);
+    border-radius: 6px;
+    background-color: var(--woswidgets-background-color);
+    color: var(--woswidgets-foreground-color);
+    font-size: 14px;
+}
+
+.woswidgets-text-field:focus {
+    outline: 2px solid var(--woswidgets-accent-color);
+    outline-offset: -1px;
+}
+
+/* Buttons */
+.woswidgets-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.woswidgets-button:hover {
+    opacity: 0.9;
+}
+
+.woswidgets-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.woswidgets-save-button {
+    background-color: var(--woswidgets-accent-color);
+    color: white;
+    border: none;
+}
+
+.woswidgets-cancel-button {
+    background-color: transparent;
+    color: var(--woswidgets-foreground-color);
+    border: 1px solid var(--woswidgets-border-color);
+}
+
+.woswidgets-destructive-button {
+    background-color: hsl(0 72% 51%);
+    color: white;
+    border: none;
+}
+
+/* Status indicators */
+.woswidgets-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.woswidgets-status::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.woswidgets-status--active::before {
+    background-color: hsl(142 71% 45%);
+}
+
+.woswidgets-status--inactive::before {
+    background-color: var(--woswidgets-border-color);
+}
+
+.woswidgets-status--pending::before {
+    background-color: hsl(48 96% 53%);
+}
+
+/* Badges / markers */
+.woswidgets-marker {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+    background-color: color-mix(in srgb, var(--woswidgets-accent-color) 15%, transparent);
+    color: var(--woswidgets-accent-color);
+}
+
+/* Dialogs */
+.woswidgets-dialog {
+    border: 1px solid var(--woswidgets-border-color);
+    border-radius: 12px;
+    background-color: var(--woswidgets-background-color);
+    padding: 24px;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+.woswidgets-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgb(0 0 0 / 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+
+/* Skeleton loading */
+.woswidgets-skeleton {
+    animation: woswidgets-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.woswidgets-skeleton-line {
+    height: 16px;
+    border-radius: 4px;
+    background-color: color-mix(in srgb, var(--woswidgets-border-color) 30%, transparent);
+    margin-bottom: 8px;
+}
+
+@keyframes woswidgets-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Empty state */
+.woswidgets-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    color: color-mix(in srgb, var(--woswidgets-foreground-color) 60%, transparent);
+}
+
+/* Error state */
+.woswidgets-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    color: hsl(0 72% 51%);
+}
+
+.woswidgets-retry-button {
+    composes: woswidgets-button;
+    background-color: transparent;
+    color: var(--woswidgets-accent-color);
+    border: 1px solid var(--woswidgets-accent-color);
+    font-size: 13px;
+    padding: 6px 12px;
+}
+
+/* Table */
+.woswidgets-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.woswidgets-table th {
+    text-align: left;
+    font-weight: 500;
+    font-size: 13px;
+    color: color-mix(in srgb, var(--woswidgets-foreground-color) 60%, transparent);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--woswidgets-border-color);
+}
+
+.woswidgets-table td {
+    padding: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--woswidgets-border-color) 30%, transparent);
+    font-size: 14px;
+}
+
+.woswidgets-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Avatar */
+.woswidgets-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    background-color: color-mix(in srgb, var(--woswidgets-accent-color) 15%, transparent);
+    color: var(--woswidgets-accent-color);
+}
+
+.woswidgets-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Dropdown / select */
+.woswidgets-select {
+    padding: 8px 12px;
+    border: 1px solid var(--woswidgets-border-color);
+    border-radius: 6px;
+    background-color: var(--woswidgets-background-color);
+    color: var(--woswidgets-foreground-color);
+    font-size: 14px;
+}
+
+/* Pagination */
+.woswidgets-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px 0;
+}
+
+.woswidgets-pagination-button {
+    padding: 6px 10px;
+    border: 1px solid var(--woswidgets-border-color);
+    border-radius: 6px;
+    background-color: var(--woswidgets-background-color);
+    color: var(--woswidgets-foreground-color);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.woswidgets-pagination-button--active {
+    background-color: var(--woswidgets-accent-color);
+    color: white;
+    border-color: var(--woswidgets-accent-color);
+}
+
+/* Tabs */
+.woswidgets-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--woswidgets-border-color);
+    margin-bottom: 16px;
+}
+
+.woswidgets-tab {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--woswidgets-foreground-color) 60%, transparent);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.woswidgets-tab:hover {
+    color: var(--woswidgets-foreground-color);
+}
+
+.woswidgets-tab--active {
+    color: var(--woswidgets-accent-color);
+    border-bottom-color: var(--woswidgets-accent-color);
+}
