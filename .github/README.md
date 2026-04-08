@@ -413,24 +413,121 @@ test('user without permission cannot create posts', function () {
 
 ### Faking WorkOS
 
-For complete control in tests:
+Replace the WorkOS service with a test fake that captures state and exposes assertions:
 
 ```php
 use WorkOS\AuthKit\Facades\WorkOS;
 
-test('handles workos errors gracefully', function () {
+test('unauthenticated user is redirected', function () {
     $fake = WorkOS::fake();
 
-    // Configure fake responses
-    $fake->shouldReceive('userManagement->authenticateWithCode')
-        ->andThrow(new \Exception('API Error'));
+    $this->get('/dashboard')->assertRedirect('/auth/login');
+    $fake->assertGuest();
+})->afterEach(fn () => WorkOS::restore());
 
-    // Test error handling
-    $this->get('/auth/callback?code=invalid')
-        ->assertRedirect('/login')
-        ->assertSessionHas('error');
-});
+test('can build up context incrementally', function () {
+    $user = User::factory()->create();
+    $fake = WorkOS::fake()
+        ->actingAs($user, roles: ['member'], permissions: ['todos.read'])
+        ->withRoles(['admin'])
+        ->withPermissions(['todos.write'])
+        ->inOrganization('org_xyz');
+
+    $fake->assertHasRole('admin');
+    $fake->assertHasPermission('todos.write');
+    $fake->assertInOrganization('org_xyz');
+})->afterEach(fn () => WorkOS::restore());
 ```
+
+Always pair `WorkOS::fake()` with `->afterEach(fn () => WorkOS::restore())` or use the `InteractsWithWorkOS` trait (see below) to prevent fake state from leaking between tests.
+
+### InteractsWithWorkOS Trait
+
+The `InteractsWithWorkOS` trait provides helper methods and handles teardown automatically via Laravel's test lifecycle:
+
+```php
+use WorkOS\AuthKit\Testing\Concerns\InteractsWithWorkOS;
+
+describe('todo management', function () {
+    uses(InteractsWithWorkOS::class);
+
+    it('allows authenticated user to view todos', function () {
+        $user = User::factory()->create();
+        $fake = $this->actingAsWorkOS($user, roles: ['member'], permissions: ['todos.read']);
+
+        $this->get('/dashboard')->assertOk();
+        $fake->assertHasRole('member');
+    });
+
+    it('activates fake without authentication', function () {
+        $fake = $this->fakeWorkOS();
+
+        $fake->assertGuest();
+    });
+});
+// No afterEach needed — the trait tears down automatically
+```
+
+### Audit Assertions
+
+The fake captures all `WorkOS::audit()` calls so you can assert on them in tests:
+
+```php
+test('audit events are captured and assertable', function () {
+    $user = User::factory()->create();
+    $fake = WorkOS::fake()->actingAs($user);
+
+    // Your application code calls WorkOS::audit() internally
+    $fake->audit('todo.created', metadata: ['title' => 'My Task']);
+    $fake->audit('todo.completed', metadata: ['title' => 'My Task']);
+
+    $fake->assertAudited('todo.created');
+    $fake->assertNotAudited('todo.deleted');
+    $fake->assertAuditedCount(2);
+})->afterEach(fn () => WorkOS::restore());
+```
+
+### WorkOSFake API Reference
+
+**Setup Methods**
+
+| Method | Description |
+|--------|-------------|
+| `WorkOS::fake()` | Activate the fake (replaces container binding) |
+| `WorkOS::actingAs($user, ...)` | Activate fake and authenticate user in one call |
+| `WorkOS::restore()` | Tear down fake and restore real service |
+| `WorkOS::isFaked()` | Check if fake is currently active |
+| `$fake->actingAs($user, roles: [], permissions: [], organizationId: null)` | Authenticate a user with optional RBAC context |
+| `$fake->withRoles(['role'])` | Merge additional roles |
+| `$fake->withPermissions(['perm'])` | Merge additional permissions |
+| `$fake->inOrganization('org_id')` | Set organization context |
+| `$fake->impersonating(['email' => '...'])` | Simulate impersonation |
+| `$fake->destroySession()` | Clear authenticated state |
+
+**Assertion Methods** (all return `$fake` for chaining)
+
+| Method | Description |
+|--------|-------------|
+| `$fake->assertAuthenticated()` | Assert a user is authenticated |
+| `$fake->assertGuest()` | Assert no user is authenticated |
+| `$fake->assertHasRole('role')` | Assert user has a specific role |
+| `$fake->assertHasPermission('perm')` | Assert user has a specific permission |
+| `$fake->assertInOrganization('org_id')` | Assert current organization |
+| `$fake->assertAudited('action', ?callback)` | Assert audit event was logged |
+| `$fake->assertNotAudited('action')` | Assert audit event was NOT logged |
+| `$fake->assertAuditedCount(n)` | Assert total number of audit events |
+
+**Inspection Methods**
+
+| Method | Description |
+|--------|-------------|
+| `$fake->user()` | Get the authenticated user (or null) |
+| `$fake->session()` | Get the current WorkOSSession (or null) |
+| `$fake->isAuthenticated()` | Check if authenticated |
+| `$fake->isImpersonating()` | Check if impersonating |
+| `$fake->organizationId()` | Get current organization ID |
+| `$fake->getAuditedEvents()` | Get all captured audit events |
+| `$fake->clearAuditedEvents()` | Reset captured audit events |
 
 ## Middleware
 
@@ -475,12 +572,19 @@ The package dispatches these events:
 | `workos:install --mini` | Minimal install - config only with setup instructions |
 | `workos:install --force` | Overwrite existing configuration files |
 | `workos:sync-users` | Sync users from WorkOS |
-| `workos:prune-sessions` | Remove expired sessions |
 | `workos:events:listen` | Listen to WorkOS events (development) |
 
 ## Example Application
 
-The `workbench/` directory contains a complete example Todo application demonstrating all package features.
+The `workbench/` directory contains a complete example Todo application. It demonstrates:
+
+- **Authentication** -- Login/logout via WorkOS AuthKit
+- **Todo CRUD** -- Create, complete, and delete todos scoped per organization
+- **Organization Switching** -- Switch between organizations with separate todo lists
+- **Role-Based Access Control** -- Admin-only delete routes, permission-gated read access
+- **Audit Logging** -- User actions logged via WorkOS Audit Logs API
+- **Admin Portal** -- Links to SSO, Directory Sync, Audit Logs, Log Streams, and Domain Verification
+- **Testing Patterns** -- Pest feature tests using `WorkOS::fake()` without real API credentials
 
 Run it locally:
 
