@@ -2,7 +2,13 @@
     "name": "birdcar/authkit-laravel",
     "description": "Laravel integration for WorkOS AuthKit",
     "license": "MIT",
-    "keywords": ["laravel", "workos", "authkit", "authentication", "sso"],
+    "keywords": [
+        "laravel",
+        "workos",
+        "authkit",
+        "authentication",
+        "sso"
+    ],
     "type": "library",
     "require": {
         "php": "^8.3",
