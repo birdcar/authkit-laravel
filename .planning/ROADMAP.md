@@ -75,7 +75,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 04-01-PLAN.md — Fix mechanical compliance gaps (root gitignore, PHP constraint)
-- [ ] 04-02-PLAN.md — Convert tests to WorkOS::fake() and add RBAC middleware to routes (gap closure)
+- [x] 04-02-PLAN.md — Convert tests to WorkOS::fake() and add RBAC middleware to routes (gap closure)
 **UI hint**: yes
 
 ### Phase 5: CI/CD and Documentation
