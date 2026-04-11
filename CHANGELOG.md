@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/birdcar/authkit-laravel/compare/v0.4.2...v0.5.0) (2026-04-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **events:** Event namespace changed from `Events\Webhooks\*` to `Events\Sync\*`. `WebhookReceived` renamed to `WorkOSEventReceived`. `HasWebhookData` trait renamed to `HasEventData`. Default listeners renamed from `*FromWebhook` to `*FromWorkOS`.
+
+### How to upgrade
+
+1. **Update event imports** — find-and-replace across your codebase:
+   - `WorkOS\AuthKit\Events\Webhooks\` → `WorkOS\AuthKit\Events\Sync\`
+   - `WorkOS\AuthKit\Events\WebhookReceived` → `WorkOS\AuthKit\Events\WorkOSEventReceived`
+   - `HasWebhookData` → `HasEventData` (if referencing the trait directly)
+2. **Update listener imports** (if referencing default listeners):
+   - `SyncUserFromWebhook` → `SyncUserFromWorkOS`
+   - `SyncOrganizationFromWebhook` → `SyncOrganizationFromWorkOS`
+   - `SyncMembershipFromWebhook` → `SyncMembershipFromWorkOS`
+
+### Bug Fixes
+
+* **events:** Replace invalid `user.session_revoked` with `session.revoked` per WorkOS Events API docs ([6d24bcb](https://github.com/birdcar/authkit-laravel/commit/6d24bcb))
+* **events:** Add missing `authentication.passkey_succeeded` to EVENT_MAP ([6d24bcb](https://github.com/birdcar/authkit-laravel/commit/6d24bcb))
+
+
+### Code Refactoring
+
+* Rename event infrastructure from `Webhooks` to `Sync` — events can arrive via webhooks or the Events API, so the old naming was misleading ([0f272d1](https://github.com/birdcar/authkit-laravel/commit/0f272d1))
+
+
+### Tests
+
+* Add EVENT_MAP validation test that checks all event names against the live WorkOS API ([99e5c67](https://github.com/birdcar/authkit-laravel/commit/99e5c67))
+
+
 ## [0.4.2](https://github.com/birdcar/authkit-laravel/compare/v0.4.1...v0.4.2) (2026-04-11)
 
 
