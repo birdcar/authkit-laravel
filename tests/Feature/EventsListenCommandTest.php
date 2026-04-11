@@ -122,7 +122,7 @@ it('sends range_start with --since on first run', function () {
     ])->assertSuccessful();
 
     Http::assertSent(function ($request) {
-        return $request->data()['range_start'] === '2024-06-15';
+        return $request->data()['range_start'] === '2024-06-15T00:00:00.000Z';
     });
 });
 
@@ -142,7 +142,7 @@ it('uses lookback_days when no cursor and no --since', function () {
 
     Http::assertSent(function ($request) {
         return isset($request->data()['range_start'])
-            && preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->data()['range_start']);
+            && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/', $request->data()['range_start']);
     });
 });
 

@@ -68,11 +68,11 @@ class EventsListenCommand extends Command
             $sinceOption = $this->option('since');
 
             if ($sinceOption !== null) {
-                $since = $sinceOption;
+                $since = CarbonImmutable::parse($sinceOption)->utc()->format('Y-m-d\TH:i:s.v\Z');
                 $this->info("First run — bootstrapping from --since={$since}");
             } else {
                 $lookback = (int) config('workos.events.lookback_days', 7);
-                $since = CarbonImmutable::now()->subDays($lookback)->toDateString();
+                $since = CarbonImmutable::now()->subDays($lookback)->utc()->format('Y-m-d\TH:i:s.v\Z');
                 $this->info("First run — bootstrapping from {$lookback} days ago");
             }
         }

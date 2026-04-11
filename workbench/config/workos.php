@@ -96,7 +96,38 @@ return [
     'webhooks' => [
         'enabled' => true,
         'prefix' => 'webhooks/workos',
-        'sync_enabled' => env('WORKOS_WEBHOOK_SYNC_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Events Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure event sync routing and the Events API polling worker.
+    | Each event category can be synced via 'webhooks', 'events_api', or
+    | 'both'. Per-event-type overrides take precedence over category defaults.
+    |
+    */
+
+    'events' => [
+        'routing' => [
+            'categories' => [
+                'user' => env('WORKOS_SYNC_USER', 'webhooks'),
+                'organization' => env('WORKOS_SYNC_ORGANIZATION', 'webhooks'),
+                'organization_membership' => env('WORKOS_SYNC_MEMBERSHIP', 'webhooks'),
+                'dsync' => env('WORKOS_SYNC_DSYNC', 'events_api'),
+                'session' => env('WORKOS_SYNC_SESSION', 'webhooks'),
+                'authentication' => env('WORKOS_SYNC_AUTH', 'webhooks'),
+            ],
+
+            'overrides' => [],
+        ],
+
+        'poll_interval' => env('WORKOS_EVENTS_POLL_INTERVAL', 5),
+        'lookback_days' => env('WORKOS_EVENTS_LOOKBACK_DAYS', 7),
+        'limit' => env('WORKOS_EVENTS_LIMIT', 100),
+        'cache_store' => env('WORKOS_EVENTS_CACHE_STORE'),
+        'cache_key' => 'workos.events.cursor',
     ],
 
     /*
