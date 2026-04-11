@@ -18,6 +18,7 @@ use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionRevoked;
 use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
 use WorkOS\AuthKit\Events\Webhooks\WorkOSUserDeleted;
 use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Support\EventRouting;
 use WorkOS\Webhook;
 
 class WebhookController
@@ -45,6 +46,7 @@ class WebhookController
 
     public function __construct(
         private readonly Webhook $webhook,
+        private readonly EventRouting $routing,
     ) {}
 
     public function handle(Request $request): Response
@@ -82,7 +84,7 @@ class WebhookController
         event(new WebhookReceived($eventType, $eventData));
 
         $eventClass = self::EVENT_MAP[$eventType] ?? null;
-        if ($eventClass !== null) {
+        if ($eventClass !== null && $this->routing->shouldProcessVia($eventType, 'webhooks')) {
             event(new $eventClass($eventData));
         }
 

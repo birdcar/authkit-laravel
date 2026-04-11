@@ -65,6 +65,7 @@ use WorkOS\AuthKit\Livewire\Widgets\UserProfile\SecuritySettings;
 use WorkOS\AuthKit\Livewire\Widgets\UserProfile\SessionManagement;
 use WorkOS\AuthKit\Livewire\Widgets\UserProfile\UserProfile;
 use WorkOS\AuthKit\Support\EnvironmentDetector;
+use WorkOS\AuthKit\Support\EventRouting;
 
 class WorkOSServiceProvider extends ServiceProvider
 {
@@ -94,6 +95,15 @@ class WorkOSServiceProvider extends ServiceProvider
                 $app->make('files'),
                 $app->basePath()
             );
+        });
+
+        $this->app->singleton(EventRouting::class, function () {
+            /** @var array<string, string> $categories */
+            $categories = config('workos.events.routing.categories', []);
+            /** @var array<string, string> $overrides */
+            $overrides = config('workos.events.routing.overrides', []);
+
+            return new EventRouting(categories: $categories, overrides: $overrides);
         });
 
         $this->registerInstallers();
@@ -305,10 +315,6 @@ class WorkOSServiceProvider extends ServiceProvider
 
     protected function configureEventListeners(): void
     {
-        if (! config('workos.webhooks.sync_enabled', true)) {
-            return;
-        }
-
         Event::listen(WorkOSUserCreated::class, [SyncUserFromWebhook::class, 'handle']);
         Event::listen(WorkOSUserUpdated::class, [SyncUserFromWebhook::class, 'handle']);
         Event::listen(WorkOSOrganizationCreated::class, [SyncOrganizationFromWebhook::class, 'handle']);
