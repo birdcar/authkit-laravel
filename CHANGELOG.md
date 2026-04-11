@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/birdcar/authkit-laravel/compare/v0.6.0...v0.7.0) (2026-04-11)
+
+
+### Features
+
+* **commands:** Add `workos:make-listener` artisan command — interactively scaffolds event listeners with correct imports, `HandlesWorkOSEvents` trait, and union type hints for multi-event handling ([ff05d89](https://github.com/birdcar/authkit-laravel/commit/ff05d89))
+
+
 ## [0.6.0](https://github.com/birdcar/authkit-laravel/compare/v0.5.0...v0.6.0) (2026-04-11)
 
 
