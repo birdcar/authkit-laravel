@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationUpdated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionRevoked;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSSessionCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSSessionRevoked;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
 use WorkOS\AuthKit\Http\Controllers\WebhookController;
 
 beforeEach(function () {
@@ -100,12 +100,12 @@ it('maps authentication sso succeeded event to correct class', function () {
 });
 
 it('maps session revoked event to correct class', function () {
-    expect(WebhookController::EVENT_MAP['user.session_revoked'])
+    expect(WebhookController::EVENT_MAP['session.revoked'])
         ->toBe(WorkOSSessionRevoked::class);
 });
 
 it('has all expected event mappings', function () {
-    expect(WebhookController::EVENT_MAP)->toHaveCount(17);
+    expect(WebhookController::EVENT_MAP)->toHaveCount(18);
 });
 
 it('returns null for unknown event types', function () {

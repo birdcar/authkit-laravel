@@ -64,7 +64,7 @@
 
 ### Phase 1 (retained)
 1. **PHPStan `array_filter` with `ARRAY_FILTER_USE_BOTH`**: Callback type must satisfy level 8 inference — already in `EventRouting`, not new work
-2. **`user.session_revoked` category mismatch**: Maps to `user` not `session` — no functional impact with default config
+2. **~~`user.session_revoked` category mismatch~~**: Fixed — correct event name is `session.revoked` per WorkOS docs
 3. **Workbench config divergence**: `workbench/config/workos.php` still has `sync_enabled` — won't affect tests but workbench app will silently ignore it
 
 ### Phase 2 (new)

@@ -6,18 +6,18 @@ namespace WorkOS\AuthKit\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use WorkOS\AuthKit\Events\WebhookReceived;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationUpdated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionRevoked;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSSessionCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSSessionRevoked;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
 use WorkOS\AuthKit\Support\EventRouting;
 use WorkOS\Webhook;
 
@@ -40,8 +40,9 @@ class WebhookController
         'authentication.mfa_succeeded' => WorkOSSessionCreated::class,
         'authentication.oauth_succeeded' => WorkOSSessionCreated::class,
         'authentication.password_succeeded' => WorkOSSessionCreated::class,
+        'authentication.passkey_succeeded' => WorkOSSessionCreated::class,
         'authentication.sso_succeeded' => WorkOSSessionCreated::class,
-        'user.session_revoked' => WorkOSSessionRevoked::class,
+        'session.revoked' => WorkOSSessionRevoked::class,
     ];
 
     public function __construct(
@@ -81,7 +82,7 @@ class WebhookController
         $eventType = $event['event'];
         $eventData = $event['data'];
 
-        event(new WebhookReceived($eventType, $eventData));
+        event(new WorkOSEventReceived($eventType, $eventData));
 
         $eventClass = self::EVENT_MAP[$eventType] ?? null;
         if ($eventClass !== null && $this->routing->shouldProcessVia($eventType, 'webhooks')) {

@@ -9,14 +9,11 @@ use WorkOS\AuthKit\Http\Controllers\WebhookController;
 class EventRouting
 {
     /**
-     * Longest prefixes first to avoid false matches. The 'user.session_revoked'
-     * exact match routes this event to the 'session' category despite its 'user.'
-     * prefix, since it semantically represents a session lifecycle event.
+     * Longest prefixes first to avoid false matches.
      *
      * @var array<string, string>
      */
     private const array CATEGORY_MAP = [
-        'user.session_revoked' => 'session',
         'organization_membership.' => 'organization_membership',
         'organization.' => 'organization',
         'authentication.' => 'authentication',

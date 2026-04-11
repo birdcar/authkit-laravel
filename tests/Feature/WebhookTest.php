@@ -3,18 +3,18 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Event;
-use WorkOS\AuthKit\Events\WebhookReceived;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationUpdated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionRevoked;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSSessionCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSSessionRevoked;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
 use WorkOS\Webhook;
 
 beforeEach(function () {
@@ -56,7 +56,7 @@ it('returns 400 when signature verification fails', function () {
     $response->assertStatus(400);
 });
 
-it('dispatches WebhookReceived event on valid webhook', function () {
+it('dispatches WorkOSEventReceived event on valid webhook', function () {
     $webhookData = [
         'event' => 'user.created',
         'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
@@ -72,7 +72,7 @@ it('dispatches WebhookReceived event on valid webhook', function () {
     ]);
 
     $response->assertStatus(200);
-    Event::assertDispatched(WebhookReceived::class, function ($event) {
+    Event::assertDispatched(WorkOSEventReceived::class, function ($event) {
         return $event->event === 'user.created'
             && $event->data['id'] === 'user_123';
     });
@@ -334,7 +334,7 @@ it('dispatches WorkOSSessionCreated for authentication.sso_succeeded event', fun
 
 it('dispatches WorkOSSessionRevoked event', function () {
     $webhookData = [
-        'event' => 'user.session_revoked',
+        'event' => 'session.revoked',
         'data' => [
             'id' => 'session_123',
             'user_id' => 'user_123',
@@ -372,7 +372,7 @@ it('handles unknown event types gracefully', function () {
     ]);
 
     $response->assertStatus(200);
-    Event::assertDispatched(WebhookReceived::class);
+    Event::assertDispatched(WorkOSEventReceived::class);
 });
 
 it('respects webhook disabled configuration', function () {

@@ -187,8 +187,8 @@
   - `organization_membership.updated` → `WorkOSMembershipUpdated` event
   - `organization_membership.deleted` → `WorkOSMembershipDeleted` event
   - `session.created` → `WorkOSSessionCreated` event
-  - `user.session_revoked` → `WorkOSSessionRevoked` event
-  - `authentication.*_succeeded` (email_verification, magic_auth, mfa, oauth, password, sso) → `WorkOSSessionCreated` event
+  - `session.revoked` → `WorkOSSessionRevoked` event
+  - `authentication.*_succeeded` (email_verification, magic_auth, mfa, oauth, passkey, password, sso) → `WorkOSSessionCreated` event
 
 **Webhook Event Processing:**
 - Event framework: Laravel events
