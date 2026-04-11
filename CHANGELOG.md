@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/birdcar/authkit-laravel/compare/v0.5.0...v0.6.0) (2026-04-11)
+
+
+### Features
+
+* **listeners:** Add `HandlesWorkOSEvents` trait for consumer listeners with `resolveUser()`, `resolveOrganization()`, `audit()`, `logEvent()`, and `withinTransaction()` helpers ([fd8a31a](https://github.com/birdcar/authkit-laravel/commit/fd8a31a))
+* **config:** Add per-event `sync.listeners` config — replace, disable, or keep default listeners per event class ([fd8a31a](https://github.com/birdcar/authkit-laravel/commit/fd8a31a))
+* **events:** Add `get()` method to `WorkOSEventReceived` for API consistency with typed sync events ([fd8a31a](https://github.com/birdcar/authkit-laravel/commit/fd8a31a))
+
+
+### Bug Fixes
+
+* **testing:** Fix Facade cache invalidation in `WorkOS::fake()` and `WorkOS::restore()` — Facade calls after `fake()` now correctly resolve to the fake instance ([fd8a31a](https://github.com/birdcar/authkit-laravel/commit/fd8a31a))
+
+
 ## [0.5.0](https://github.com/birdcar/authkit-laravel/compare/v0.4.2...v0.5.0) (2026-04-11)
 
 
