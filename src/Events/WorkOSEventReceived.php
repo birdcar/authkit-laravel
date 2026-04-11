@@ -7,7 +7,7 @@ namespace WorkOS\AuthKit\Events;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class WebhookReceived
+class WorkOSEventReceived
 {
     use Dispatchable;
     use SerializesModels;

@@ -6,11 +6,11 @@ namespace WorkOS\AuthKit\Listeners;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
 
-class SyncMembershipFromWebhook
+class SyncMembershipFromWorkOS
 {
     public function handleCreated(WorkOSMembershipCreated $event): void
     {

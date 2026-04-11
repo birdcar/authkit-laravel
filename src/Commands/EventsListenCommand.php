@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use WorkOS\AuthKit\Events\WebhookReceived;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
 use WorkOS\AuthKit\Http\Controllers\WebhookController;
 use WorkOS\AuthKit\Support\EventRouting;
 
@@ -162,7 +162,7 @@ class EventsListenCommand extends Command
 
         $this->line("<fg=green>Processing:</> {$eventType} ({$event['id']})");
 
-        event(new WebhookReceived($eventType, $eventData));
+        event(new WorkOSEventReceived($eventType, $eventData));
 
         $eventClass = WebhookController::EVENT_MAP[$eventType] ?? null;
         if ($eventClass !== null) {

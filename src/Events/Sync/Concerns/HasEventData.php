@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WorkOS\AuthKit\Events\Webhooks\Concerns;
+namespace WorkOS\AuthKit\Events\Sync\Concerns;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-trait HasWebhookData
+trait HasEventData
 {
     use Dispatchable;
     use SerializesModels;

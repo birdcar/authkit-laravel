@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Event;
-use WorkOS\AuthKit\Events\WebhookReceived;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
 use WorkOS\Webhook;
 
 beforeEach(function () {
@@ -29,7 +29,7 @@ it('dispatches typed event when routed to webhooks', function () {
         'WorkOS-Signature' => 'valid_signature',
     ]);
 
-    Event::assertDispatched(WebhookReceived::class);
+    Event::assertDispatched(WorkOSEventReceived::class);
     Event::assertDispatched(WorkOSUserCreated::class);
 });
 
@@ -50,7 +50,7 @@ it('does not dispatch typed event when routed to events_api', function () {
         'WorkOS-Signature' => 'valid_signature',
     ]);
 
-    Event::assertDispatched(WebhookReceived::class);
+    Event::assertDispatched(WorkOSEventReceived::class);
     Event::assertNotDispatched(WorkOSUserCreated::class);
 });
 
@@ -71,7 +71,7 @@ it('dispatches typed event when routed to both', function () {
         'WorkOS-Signature' => 'valid_signature',
     ]);
 
-    Event::assertDispatched(WebhookReceived::class);
+    Event::assertDispatched(WorkOSEventReceived::class);
     Event::assertDispatched(WorkOSUserCreated::class);
 });
 
@@ -95,6 +95,6 @@ it('respects per-event-type overrides', function () {
         'WorkOS-Signature' => 'valid_signature',
     ]);
 
-    Event::assertDispatched(WebhookReceived::class);
+    Event::assertDispatched(WorkOSEventReceived::class);
     Event::assertNotDispatched(WorkOSUserCreated::class);
 });

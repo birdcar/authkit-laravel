@@ -5,9 +5,9 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
-use WorkOS\AuthKit\Events\WebhookReceived;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
 
 beforeEach(function () {
     Event::fake();
@@ -55,7 +55,7 @@ it('polls events API and dispatches events with --once', function () {
     $this->artisan('workos:events-listen', ['--once' => true])
         ->assertSuccessful();
 
-    Event::assertDispatched(WebhookReceived::class, 2);
+    Event::assertDispatched(WorkOSEventReceived::class, 2);
     Event::assertDispatched(WorkOSUserCreated::class);
     Event::assertDispatched(WorkOSUserUpdated::class);
 
@@ -219,7 +219,7 @@ it('only requests events_api-routed event types', function () {
     });
 });
 
-it('dispatches WebhookReceived for unknown event types', function () {
+it('dispatches WorkOSEventReceived for unknown event types', function () {
     Http::fake([
         'api.workos.com/events*' => Http::response([
             'data' => [
@@ -236,7 +236,7 @@ it('dispatches WebhookReceived for unknown event types', function () {
     $this->artisan('workos:events-listen', ['--once' => true])
         ->assertSuccessful();
 
-    Event::assertDispatched(WebhookReceived::class, function ($event) {
+    Event::assertDispatched(WorkOSEventReceived::class, function ($event) {
         return $event->event === 'some.unknown.event';
     });
 

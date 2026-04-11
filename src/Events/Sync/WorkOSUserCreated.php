@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WorkOS\AuthKit\Events\Webhooks;
+namespace WorkOS\AuthKit\Events\Sync;
 
-use WorkOS\AuthKit\Events\Webhooks\Concerns\HasWebhookData;
+use WorkOS\AuthKit\Events\Sync\Concerns\HasEventData;
 
 class WorkOSUserCreated
 {
-    use HasWebhookData;
+    use HasEventData;
 
     public function userId(): string
     {

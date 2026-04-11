@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Listeners;
 
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
 
-class SyncUserFromWebhook
+class SyncUserFromWorkOS
 {
     public function handle(WorkOSUserUpdated|WorkOSUserCreated $event): void
     {

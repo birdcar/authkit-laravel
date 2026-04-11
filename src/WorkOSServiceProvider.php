@@ -21,13 +21,13 @@ use WorkOS\AuthKit\Auth\WorkOSGuard;
 use WorkOS\AuthKit\Commands\EventsListenCommand;
 use WorkOS\AuthKit\Commands\InstallCommand;
 use WorkOS\AuthKit\Commands\SyncUsersCommand;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationUpdated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
 use WorkOS\AuthKit\Http\Middleware\CheckOrganization;
 use WorkOS\AuthKit\Http\Middleware\CheckPermission;
 use WorkOS\AuthKit\Http\Middleware\CheckRole;
@@ -42,9 +42,9 @@ use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Install\RouteInstaller;
 use WorkOS\AuthKit\Install\WebhookInstaller;
 use WorkOS\AuthKit\Install\WizardFlow;
-use WorkOS\AuthKit\Listeners\SyncMembershipFromWebhook;
-use WorkOS\AuthKit\Listeners\SyncOrganizationFromWebhook;
-use WorkOS\AuthKit\Listeners\SyncUserFromWebhook;
+use WorkOS\AuthKit\Listeners\SyncMembershipFromWorkOS;
+use WorkOS\AuthKit\Listeners\SyncOrganizationFromWorkOS;
+use WorkOS\AuthKit\Listeners\SyncUserFromWorkOS;
 use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\AdminPortal;
 use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\DomainList;
 use WorkOS\AuthKit\Livewire\Widgets\AdminPortal\SsoConnectionList;
@@ -315,13 +315,13 @@ class WorkOSServiceProvider extends ServiceProvider
 
     protected function configureEventListeners(): void
     {
-        Event::listen(WorkOSUserCreated::class, [SyncUserFromWebhook::class, 'handle']);
-        Event::listen(WorkOSUserUpdated::class, [SyncUserFromWebhook::class, 'handle']);
-        Event::listen(WorkOSOrganizationCreated::class, [SyncOrganizationFromWebhook::class, 'handle']);
-        Event::listen(WorkOSOrganizationUpdated::class, [SyncOrganizationFromWebhook::class, 'handle']);
-        Event::listen(WorkOSMembershipCreated::class, [SyncMembershipFromWebhook::class, 'handleCreated']);
-        Event::listen(WorkOSMembershipUpdated::class, [SyncMembershipFromWebhook::class, 'handleUpdated']);
-        Event::listen(WorkOSMembershipDeleted::class, [SyncMembershipFromWebhook::class, 'handleDeleted']);
+        Event::listen(WorkOSUserCreated::class, [SyncUserFromWorkOS::class, 'handle']);
+        Event::listen(WorkOSUserUpdated::class, [SyncUserFromWorkOS::class, 'handle']);
+        Event::listen(WorkOSOrganizationCreated::class, [SyncOrganizationFromWorkOS::class, 'handle']);
+        Event::listen(WorkOSOrganizationUpdated::class, [SyncOrganizationFromWorkOS::class, 'handle']);
+        Event::listen(WorkOSMembershipCreated::class, [SyncMembershipFromWorkOS::class, 'handleCreated']);
+        Event::listen(WorkOSMembershipUpdated::class, [SyncMembershipFromWorkOS::class, 'handleUpdated']);
+        Event::listen(WorkOSMembershipDeleted::class, [SyncMembershipFromWorkOS::class, 'handleDeleted']);
     }
 
     protected function configureCommands(): void
