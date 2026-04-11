@@ -315,13 +315,31 @@ class WorkOSServiceProvider extends ServiceProvider
 
     protected function configureEventListeners(): void
     {
-        Event::listen(WorkOSUserCreated::class, [SyncUserFromWorkOS::class, 'handle']);
-        Event::listen(WorkOSUserUpdated::class, [SyncUserFromWorkOS::class, 'handle']);
-        Event::listen(WorkOSOrganizationCreated::class, [SyncOrganizationFromWorkOS::class, 'handle']);
-        Event::listen(WorkOSOrganizationUpdated::class, [SyncOrganizationFromWorkOS::class, 'handle']);
-        Event::listen(WorkOSMembershipCreated::class, [SyncMembershipFromWorkOS::class, 'handleCreated']);
-        Event::listen(WorkOSMembershipUpdated::class, [SyncMembershipFromWorkOS::class, 'handleUpdated']);
-        Event::listen(WorkOSMembershipDeleted::class, [SyncMembershipFromWorkOS::class, 'handleDeleted']);
+        $defaults = [
+            WorkOSUserCreated::class => [SyncUserFromWorkOS::class, 'handle'],
+            WorkOSUserUpdated::class => [SyncUserFromWorkOS::class, 'handle'],
+            WorkOSOrganizationCreated::class => [SyncOrganizationFromWorkOS::class, 'handle'],
+            WorkOSOrganizationUpdated::class => [SyncOrganizationFromWorkOS::class, 'handle'],
+            WorkOSMembershipCreated::class => [SyncMembershipFromWorkOS::class, 'handleCreated'],
+            WorkOSMembershipUpdated::class => [SyncMembershipFromWorkOS::class, 'handleUpdated'],
+            WorkOSMembershipDeleted::class => [SyncMembershipFromWorkOS::class, 'handleDeleted'],
+        ];
+
+        /** @var array<class-string, class-string|null> $overrides */
+        $overrides = config('workos.sync.listeners', []);
+
+        foreach ($defaults as $event => $defaultListener) {
+            if (array_key_exists($event, $overrides)) {
+                $override = $overrides[$event];
+                if ($override !== null) {
+                    Event::listen($event, $override);
+                }
+
+                continue;
+            }
+
+            Event::listen($event, $defaultListener);
+        }
     }
 
     protected function configureCommands(): void

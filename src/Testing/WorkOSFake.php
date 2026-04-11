@@ -160,6 +160,11 @@ class WorkOSFake
         $this->auditedEvents[] = compact('action', 'targets', 'metadata');
     }
 
+    public static function restore(): void
+    {
+        \WorkOS\AuthKit\WorkOS::restore();
+    }
+
     // Assertions
 
     public function assertAuthenticated(): static

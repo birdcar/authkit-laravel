@@ -182,6 +182,7 @@ class WorkOS
     {
         self::$fake = new WorkOSFake;
         app()->instance('workos', self::$fake);
+        Facades\WorkOS::clearResolvedInstance('workos');
 
         return self::$fake;
     }
@@ -208,5 +209,6 @@ class WorkOS
     {
         self::$fake = null;
         app()->forgetInstance('workos');
+        Facades\WorkOS::clearResolvedInstance('workos');
     }
 }

@@ -147,6 +147,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Sync Listeners
+    |--------------------------------------------------------------------------
+    |
+    | Control which listeners handle WorkOS sync events. By default, the
+    | package registers its own listeners for user, organization, and
+    | membership events. Override any event's listener by mapping the event
+    | class to your own listener class. Set to null to disable a listener.
+    | Omit an event to keep the package default.
+    |
+    */
+
+    'sync' => [
+        'listeners' => [
+            // WorkOS\AuthKit\Events\Sync\WorkOSUserCreated::class => App\Listeners\MyUserSync::class,
+            // WorkOS\AuthKit\Events\Sync\WorkOSUserDeleted::class => null,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | User Model
     |--------------------------------------------------------------------------
     |

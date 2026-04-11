@@ -19,4 +19,9 @@ class WorkOSEventReceived
         public readonly string $event,
         public readonly array $data,
     ) {}
+
+    public function get(string $key, mixed $default = null): mixed
+    {
+        return $this->data[$key] ?? $default;
+    }
 }
