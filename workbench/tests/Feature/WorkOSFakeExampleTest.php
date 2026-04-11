@@ -73,7 +73,7 @@ describe('using InteractsWithWorkOS trait', function () {
         $fake->assertGuest();
         $this->get('/dashboard')->assertRedirect('/auth/login');
     });
-})->afterEach(fn () => WorkOS::restore());
+});
 
 // -------------------------------------------------------------------------
 // Pattern 3: Audit assertions

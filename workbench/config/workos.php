@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use App\Models\Organization;
 
 return [
     /*
@@ -47,6 +46,7 @@ return [
 
     'session' => [
         'cookie_name' => env('WORKOS_COOKIE_NAME', 'wos-session'),
+        'access_token_lifetime' => env('WORKOS_ACCESS_TOKEN_LIFETIME', 60),
     ],
 
     /*
@@ -64,6 +64,21 @@ return [
         'organizations' => env('WORKOS_FEATURE_ORGANIZATIONS', true),
         'impersonation' => env('WORKOS_FEATURE_IMPERSONATION', true),
         'webhooks' => env('WORKOS_FEATURE_WEBHOOKS', true),
+        'widgets' => env('WORKOS_FEATURE_WIDGETS', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Widgets Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the WorkOS Widgets API base URL. Override for staging or
+    | local development environments.
+    |
+    */
+
+    'widgets' => [
+        'base_url' => env('WORKOS_BASE_API_URL', 'https://api.workos.com'),
     ],
 
     /*
@@ -152,5 +167,5 @@ return [
     |
     */
 
-    'organization_model' => env('WORKOS_ORGANIZATION_MODEL', Organization::class),
+    'organization_model' => env('WORKOS_ORGANIZATION_MODEL', 'App\\Models\\Organization'),
 ];
