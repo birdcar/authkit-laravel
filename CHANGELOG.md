@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1](https://github.com/birdcar/authkit-laravel/compare/v0.4.0...v0.4.1) (2026-04-11)
+
+
+### Bug Fixes
+
+* **events:** Use date-only format (YYYY-MM-DD) for Events API `range_start` parameter — the WorkOS API rejects full ISO 8601 datetimes with timezone offsets ([8e12acd](https://github.com/birdcar/authkit-laravel/commit/8e12acd))
+
+
 ## [0.4.0](https://github.com/birdcar/authkit-laravel/compare/v0.3.0...v0.4.0) (2026-04-11)
 
 
