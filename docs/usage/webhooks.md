@@ -12,9 +12,10 @@ WorkOS sends webhooks when important events occur (user created, organization up
 'webhooks' => [
     'enabled' => true,        // default
     'prefix' => 'webhooks/workos',
-    'sync_enabled' => true,   // Auto-sync to database
 ],
 ```
+
+Events are routed based on the `workos.events.routing` configuration. By default, webhooks handle user, organization, membership, session, and authentication events. Configure routing to decide which events come from webhooks vs the Events API polling worker.
 
 ## Webhook Endpoint
 
@@ -46,6 +47,30 @@ In your WorkOS Dashboard:
    ```
 4. Select events to receive (or select all)
 5. Save and test
+
+## Event Routing
+
+By default, webhooks handle most events. However, you can configure which events come from webhooks vs the Events API polling worker using the `workos.events.routing` configuration:
+
+```php
+// config/workos.php
+'events' => [
+    'routing' => [
+        'categories' => [
+            'user' => 'webhooks',        // User events via webhooks
+            'organization' => 'webhooks', // Org events via webhooks
+            'dsync' => 'events_api',     // SCIM/LDAP via Events API
+        ],
+    ],
+],
+```
+
+Webhook events are only dispatched if:
+1. Webhooks are enabled (`config('workos.webhooks.enabled')`)
+2. The webhook is received from WorkOS
+3. The event category is routed to `'webhooks'` or `'both'`
+
+For a comprehensive guide on event routing, see [Events API and Webhooks](events.md).
 
 ## Available Events
 
@@ -181,13 +206,13 @@ Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
 
 ## Built-in Sync Listeners
 
-When `config('workos.webhooks.sync_enabled')` is true (default), the package automatically:
+When webhooks are configured to route events (via `workos.events.routing`), the package automatically syncs data using built-in listeners.
 
 **SyncUserFromWebhook**
 - `user.created` → Creates or updates the User record
 - `user.updated` → Updates the User record
 
-Customization: Add a `findOrCreateByWorkOS` method to your User model:
+Customize by adding a `findOrCreateByWorkOS` method to your User model:
 
 ```php
 public static function findOrCreateByWorkOS(array $workosUser): self
@@ -309,18 +334,31 @@ Event::listen(WorkOSMembershipCreated::class, function ($event) {
 
 ## Testing Webhooks Locally
 
-Use the provided command to test webhook delivery:
+For development, you can test webhook delivery in two ways:
+
+**Using the Events API polling worker** (recommended for testing event handlers):
 
 ```bash
-php artisan workos:listen-events
+php artisan workos:events-listen --once
 ```
 
-This command:
-1. Starts a local webhook server
-2. Displays all incoming events
-3. Useful for development and debugging
+This fetches events from the Events API, useful for testing your event listeners.
 
-Press Ctrl+C to stop.
+**Configuring your application for local testing:**
+
+Use a service like ngrok to expose your local server to the internet:
+
+```bash
+ngrok http 8000
+```
+
+Then configure your webhook URL in the WorkOS Dashboard to point to your ngrok URL:
+
+```
+https://abc123.ngrok.io/webhooks/workos
+```
+
+Now webhooks from WorkOS will reach your local development environment.
 
 ## Disabling Webhooks
 
@@ -333,12 +371,16 @@ To disable webhook ingestion entirely:
 ],
 ```
 
-Or disable auto-sync but keep event dispatching:
+Or disable webhooks for specific event categories, routing them to the Events API instead:
 
 ```php
-'webhooks' => [
-    'enabled' => true,
-    'sync_enabled' => false, // Don't auto-sync, but dispatch events
+'events' => [
+    'routing' => [
+        'categories' => [
+            'user' => 'events_api',  // Route user events to Events API
+            'organization' => 'webhooks',  // Keep org events on webhooks
+        ],
+    ],
 ],
 ```
 
@@ -463,10 +505,11 @@ Add `WORKOS_WEBHOOK_SECRET` to your `.env` and run `php artisan config:clear`.
 Ensure your `WORKOS_WEBHOOK_SECRET` matches exactly what's in your WorkOS Dashboard. Copy-paste carefully.
 
 **Data not syncing**
-1. Ensure `sync_enabled` is true in config
+1. Verify your event routing includes webhooks: `config('workos.events.routing.categories')`
 2. Verify your User and Organization models have the sync methods or traits
 3. Check Laravel logs for sync errors
 4. Manually trigger a sync with `php artisan workos:sync-users`
+5. If webhooks aren't being triggered, verify the webhook is actually being sent by WorkOS in your Dashboard
 
 **Listeners not executing**
 1. Check that the event is registered in `EventServiceProvider`

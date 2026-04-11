@@ -156,10 +156,13 @@ See [docs/usage/testing.md](docs/usage/testing.md) for the full assertion API.
 - [Authentication](docs/usage/authentication.md) -- Guard, sessions, token refresh
 - [Authorization](docs/usage/authorization.md) -- Roles, permissions, middleware
 - [Organizations](docs/usage/organizations.md) -- Multi-org, switching, invitations
+- [Events API & Webhooks](docs/usage/events.md) -- Event routing, Events API polling worker, hybrid approaches
+- [Webhooks](docs/usage/webhooks.md) -- Real-time webhook ingestion, event handling, user/org sync
 - [Widgets](docs/usage/widgets.md) -- Livewire components
-- [Webhooks](docs/usage/webhooks.md) -- Event handling, user/org sync
 - [Testing](docs/usage/testing.md) -- `WorkOS::fake()`, assertions
 - [Audit Logging](docs/usage/audit-logging.md) -- WorkOS Audit Logs integration
+- [Commands](docs/usage/commands.md) -- Artisan command reference
+- [Configuration](docs/usage/configuration.md) -- Complete config reference
 
 ## Requirements
 
