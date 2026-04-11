@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/birdcar/authkit-laravel/compare/v0.3.0...v0.4.0) (2026-04-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **config:** The `workos.webhooks.sync_enabled` config key has been removed. Event sync is now routed per-category through `workos.events.routing.categories`, where each category (`user`, `organization`, `organization_membership`, `dsync`, `session`, `authentication`) can be set to `'webhooks'`, `'events_api'`, or `'both'`.
+* **events-listen:** The `workos:events-listen` command has been completely rewritten. It is no longer an SSE-based stream — it now polls `GET /events` with cursor-based pagination and persists its cursor in Laravel Cache across restarts.
+
+### How to upgrade
+
+1. **Publish the updated config** — run `php artisan vendor:publish --tag=workos-config --force` to get the new `workos.events` section. Review your existing `config/workos.php` for any customizations before overwriting.
+2. **Remove `WORKOS_WEBHOOK_SYNC_ENABLED`** from your `.env` — this env var no longer has any effect.
+3. **Configure event routing** — by default, all categories sync via webhooks except `dsync` which uses `events_api`. Adjust per-category with env vars (`WORKOS_SYNC_USER`, `WORKOS_SYNC_ORGANIZATION`, `WORKOS_SYNC_DSYNC`, etc.) or edit `config/workos.php` directly.
+4. **Update process supervisors** — if you were running `workos:events-listen`, it now behaves like `queue:work`: a persistent polling loop with graceful shutdown (SIGTERM/SIGINT). Update your Supervisor/systemd configs accordingly. New flags: `--once` (single poll), `--since` (bootstrap from date), `--sleep` (poll interval override).
+
+
+### Features
+
+* Rewrite events-listen as a correct REST polling worker with cursor persistence, automatic backoff, and graceful shutdown ([4a629a3](https://github.com/birdcar/authkit-laravel/commit/4a629a3))
+* Add event sync routing and EventRouting service — per-category control over whether events flow through webhooks, the Events API, or both ([4ef31a7](https://github.com/birdcar/authkit-laravel/commit/4ef31a7))
+
+
+### Documentation
+
+* Add comprehensive documentation for events API, configuration, commands, and webhooks ([b093eba](https://github.com/birdcar/authkit-laravel/commit/b093eba))
+* Add events API worker ideation contract and specs ([0c3fc03](https://github.com/birdcar/authkit-laravel/commit/0c3fc03))
+
+
 ## [0.3.0](https://github.com/birdcar/authkit-laravel/compare/v0.2.0...v0.3.0) (2026-04-10)
 
 
@@ -81,15 +109,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Redirect org switch through WorkOS login ([d4884dc](https://github.com/birdcar/authkit-laravel/commit/d4884dcbad873ff20afd2a65fbaeb030d9fea314))
 * Remove package Organization model, rename pivot table ([0815b87](https://github.com/birdcar/authkit-laravel/commit/0815b87eeae9bdb0dda9a03887d04e0011389cf5))
 
-## [Unreleased]
-
-### Added
-- Initial release of WorkOS AuthKit Laravel integration
-- User authentication via WorkOS AuthKit
-- Organization multi-tenancy support
-- Role and permission checking
-- Audit logging integration
-- Webhook handling for user/org sync
-- Session management with auto-refresh
-- Blade directives for role/permission checks
-- Testing utilities (WorkOS::actingAs)
