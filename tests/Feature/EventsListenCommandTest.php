@@ -141,7 +141,8 @@ it('uses lookback_days when no cursor and no --since', function () {
         ->assertSuccessful();
 
     Http::assertSent(function ($request) {
-        return isset($request->data()['range_start']);
+        return isset($request->data()['range_start'])
+            && preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->data()['range_start']);
     });
 });
 
