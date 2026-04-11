@@ -15,5 +15,8 @@ coverage/
 *.swo
 .DS_Store
 
+# MCP tooling
+.playwright-mcp/
+
 # Workbench credentials
 workbench/auth.json
