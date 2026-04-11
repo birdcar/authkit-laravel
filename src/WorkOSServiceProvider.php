@@ -20,6 +20,7 @@ use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSGuard;
 use WorkOS\AuthKit\Commands\EventsListenCommand;
 use WorkOS\AuthKit\Commands\InstallCommand;
+use WorkOS\AuthKit\Commands\MakeListenerCommand;
 use WorkOS\AuthKit\Commands\SyncUsersCommand;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
@@ -350,6 +351,7 @@ class WorkOSServiceProvider extends ServiceProvider
 
         $this->commands([
             InstallCommand::class,
+            MakeListenerCommand::class,
             SyncUsersCommand::class,
             EventsListenCommand::class,
         ]);
