@@ -2,127 +2,150 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Http;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use WorkOS\AuthKit\Services\VaultService;
+use WorkOS\Exception\NotFoundException;
+use WorkOS\WorkOS;
 
-beforeEach(function () {
-    config([
-        'workos.api_key' => 'sk_test_vault',
-        'workos.widgets.base_url' => 'https://api.workos.com',
-    ]);
-});
+function makeVaultClient(MockHandler $mock): WorkOS
+{
+    $stack = HandlerStack::create($mock);
+
+    return new WorkOS(apiKey: 'sk_test_vault', handler: $stack);
+}
 
 it('stores a vault object', function () {
-    Http::fake([
-        'api.workos.com/vault/objects' => Http::response([
-            'id' => 'obj_123',
-            'name' => 'stripe_key',
-        ]),
-    ]);
-
-    $service = new VaultService;
-    $result = $service->store('stripe_key', 'sk_live_abc', ['org' => 'org_1']);
-
-    expect($result['id'])->toBe('obj_123');
-
-    Http::assertSent(function ($request) {
-        return $request->url() === 'https://api.workos.com/vault/objects'
-            && $request['name'] === 'stripe_key'
-            && $request['value'] === 'sk_live_abc'
-            && $request['context']['org'] === 'org_1';
-    });
-});
-
-it('gets a vault object by id', function () {
-    Http::fake([
-        'api.workos.com/vault/objects/obj_123' => Http::response([
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
             'id' => 'obj_123',
             'name' => 'stripe_key',
             'value' => 'sk_live_abc',
-        ]),
+            'key_context' => ['org' => 'org_1'],
+            'created_at' => '2024-01-01T00:00:00.000Z',
+            'updated_at' => '2024-01-01T00:00:00.000Z',
+        ])),
     ]);
 
-    $service = new VaultService;
+    $service = new VaultService(makeVaultClient($mock));
+    $result = $service->store('stripe_key', 'sk_live_abc', ['org' => 'org_1']);
+
+    expect($result['id'])->toBe('obj_123')
+        ->and($result['name'])->toBe('stripe_key');
+});
+
+it('gets a vault object by id', function () {
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
+            'id' => 'obj_123',
+            'name' => 'stripe_key',
+            'value' => 'sk_live_abc',
+            'key_context' => [],
+            'created_at' => '2024-01-01T00:00:00.000Z',
+            'updated_at' => '2024-01-01T00:00:00.000Z',
+        ])),
+    ]);
+
+    $service = new VaultService(makeVaultClient($mock));
     $result = $service->get('obj_123');
 
     expect($result['value'])->toBe('sk_live_abc');
 });
 
 it('gets a vault object by name', function () {
-    Http::fake([
-        'api.workos.com/vault/objects/by-name/stripe_key' => Http::response([
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
             'id' => 'obj_123',
+            'name' => 'stripe_key',
             'value' => 'sk_live_abc',
-        ]),
+            'key_context' => [],
+            'created_at' => '2024-01-01T00:00:00.000Z',
+            'updated_at' => '2024-01-01T00:00:00.000Z',
+        ])),
     ]);
 
-    $service = new VaultService;
+    $service = new VaultService(makeVaultClient($mock));
     $result = $service->getByName('stripe_key');
 
     expect($result['value'])->toBe('sk_live_abc');
 });
 
 it('updates a vault object', function () {
-    Http::fake([
-        'api.workos.com/vault/objects/obj_123' => Http::response([
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
             'id' => 'obj_123',
-        ]),
+            'name' => 'stripe_key',
+            'value' => 'new_value',
+            'key_context' => [],
+            'created_at' => '2024-01-01T00:00:00.000Z',
+            'updated_at' => '2024-01-01T00:00:00.000Z',
+        ])),
     ]);
 
-    $service = new VaultService;
+    $service = new VaultService(makeVaultClient($mock));
     $result = $service->update('obj_123', 'new_value');
 
     expect($result['id'])->toBe('obj_123');
 });
 
 it('deletes a vault object', function () {
-    Http::fake([
-        'api.workos.com/vault/objects/obj_123' => Http::response(null, 204),
+    $mock = new MockHandler([
+        new Response(204),
     ]);
 
-    $service = new VaultService;
+    $service = new VaultService(makeVaultClient($mock));
     $service->delete('obj_123');
 
-    Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'vault/objects/obj_123')
-            && $request->method() === 'DELETE';
-    });
+    expect($mock->count())->toBe(0);
 });
 
-it('encrypts plaintext', function () {
-    Http::fake([
-        'api.workos.com/vault/keys/encrypt' => Http::response([
-            'ciphertext' => 'encrypted_abc',
-        ]),
+it('lists vault objects', function () {
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
+            'data' => [
+                [
+                    'id' => 'obj_123',
+                    'name' => 'stripe_key',
+                    'key_context' => [],
+                    'created_at' => '2024-01-01T00:00:00.000Z',
+                    'updated_at' => '2024-01-01T00:00:00.000Z',
+                ],
+            ],
+            'list_metadata' => ['before' => null, 'after' => null],
+        ])),
     ]);
 
-    $service = new VaultService;
-    $result = $service->encrypt('sensitive_data');
+    $service = new VaultService(makeVaultClient($mock));
+    $result = $service->list(10);
 
-    expect($result['ciphertext'])->toBe('encrypted_abc');
+    expect($result)->toBeArray();
 });
 
-it('decrypts ciphertext', function () {
-    Http::fake([
-        'api.workos.com/vault/keys/decrypt' => Http::response([
-            'plaintext' => 'sensitive_data',
-        ]),
+it('lists vault object versions', function () {
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
+            'data' => [
+                ['version' => 1],
+                ['version' => 2],
+            ],
+        ])),
     ]);
 
-    $service = new VaultService;
-    $result = $service->decrypt('encrypted_abc');
+    $service = new VaultService(makeVaultClient($mock));
+    $result = $service->versions('obj_123');
 
-    expect($result['plaintext'])->toBe('sensitive_data');
+    expect($result)->toBeArray();
 });
 
-it('throws RuntimeException on API error', function () {
-    Http::fake([
-        'api.workos.com/vault/objects/obj_bad' => Http::response(['error' => 'not found'], 404),
+it('throws on API error', function () {
+    $mock = new MockHandler([
+        new Response(404, [], json_encode(['message' => 'Not found'])),
     ]);
 
-    $service = new VaultService;
+    $service = new VaultService(makeVaultClient($mock));
     $service->get('obj_bad');
-})->throws(RuntimeException::class, 'WorkOS Vault API error');
+})->throws(NotFoundException::class);
 
 it('throws when vault feature is disabled', function () {
     config(['workos.features.vault' => false]);

@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\View;
 use Symfony\Component\HttpFoundation\Response;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Facades\WorkOS;
-use WorkOS\Exception\BaseRequestException;
 
 class SetCurrentOrganization
 {
@@ -83,23 +82,21 @@ class SetCurrentOrganization
             /** @var class-string<Model> $organizationModel */
             $organizationModel = config('workos.organization_model');
 
-            // Check if the model has findOrCreateByWorkOS method
             if (method_exists($organizationModel, 'findOrCreateByWorkOS')) {
                 /** @var Model $organization */
                 $organization = $organizationModel::findOrCreateByWorkOS([
-                    'id' => $orgData->raw['id'],
-                    'name' => $orgData->raw['name'],
-                    'slug' => $orgData->raw['slug'] ?? null,
-                    'domains' => $orgData->raw['domains'] ?? [],
+                    'id' => $orgData->id,
+                    'name' => $orgData->name,
+                    'external_id' => $orgData->externalId ?? null,
+                    'domains' => array_map(fn ($d) => $d->toArray(), $orgData->domains),
                 ]);
             } else {
-                // Fallback to firstOrCreate
                 /** @var Model $organization */
                 $organization = $organizationModel::query()->firstOrCreate(
-                    ['workos_id' => $orgData->raw['id']],
+                    ['workos_id' => $orgData->id],
                     [
-                        'name' => $orgData->raw['name'],
-                        'slug' => $orgData->raw['slug'] ?? null,
+                        'name' => $orgData->name,
+                        'external_id' => $orgData->externalId ?? null,
                     ]
                 );
             }
@@ -123,7 +120,7 @@ class SetCurrentOrganization
             }
 
             return $organization;
-        } catch (BaseRequestException $e) {
+        } catch (\Exception $e) {
             report($e);
 
             return null;

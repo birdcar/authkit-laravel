@@ -4,16 +4,25 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Services;
 
-use Illuminate\Support\Facades\Http;
+use WorkOS\WorkOS;
 
 class PipesService
 {
+    public function __construct(
+        private readonly WorkOS $client,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
-    public function listProviders(): array
+    public function listProviders(string $userId, ?string $organizationId = null): array
     {
-        return $this->request('get', '/data-integrations');
+        $result = $this->client->pipes()->listUserDataProviders(
+            userId: $userId,
+            organizationId: $organizationId,
+        );
+
+        return $result->toArray();
     }
 
     public function getAuthorizationUrl(
@@ -22,18 +31,14 @@ class PipesService
         ?string $returnTo = null,
         ?string $organizationId = null,
     ): string {
-        $body = [
-            'user_id' => $userId,
-            'return_to' => $returnTo ?? (string) config('workos.routes.home', '/'),
-        ];
+        $result = $this->client->pipes()->authorizeDataIntegration(
+            slug: $slug,
+            userId: $userId,
+            organizationId: $organizationId,
+            returnTo: $returnTo ?? (string) config('workos.routes.home', '/'),
+        );
 
-        if ($organizationId !== null) {
-            $body['organization_id'] = $organizationId;
-        }
-
-        $result = $this->request('post', "/data-integrations/{$slug}/authorize", $body);
-
-        return (string) ($result['url'] ?? '');
+        return $result->url;
     }
 
     /**
@@ -44,12 +49,13 @@ class PipesService
         string $slug,
         ?string $organizationId = null,
     ): array {
-        $params = [];
-        if ($organizationId !== null) {
-            $params['organization_id'] = $organizationId;
-        }
+        $result = $this->client->pipes()->getUserConnectedAccount(
+            userId: $userId,
+            slug: $slug,
+            organizationId: $organizationId,
+        );
 
-        return $this->request('get', "/user_management/users/{$userId}/connected_accounts/{$slug}", $params);
+        return $result->toArray();
     }
 
     public function deleteConnectedAccount(
@@ -57,12 +63,11 @@ class PipesService
         string $slug,
         ?string $organizationId = null,
     ): void {
-        $params = [];
-        if ($organizationId !== null) {
-            $params['organization_id'] = $organizationId;
-        }
-
-        $this->request('delete', "/user_management/users/{$userId}/connected_accounts/{$slug}", $params);
+        $this->client->pipes()->deleteUserConnectedAccount(
+            userId: $userId,
+            slug: $slug,
+            organizationId: $organizationId,
+        );
     }
 
     /**
@@ -73,31 +78,12 @@ class PipesService
         string $slug,
         ?string $organizationId = null,
     ): array {
-        $params = [];
-        if ($organizationId !== null) {
-            $params['organization_id'] = $organizationId;
-        }
+        $result = $this->client->pipes()->createDataIntegrationToken(
+            slug: $slug,
+            userId: $userId,
+            organizationId: $organizationId,
+        );
 
-        return $this->request('get', "/user_management/users/{$userId}/connected_accounts/{$slug}/access_token", $params);
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function request(string $method, string $path, array $data = []): array
-    {
-        $url = rtrim((string) config('workos.widgets.base_url', 'https://api.workos.com'), '/').$path;
-
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.config('workos.api_key'),
-        ])->$method($url, $data);
-
-        if (! $response->successful()) {
-            throw new \RuntimeException("WorkOS Pipes API error: {$response->status()} {$response->body()}");
-        }
-
-        /** @var array<string, mixed> */
-        return $response->json() ?? [];
+        return $result->toArray();
     }
 }

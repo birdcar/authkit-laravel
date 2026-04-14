@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Event;
-use WorkOS\AuthKit\Events\WorkOSEventReceived;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
@@ -15,10 +14,21 @@ use WorkOS\AuthKit\Events\Sync\WorkOSSessionRevoked;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
-use WorkOS\Webhook;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
+use WorkOS\WebhookVerification;
+
+const WEBHOOK_SECRET = 'whsec_test_secret';
+
+function signWebhookPayload(string $payload, string $secret = WEBHOOK_SECRET): string
+{
+    $timestamp = (string) (time() * 1000);
+    $hash = WebhookVerification::computeSignature($timestamp, $payload, $secret);
+
+    return "t={$timestamp}, v1={$hash}";
+}
 
 beforeEach(function () {
-    config(['workos.webhook_secret' => 'whsec_test_secret']);
+    config(['workos.webhook_secret' => WEBHOOK_SECRET]);
     Event::fake();
 });
 
@@ -43,15 +53,10 @@ it('returns 500 when webhook secret is not configured', function () {
 });
 
 it('returns 400 when signature verification fails', function () {
-    $this->mock(Webhook::class, function ($mock) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn('Constructed signature does not match WorkOS Header Signature');
-    });
-
     $response = $this->postJson('/webhooks/workos', [
         'event' => 'user.created',
         'data' => ['id' => 'user_123'],
-    ], ['WorkOS-Signature' => 'invalid_signature']);
+    ], ['WorkOS-Signature' => 't=123, v1=invalid_hash']);
 
     $response->assertStatus(400);
 });
@@ -62,14 +67,13 @@ it('dispatches WorkOSEventReceived event on valid webhook', function () {
         'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $response = $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $response = $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     $response->assertStatus(200);
     Event::assertDispatched(WorkOSEventReceived::class, function ($event) {
@@ -84,14 +88,13 @@ it('dispatches WorkOSUserCreated event', function () {
         'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSUserCreated::class, function ($event) {
         return $event->userId() === 'user_123'
@@ -110,14 +113,13 @@ it('dispatches WorkOSUserUpdated event', function () {
         ],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSUserUpdated::class, function ($event) {
         return $event->userId() === 'user_123'
@@ -133,14 +135,13 @@ it('dispatches WorkOSUserDeleted event', function () {
         'data' => ['id' => 'user_123'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSUserDeleted::class, function ($event) {
         return $event->userId() === 'user_123';
@@ -153,14 +154,13 @@ it('dispatches WorkOSOrganizationCreated event', function () {
         'data' => ['id' => 'org_123', 'name' => 'Acme Corp'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSOrganizationCreated::class, function ($event) {
         return $event->organizationId() === 'org_123'
@@ -174,14 +174,13 @@ it('dispatches WorkOSOrganizationUpdated event', function () {
         'data' => ['id' => 'org_123', 'name' => 'Acme Inc'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSOrganizationUpdated::class, function ($event) {
         return $event->organizationId() === 'org_123'
@@ -195,14 +194,13 @@ it('dispatches WorkOSOrganizationDeleted event', function () {
         'data' => ['id' => 'org_123'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSOrganizationDeleted::class, function ($event) {
         return $event->organizationId() === 'org_123';
@@ -219,14 +217,13 @@ it('dispatches WorkOSMembershipCreated event', function () {
         ],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSMembershipCreated::class, function ($event) {
         return $event->userId() === 'user_123'
@@ -245,14 +242,13 @@ it('dispatches WorkOSMembershipUpdated event', function () {
         ],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSMembershipUpdated::class, function ($event) {
         return $event->userId() === 'user_123'
@@ -270,14 +266,13 @@ it('dispatches WorkOSMembershipDeleted event', function () {
         ],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSMembershipDeleted::class, function ($event) {
         return $event->userId() === 'user_123'
@@ -294,14 +289,13 @@ it('dispatches WorkOSSessionCreated for session.created event', function () {
         ],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSSessionCreated::class, function ($event) {
         return $event->sessionId() === 'session_123'
@@ -318,14 +312,13 @@ it('dispatches WorkOSSessionCreated for authentication.sso_succeeded event', fun
         ],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSSessionCreated::class, function ($event) {
         return $event->sessionId() === 'session_456';
@@ -341,14 +334,13 @@ it('dispatches WorkOSSessionRevoked event', function () {
         ],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSSessionRevoked::class, function ($event) {
         return $event->sessionId() === 'session_123'
@@ -362,21 +354,19 @@ it('handles unknown event types gracefully', function () {
         'data' => ['id' => 'test_123'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
+    $signature = signWebhookPayload($payload);
 
-    $response = $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $response = $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     $response->assertStatus(200);
     Event::assertDispatched(WorkOSEventReceived::class);
 });
 
 it('respects webhook disabled configuration', function () {
-    // This test just verifies the configuration option exists and is respected
     config(['workos.webhooks.enabled' => false]);
     expect(config('workos.webhooks.enabled'))->toBeFalse();
 });

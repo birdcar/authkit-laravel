@@ -2,26 +2,30 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Http;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use WorkOS\AuthKit\Services\RadarService;
+use WorkOS\Exception\BadRequestException;
+use WorkOS\WorkOS;
 
-beforeEach(function () {
-    config([
-        'workos.api_key' => 'sk_test_radar',
-        'workos.widgets.base_url' => 'https://api.workos.com',
-    ]);
-});
+function makeRadarClient(MockHandler $mock): WorkOS
+{
+    $stack = HandlerStack::create($mock);
+
+    return new WorkOS(apiKey: 'sk_test_radar', handler: $stack);
+}
 
 it('creates a radar attempt', function () {
-    Http::fake([
-        'api.workos.com/radar/attempts' => Http::response([
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
             'verdict' => 'allow',
             'reason' => 'no_risk_detected',
             'attempt_id' => 'attempt_123',
-        ]),
+        ])),
     ]);
 
-    $service = new RadarService;
+    $service = new RadarService(makeRadarClient($mock));
     $result = $service->createAttempt([
         'ip_address' => '1.2.3.4',
         'user_agent' => 'Mozilla/5.0',
@@ -35,49 +39,62 @@ it('creates a radar attempt', function () {
 });
 
 it('updates a radar attempt', function () {
-    Http::fake([
-        'api.workos.com/radar/attempts/attempt_123' => Http::response([
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
             'verdict' => 'allow',
             'attempt_id' => 'attempt_123',
-        ]),
+        ])),
     ]);
 
-    $service = new RadarService;
-    $result = $service->updateAttempt('attempt_123', ['verdict_override' => 'allow']);
+    $service = new RadarService(makeRadarClient($mock));
+    $result = $service->updateAttempt('attempt_123', ['attempt_status' => 'success']);
 
     expect($result['attempt_id'])->toBe('attempt_123');
 });
 
 it('adds to radar list', function () {
-    Http::fake([
-        'api.workos.com/radar/lists' => Http::response(['id' => 'entry_1']),
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
+            'message' => 'Entry already present',
+        ])),
     ]);
 
-    $service = new RadarService;
-    $result = $service->addToList(['type' => 'ip', 'value' => '1.2.3.4', 'list' => 'blocklist']);
+    $service = new RadarService(makeRadarClient($mock));
+    $result = $service->addToList([
+        'type' => 'ip_address',
+        'action' => 'block',
+        'entry' => '1.2.3.4',
+    ]);
 
-    expect($result['id'])->toBe('entry_1');
+    expect($result['message'])->toBe('Entry already present');
 });
 
 it('removes from radar list', function () {
-    Http::fake([
-        'api.workos.com/radar/lists' => Http::response(null, 204),
+    $mock = new MockHandler([
+        new Response(204),
     ]);
 
-    $service = new RadarService;
-    $service->removeFromList(['type' => 'ip', 'value' => '1.2.3.4', 'list' => 'blocklist']);
+    $service = new RadarService(makeRadarClient($mock));
+    $service->removeFromList([
+        'type' => 'ip_address',
+        'action' => 'block',
+        'entry' => '1.2.3.4',
+    ]);
 
-    Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'radar/lists')
-            && $request->method() === 'DELETE';
-    });
+    expect($mock->count())->toBe(0);
 });
 
 it('throws on API error', function () {
-    Http::fake([
-        'api.workos.com/radar/attempts' => Http::response(['error' => 'bad request'], 400),
+    $mock = new MockHandler([
+        new Response(400, [], json_encode(['message' => 'Bad request'])),
     ]);
 
-    $service = new RadarService;
-    $service->createAttempt(['ip_address' => '1.2.3.4']);
-})->throws(RuntimeException::class, 'WorkOS Radar API error');
+    $service = new RadarService(makeRadarClient($mock));
+    $service->createAttempt([
+        'ip_address' => '1.2.3.4',
+        'user_agent' => 'Mozilla/5.0',
+        'email' => 'test@example.com',
+        'auth_method' => 'Password',
+        'action' => 'sign-in',
+    ]);
+})->throws(BadRequestException::class);

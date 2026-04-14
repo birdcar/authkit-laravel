@@ -10,6 +10,7 @@ use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
+use WorkOS\AuthKit\WorkOSServiceProvider;
 
 beforeEach(function () {
     Schema::create('listener_config_users', function (Blueprint $table) {
@@ -46,7 +47,7 @@ it('replaces a default listener with a custom one', function () {
         ],
     ]);
 
-    (new \WorkOS\AuthKit\WorkOSServiceProvider(app()))->boot();
+    (new WorkOSServiceProvider(app()))->boot();
 
     event(new WorkOSUserCreated(['id' => 'user_123', 'email' => 'test@test.com']));
 
@@ -62,7 +63,7 @@ it('disables a listener when config maps event to null', function () {
         ],
     ]);
 
-    (new \WorkOS\AuthKit\WorkOSServiceProvider(app()))->boot();
+    (new WorkOSServiceProvider(app()))->boot();
 
     $listeners = Event::getListeners(WorkOSUserUpdated::class);
 
@@ -76,7 +77,7 @@ it('keeps default listeners for events not in overrides', function () {
         ],
     ]);
 
-    (new \WorkOS\AuthKit\WorkOSServiceProvider(app()))->boot();
+    (new WorkOSServiceProvider(app()))->boot();
 
     $orgListeners = Event::getListeners(WorkOSOrganizationCreated::class);
     $membershipListeners = Event::getListeners(WorkOSMembershipCreated::class);
@@ -98,7 +99,7 @@ it('handles mixed config: replaced, disabled, and default', function () {
         ],
     ]);
 
-    (new \WorkOS\AuthKit\WorkOSServiceProvider(app()))->boot();
+    (new WorkOSServiceProvider(app()))->boot();
 
     expect(Event::getListeners(WorkOSUserCreated::class))->not->toBeEmpty()
         ->and(Event::getListeners(WorkOSUserUpdated::class))->toBeEmpty()

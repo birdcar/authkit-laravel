@@ -6,22 +6,14 @@ namespace WorkOS\AuthKit\Auth;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cookie;
-use WorkOS\AuthKit\Facades\WorkOS;
-use WorkOS\CookieSession;
-use WorkOS\Exception\BaseRequestException;
-use WorkOS\Exception\UnexpectedValueException;
-use WorkOS\Resource\Impersonator;
-use WorkOS\Resource\RoleResponse;
-use WorkOS\Resource\SessionAuthenticationSuccessResponse;
-use WorkOS\Session\HaliteSessionEncryption;
+use WorkOS\WorkOS;
 
 class SessionManager
 {
     private ?WorkOSSession $cachedSession = null;
 
-    private ?CookieSession $cookieSession = null;
-
     public function __construct(
+        private readonly WorkOS $client,
         private readonly string $cookiePassword,
         private readonly string $cookieName = 'wos-session',
     ) {}
@@ -32,22 +24,28 @@ class SessionManager
             return $this->cachedSession;
         }
 
-        $cookieSession = $this->getCookieSession();
-        if (! $cookieSession) {
+        $sealedSession = $this->getSealedSession();
+        if ($sealedSession === null) {
             return null;
         }
 
         try {
-            $result = $cookieSession->authenticate();
+            $clientId = (string) config('workos.client_id');
 
-            if (! $result instanceof SessionAuthenticationSuccessResponse || ! $result->authenticated) {
+            $result = $this->client->sessionManager()->authenticate(
+                sessionData: $sealedSession,
+                cookiePassword: $this->cookiePassword,
+                clientId: $clientId,
+            );
+
+            if (! ($result['authenticated'] ?? false)) {
                 return null;
             }
 
             $this->cachedSession = $this->buildWorkOSSession($result);
 
             return $this->cachedSession;
-        } catch (BaseRequestException|UnexpectedValueException) {
+        } catch (\Exception) {
             return null;
         }
     }
@@ -75,27 +73,23 @@ class SessionManager
     public function store(array $authResponse): WorkOSSession
     {
         $this->cachedSession = null;
-        $this->cookieSession = null;
 
         $accessToken = $authResponse['access_token'] ?? null;
         $refreshToken = $authResponse['refresh_token'] ?? null;
 
-        if ($accessToken && $refreshToken) {
-            $encryptor = new HaliteSessionEncryption;
-            $sealedSession = $encryptor->seal([
-                'access_token' => $accessToken,
-                'refresh_token' => $refreshToken,
-            ], $this->cookiePassword);
+        if (is_string($accessToken) && is_string($refreshToken)) {
+            $user = isset($authResponse['user']) && is_array($authResponse['user']) ? $authResponse['user'] : null;
+            $impersonator = isset($authResponse['impersonator']) && is_array($authResponse['impersonator']) ? $authResponse['impersonator'] : null;
 
-            Cookie::queue(
-                $this->cookieName,
-                $sealedSession,
-                60 * 24 * 30, // 30 days
-                '/',
-                config('session.domain'),
-                config('session.secure', false),
-                true,
+            $sealedSession = \WorkOS\SessionManager::sealSessionFromAuthResponse(
+                accessToken: $accessToken,
+                refreshToken: $refreshToken,
+                cookiePassword: $this->cookiePassword,
+                user: $user,
+                impersonator: $impersonator,
             );
+
+            $this->storeSealedCookie($sealedSession);
         }
 
         return WorkOSSession::fromAuthResponse($authResponse);
@@ -104,7 +98,6 @@ class SessionManager
     public function destroy(): void
     {
         $this->cachedSession = null;
-        $this->cookieSession = null;
         Cookie::queue(Cookie::forget($this->cookieName));
     }
 
@@ -130,108 +123,151 @@ class SessionManager
 
     public function getLogoutUrl(?string $returnTo = null): ?string
     {
-        $cookieSession = $this->getCookieSession();
-        if (! $cookieSession) {
+        $sealedSession = $this->getSealedSession();
+        if ($sealedSession === null) {
             return null;
         }
 
         try {
-            return $cookieSession->getLogoutUrl([
-                'returnTo' => $returnTo,
-            ]);
-        } catch (UnexpectedValueException) {
+            $clientId = (string) config('workos.client_id');
+
+            return $this->client->sessionManager()->getLogoutUrl(
+                sessionData: $sealedSession,
+                cookiePassword: $this->cookiePassword,
+                clientId: $clientId,
+                returnTo: $returnTo,
+            );
+        } catch (\Exception) {
             return null;
         }
     }
 
-    private function getCookieSession(): ?CookieSession
+    private function getSealedSession(): ?string
     {
-        if ($this->cookieSession !== null) {
-            return $this->cookieSession;
-        }
-
         $sealedSession = request()->cookie($this->cookieName);
 
         if (! $sealedSession || ! is_string($sealedSession)) {
             return null;
         }
 
-        $this->cookieSession = WorkOS::userManagement()->loadSealedSession($sealedSession, $this->cookiePassword);
-
-        return $this->cookieSession;
+        return $sealedSession;
     }
 
     private function attemptRefresh(): ?WorkOSSession
     {
-        $cookieSession = $this->getCookieSession();
-        if (! $cookieSession) {
+        $sealedSession = $this->getSealedSession();
+        if ($sealedSession === null) {
             return null;
         }
 
         try {
-            [$result, $newTokens] = $cookieSession->refresh();
+            $clientId = (string) config('workos.client_id');
 
-            if (! $result instanceof SessionAuthenticationSuccessResponse || ! $result->authenticated) {
+            $result = $this->client->sessionManager()->refresh(
+                sessionData: $sealedSession,
+                cookiePassword: $this->cookiePassword,
+                clientId: $clientId,
+            );
+
+            if (! ($result['authenticated'] ?? false)) {
                 $this->cachedSession = null;
 
                 return null;
             }
 
+            $newSealedSession = $result['sealed_session'] ?? null;
+            if (is_string($newSealedSession)) {
+                $this->storeSealedCookie($newSealedSession);
+
+                // Re-authenticate with the new sealed session to get full JWT claims
+                // (refresh response only contains session_id, user, impersonator)
+                $authResult = $this->client->sessionManager()->authenticate(
+                    sessionData: $newSealedSession,
+                    cookiePassword: $this->cookiePassword,
+                    clientId: $clientId,
+                );
+
+                if ($authResult['authenticated'] ?? false) {
+                    $this->cachedSession = $this->buildWorkOSSession($authResult);
+
+                    return $this->cachedSession;
+                }
+            }
+
+            // Fallback: build session from refresh response (partial data)
             $this->cachedSession = $this->buildWorkOSSession($result);
 
             return $this->cachedSession;
-        } catch (BaseRequestException|UnexpectedValueException) {
+        } catch (\Exception) {
             $this->cachedSession = null;
 
             return null;
         }
     }
 
-    private function buildWorkOSSession(SessionAuthenticationSuccessResponse $result): WorkOSSession
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function buildWorkOSSession(array $result): WorkOSSession
     {
-        /** @var array<RoleResponse> $resultRoles */
-        $resultRoles = $result->roles ?? [];
-        $roles = array_map(
-            fn (RoleResponse $role): string => $role->slug,
-            $resultRoles,
-        );
+        $roles = $this->extractStringArray($result['roles'] ?? null);
+        $permissions = $this->extractStringArray($result['permissions'] ?? null);
+        $featureFlags = $this->extractStringArray($result['feature_flags'] ?? null);
+        $entitlements = $this->extractStringArray($result['entitlements'] ?? null);
 
-        /** @var array<\WorkOS\Resource\FeatureFlag> $resultFlags */
-        $resultFlags = $result->featureFlags ?? [];
-        $featureFlags = array_map(
-            fn (\WorkOS\Resource\FeatureFlag $flag): string => $flag->slug,
-            $resultFlags,
-        );
+        $userId = '';
+        if (isset($result['user']) && is_array($result['user'])) {
+            $userId = (string) ($result['user']['id'] ?? '');
+        }
 
         return new WorkOSSession(
-            userId: $result->user->id ?? '',
-            accessToken: $result->accessToken ?? '',
-            refreshToken: $result->refreshToken,
+            userId: $userId,
+            accessToken: (string) ($result['access_token'] ?? ''),
+            refreshToken: isset($result['refresh_token']) ? (string) $result['refresh_token'] : null,
             expiresAt: Carbon::now()->addMinutes(
                 (int) config('workos.session.access_token_lifetime', 60)
             ),
-            sessionId: $result->sessionId,
+            sessionId: isset($result['session_id']) ? (string) $result['session_id'] : null,
             roles: $roles,
-            permissions: $result->permissions ?? [],
+            permissions: $permissions,
             featureFlags: $featureFlags,
-            entitlements: $result->entitlements ?? [],
-            organizationId: $result->organizationId,
-            impersonator: $this->impersonatorToArray($result->impersonator),
+            entitlements: $entitlements,
+            organizationId: isset($result['organization_id']) ? (string) $result['organization_id'] : null,
+            impersonator: isset($result['impersonator']) && is_array($result['impersonator']) ? $result['impersonator'] : null,
         );
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return array<string>
      */
-    private function impersonatorToArray(?Impersonator $impersonator): ?array
+    private function extractStringArray(mixed $data): array
     {
-        if ($impersonator === null) {
-            return null;
+        if (! is_array($data)) {
+            return [];
         }
 
-        return [
-            'email' => $impersonator->email,
-            'reason' => $impersonator->reason,
-        ];
+        return array_map(function (mixed $item): string {
+            if (is_string($item)) {
+                return $item;
+            }
+            if (is_array($item) && isset($item['slug'])) {
+                return (string) $item['slug'];
+            }
+
+            return (string) $item;
+        }, $data);
+    }
+
+    private function storeSealedCookie(string $sealedSession): void
+    {
+        Cookie::queue(
+            $this->cookieName,
+            $sealedSession,
+            60 * 24 * 30,
+            '/',
+            config('session.domain'),
+            config('session.secure', false),
+            true,
+        );
     }
 }

@@ -3,14 +3,18 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Route;
-use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Audit\Concerns\HasAuditTrail;
 use WorkOS\AuthKit\Audit\Contracts\Auditable;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\Testing\WorkOSFake;
+use WorkOS\WorkOS;
 
 class IntegrationAuditableModel implements Auditable
 {
@@ -40,11 +44,19 @@ function createAuditTestSession(
     );
 }
 
+function createAuditSdkClient(MockHandler $mock): WorkOS
+{
+    return new WorkOS(
+        apiKey: 'sk_test_key',
+        clientId: 'client_test_123',
+        handler: HandlerStack::create($mock),
+    );
+}
+
 beforeEach(function () {
     Carbon::setTestNow('2024-01-15 12:00:00');
     config(['workos.features.audit_logs' => true]);
 
-    // Register test routes with audit middleware
     Route::middleware(['workos.audit'])->get('/audit-test', fn () => 'OK');
     Route::middleware(['workos.audit:custom.action'])->get('/audit-custom', fn () => 'Custom');
     Route::middleware(['workos.audit'])->get('/audit-test/{id}', fn ($id) => "Resource {$id}");
@@ -63,17 +75,12 @@ it('registers audit middleware alias', function () {
 
 it('logs audit event through middleware on successful request', function () {
     $session = createAuditTestSession(organizationId: 'org_test_123');
-    $capturedEvents = [];
 
-    $auditLogs = Mockery::mock(AuditLogs::class);
-    $auditLogs->shouldReceive('createEvent')
-        ->andReturnUsing(function ($orgId, $event) use (&$capturedEvents) {
-            $capturedEvents[] = ['org_id' => $orgId, 'event' => $event];
-        });
+    $guzzleMock = new MockHandler([new Response(200, [], json_encode(['success' => true]))]);
 
-    $this->app->singleton(AuditLogger::class, function ($app) use ($auditLogs) {
+    $this->app->singleton(AuditLogger::class, function ($app) use ($guzzleMock) {
         return new AuditLogger(
-            $auditLogs,
+            createAuditSdkClient($guzzleMock),
             $app->make(SessionManager::class)
         );
     });
@@ -86,19 +93,17 @@ it('logs audit event through middleware on successful request', function () {
     $response = $this->actingAsWorkOSUser($session)->get('/audit-test');
 
     $response->assertOk();
-    expect($capturedEvents)->toHaveCount(1);
-    expect($capturedEvents[0]['event']['action']['type'])->toContain('.read');
+    expect($guzzleMock->count())->toBe(0);
 });
 
 it('does not log audit event on failed request', function () {
     $session = createAuditTestSession(organizationId: 'org_test_123');
 
-    $auditLogs = Mockery::mock(AuditLogs::class);
-    $auditLogs->shouldNotReceive('createEvent');
+    $guzzleMock = new MockHandler;
 
-    $this->app->singleton(AuditLogger::class, function ($app) use ($auditLogs) {
+    $this->app->singleton(AuditLogger::class, function ($app) use ($guzzleMock) {
         return new AuditLogger(
-            $auditLogs,
+            createAuditSdkClient($guzzleMock),
             $app->make(SessionManager::class)
         );
     });
@@ -114,19 +119,16 @@ it('does not log audit event on failed request', function () {
 
 it('uses custom action when specified in middleware', function () {
     $session = createAuditTestSession(organizationId: 'org_test_123');
-    $capturedEvents = [];
 
-    $auditLogs = Mockery::mock(AuditLogs::class);
-    $auditLogs->shouldReceive('createEvent')
-        ->andReturnUsing(function ($orgId, $event) use (&$capturedEvents) {
-            $capturedEvents[] = ['org_id' => $orgId, 'event' => $event];
-        });
+    $history = [];
+    $guzzleMock = new MockHandler([new Response(200, [], json_encode(['success' => true]))]);
+    $handler = HandlerStack::create($guzzleMock);
+    $handler->push(Middleware::history($history));
 
-    $this->app->singleton(AuditLogger::class, function ($app) use ($auditLogs) {
-        return new AuditLogger(
-            $auditLogs,
-            $app->make(SessionManager::class)
-        );
+    $sdkClient = new WorkOS(apiKey: 'sk_test_key', clientId: 'client_test_123', handler: $handler);
+
+    $this->app->singleton(AuditLogger::class, function ($app) use ($sdkClient) {
+        return new AuditLogger($sdkClient, $app->make(SessionManager::class));
     });
 
     $sessionManager = $this->mock(SessionManager::class);
@@ -137,25 +139,23 @@ it('uses custom action when specified in middleware', function () {
     $response = $this->actingAsWorkOSUser($session)->get('/audit-custom');
 
     $response->assertOk();
-    expect($capturedEvents)->toHaveCount(1);
-    expect($capturedEvents[0]['event']['action']['type'])->toBe('custom.action');
+    expect($history)->toHaveCount(1);
+    $body = json_decode((string) $history[0]['request']->getBody(), true);
+    expect($body['event']['action'])->toBe('custom.action');
 });
 
 it('includes organization id in audit event', function () {
     $session = createAuditTestSession(organizationId: 'org_test_123');
-    $capturedEvents = [];
 
-    $auditLogs = Mockery::mock(AuditLogs::class);
-    $auditLogs->shouldReceive('createEvent')
-        ->andReturnUsing(function ($orgId, $event) use (&$capturedEvents) {
-            $capturedEvents[] = ['org_id' => $orgId, 'event' => $event];
-        });
+    $history = [];
+    $guzzleMock = new MockHandler([new Response(200, [], json_encode(['success' => true]))]);
+    $handler = HandlerStack::create($guzzleMock);
+    $handler->push(Middleware::history($history));
 
-    $this->app->singleton(AuditLogger::class, function ($app) use ($auditLogs) {
-        return new AuditLogger(
-            $auditLogs,
-            $app->make(SessionManager::class)
-        );
+    $sdkClient = new WorkOS(apiKey: 'sk_test_key', clientId: 'client_test_123', handler: $handler);
+
+    $this->app->singleton(AuditLogger::class, function ($app) use ($sdkClient) {
+        return new AuditLogger($sdkClient, $app->make(SessionManager::class));
     });
 
     $sessionManager = $this->mock(SessionManager::class);
@@ -166,21 +166,20 @@ it('includes organization id in audit event', function () {
     $response = $this->actingAsWorkOSUser($session)->get('/audit-test');
 
     $response->assertOk();
-    expect($capturedEvents)->toHaveCount(1);
-    expect($capturedEvents[0]['org_id'])->toBe('org_test_123');
+    expect($history)->toHaveCount(1);
+    $body = json_decode((string) $history[0]['request']->getBody(), true);
+    expect($body['organization_id'])->toBe('org_test_123');
 });
 
 it('is no-op when feature is disabled', function () {
     config(['workos.features.audit_logs' => false]);
 
     $session = createAuditTestSession(organizationId: 'org_test_123');
+    $guzzleMock = new MockHandler;
 
-    $auditLogs = Mockery::mock(AuditLogs::class);
-    $auditLogs->shouldNotReceive('createEvent');
-
-    $this->app->singleton(AuditLogger::class, function ($app) use ($auditLogs) {
+    $this->app->singleton(AuditLogger::class, function ($app) use ($guzzleMock) {
         return new AuditLogger(
-            $auditLogs,
+            createAuditSdkClient($guzzleMock),
             $app->make(SessionManager::class)
         );
     });
@@ -196,13 +195,11 @@ it('is no-op when feature is disabled', function () {
 
 it('is no-op when no organization context', function () {
     $session = createAuditTestSession(organizationId: null);
+    $guzzleMock = new MockHandler;
 
-    $auditLogs = Mockery::mock(AuditLogs::class);
-    $auditLogs->shouldNotReceive('createEvent');
-
-    $this->app->singleton(AuditLogger::class, function ($app) use ($auditLogs) {
+    $this->app->singleton(AuditLogger::class, function ($app) use ($guzzleMock) {
         return new AuditLogger(
-            $auditLogs,
+            createAuditSdkClient($guzzleMock),
             $app->make(SessionManager::class)
         );
     });

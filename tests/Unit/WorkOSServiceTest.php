@@ -3,20 +3,29 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
-use WorkOS\AuditLogs;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\WorkOS;
-use WorkOS\DirectorySync;
-use WorkOS\Organizations;
-use WorkOS\SSO;
-use WorkOS\UserManagement;
-use WorkOS\Webhook;
+use WorkOS\Service\AuditLogs;
+use WorkOS\Service\DirectorySync;
+use WorkOS\Service\Organizations;
+use WorkOS\Service\SSO;
+use WorkOS\Service\UserManagement;
+use WorkOS\Service\Webhooks;
 
 beforeEach(function () {
     Carbon::setTestNow('2024-01-15 12:00:00');
     $this->sessionManager = Mockery::mock(SessionManager::class);
-    $this->workos = new WorkOS($this->sessionManager);
+    $this->guzzleMock = new MockHandler;
+    $this->sdkClient = new \WorkOS\WorkOS(
+        apiKey: 'sk_test_key',
+        clientId: 'client_id_123',
+        handler: HandlerStack::create($this->guzzleMock),
+    );
+    $this->workos = new WorkOS($this->sdkClient, $this->sessionManager);
 });
 
 afterEach(function () {
@@ -30,7 +39,7 @@ it('proxies to SDK services', function () {
         ->and($this->workos->organizations())->toBeInstanceOf(Organizations::class)
         ->and($this->workos->directorySync())->toBeInstanceOf(DirectorySync::class)
         ->and($this->workos->auditLogs())->toBeInstanceOf(AuditLogs::class)
-        ->and($this->workos->webhook())->toBeInstanceOf(Webhook::class);
+        ->and($this->workos->webhooks())->toBeInstanceOf(Webhooks::class);
 });
 
 it('caches SDK service instances', function () {
@@ -39,10 +48,6 @@ it('caches SDK service instances', function () {
 
     expect($first)->toBe($second);
 });
-
-it('throws for unsupported services', function () {
-    $this->workos->nonExistentService();
-})->throws(InvalidArgumentException::class, 'WorkOS service [nonExistentService] is not supported');
 
 it('returns session from manager', function () {
     $session = new WorkOSSession(
@@ -173,8 +178,9 @@ it('destroys session', function () {
 });
 
 it('passes screen hint to login url', function () {
-    \WorkOS\WorkOS::setApiKey('sk_test_key');
-    \WorkOS\WorkOS::setClientId('client_id_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode([
+        'url' => 'https://authkit.workos.com/authorize?screen_hint=sign-up',
+    ])));
 
     $url = $this->workos->loginUrl(screenHint: 'sign-up');
 
@@ -182,8 +188,9 @@ it('passes screen hint to login url', function () {
 });
 
 it('passes login hint to login url', function () {
-    \WorkOS\WorkOS::setApiKey('sk_test_key');
-    \WorkOS\WorkOS::setClientId('client_id_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode([
+        'url' => 'https://authkit.workos.com/authorize?login_hint=user%40example.com',
+    ])));
 
     $url = $this->workos->loginUrl(loginHint: 'user@example.com');
 
@@ -191,8 +198,9 @@ it('passes login hint to login url', function () {
 });
 
 it('combines all params in login url', function () {
-    \WorkOS\WorkOS::setApiKey('sk_test_key');
-    \WorkOS\WorkOS::setClientId('client_id_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode([
+        'url' => 'https://authkit.workos.com/authorize?organization_id=org_123&screen_hint=sign-in&login_hint=user%40example.com',
+    ])));
 
     $url = $this->workos->loginUrl(
         organizationId: 'org_123',
@@ -207,8 +215,9 @@ it('combines all params in login url', function () {
 });
 
 it('signUpUrl sets screen hint to sign-up', function () {
-    \WorkOS\WorkOS::setApiKey('sk_test_key');
-    \WorkOS\WorkOS::setClientId('client_id_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode([
+        'url' => 'https://authkit.workos.com/authorize?screen_hint=sign-up&organization_id=org_123',
+    ])));
 
     $url = $this->workos->signUpUrl(organizationId: 'org_123');
 

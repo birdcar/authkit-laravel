@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use WorkOS\AuthKit\FGA\FGAService;
+use WorkOS\AuthKit\WorkOSServiceProvider;
 
 beforeEach(function () {
     config(['workos.fga.enabled' => true]);
 
     // Re-boot to pick up FGA middleware registration
-    $provider = new \WorkOS\AuthKit\WorkOSServiceProvider(app());
+    $provider = new WorkOSServiceProvider(app());
     $provider->boot();
 
     Route::get('/fga-test/{projectId}', fn () => response()->json(['ok' => true]))

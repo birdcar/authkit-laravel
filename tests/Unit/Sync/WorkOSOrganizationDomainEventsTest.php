@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainCreated;
-use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainDeleted;
-use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainUpdated;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainVerificationFailed;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainVerified;
 use WorkOS\AuthKit\Http\Controllers\WebhookController;

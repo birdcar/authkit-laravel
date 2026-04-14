@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace WorkOS\AuthKit\FeatureFlags;
 
 use WorkOS\AuthKit\Auth\SessionManager;
-use WorkOS\Organizations;
-use WorkOS\Resource\FeatureFlag;
+use WorkOS\Resource\Flag;
+use WorkOS\WorkOS;
 
 class FeatureFlagService
 {
     public function __construct(
         private readonly SessionManager $session,
-        private readonly Organizations $organizations,
+        private readonly WorkOS $client,
     ) {}
 
     public function isEnabled(string $slug, ?string $organizationId = null): bool
@@ -35,14 +35,14 @@ class FeatureFlagService
     }
 
     /**
-     * @return array<FeatureFlag>
+     * @return array<Flag>
      */
     public function listForOrganization(string $organizationId): array
     {
-        $result = $this->organizations->listOrganizationFeatureFlags($organizationId);
+        $result = $this->client->featureFlags()->listOrganizationFeatureFlags($organizationId);
 
-        /** @var array<FeatureFlag> */
-        return $result->feature_flags ?? [];
+        /** @var array<Flag> */
+        return $result->data ?? [];
     }
 
     private function flagEnabledViaApi(string $slug, string $organizationId): bool

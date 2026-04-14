@@ -95,6 +95,8 @@ it('switches organization via endpoint by redirecting to WorkOS login', function
 
     $user->organizations()->attach($org->id);
 
+    $this->queueSdkResponse(['url' => 'https://api.workos.com/user_management/authorize?organization_id=org_456']);
+
     Route::post('/test-org-switch', function (Request $request) {
         return app(OrganizationController::class)->switch($request);
     })->middleware(['web']);

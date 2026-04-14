@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\FGA;
 
+use Illuminate\Support\Facades\Http;
 use WorkOS\AuthKit\Auth\SessionManager;
-use WorkOS\Client;
 
 class FGAService
 {
@@ -56,18 +56,11 @@ class FGAService
         string $resourceType,
     ): array {
         try {
-            /** @var array<string, mixed> $response */
-            $response = Client::request(
-                Client::METHOD_GET,
-                'fga/v1/access-checks/resources',
-                null,
-                [
-                    'user_id' => $userId,
-                    'permission' => $permission,
-                    'resource_type' => $resourceType,
-                ],
-                true,
-            );
+            $response = $this->request('get', 'fga/v1/access-checks/resources', [
+                'user_id' => $userId,
+                'permission' => $permission,
+                'resource_type' => $resourceType,
+            ]);
 
             /** @var array<array{resource_type: string, resource_id: string}> $data */
             $data = $response['data'] ?? [];
@@ -88,18 +81,12 @@ class FGAService
         string $resourceId,
     ): bool {
         try {
-            Client::request(
-                Client::METHOD_POST,
-                'fga/v1/role-assignments',
-                null,
-                [
-                    'user_id' => $userId,
-                    'role_slug' => $roleSlug,
-                    'resource_type' => $resourceType,
-                    'resource_id' => $resourceId,
-                ],
-                true,
-            );
+            $this->request('post', 'fga/v1/role-assignments', [
+                'user_id' => $userId,
+                'role_slug' => $roleSlug,
+                'resource_type' => $resourceType,
+                'resource_id' => $resourceId,
+            ]);
 
             $this->flushCache($userId);
 
@@ -116,18 +103,12 @@ class FGAService
         string $resourceId,
     ): bool {
         try {
-            Client::request(
-                Client::METHOD_DELETE,
-                'fga/v1/role-assignments',
-                null,
-                [
-                    'user_id' => $userId,
-                    'role_slug' => $roleSlug,
-                    'resource_type' => $resourceType,
-                    'resource_id' => $resourceId,
-                ],
-                true,
-            );
+            $this->request('delete', 'fga/v1/role-assignments', [
+                'user_id' => $userId,
+                'role_slug' => $roleSlug,
+                'resource_type' => $resourceType,
+                'resource_id' => $resourceId,
+            ]);
 
             $this->flushCache($userId);
 
@@ -159,19 +140,12 @@ class FGAService
         string $resourceId,
     ): FGAAccessResult {
         try {
-            /** @var array<string, mixed> $response */
-            $response = Client::request(
-                Client::METHOD_POST,
-                'fga/v1/access-checks',
-                null,
-                [
-                    'user_id' => $userId,
-                    'permission' => $permission,
-                    'resource_type' => $resourceType,
-                    'resource_id' => $resourceId,
-                ],
-                true,
-            );
+            $response = $this->request('post', 'fga/v1/access-checks', [
+                'user_id' => $userId,
+                'permission' => $permission,
+                'resource_type' => $resourceType,
+                'resource_id' => $resourceId,
+            ]);
 
             $allowed = (bool) ($response['allowed'] ?? false);
         } catch (\Exception) {
@@ -184,6 +158,26 @@ class FGAService
             permission: $permission,
             resource: new FGAResource($resourceType, $resourceId),
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function request(string $method, string $path, array $data = []): array
+    {
+        $url = rtrim((string) config('workos.api_base_url', 'https://api.workos.com'), '/').'/'.$path;
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.config('workos.api_key'),
+        ])->$method($url, $data);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException("WorkOS FGA API error: {$response->status()} {$response->body()}");
+        }
+
+        /** @var array<string, mixed> */
+        return $response->json() ?? [];
     }
 
     private function cacheKey(

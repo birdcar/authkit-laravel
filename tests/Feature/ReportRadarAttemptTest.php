@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use WorkOS\AuthKit\Services\RadarService;
 
 beforeEach(function () {
-    Route::post('/radar-test', function (\Illuminate\Http\Request $request) {
+    Route::post('/radar-test', function (Request $request) {
         return response()->json([
             'ok' => true,
             'verdict' => $request->input('_radar_verdict'),

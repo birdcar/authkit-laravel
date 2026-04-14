@@ -6,105 +6,218 @@ namespace WorkOS\AuthKit;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Guard;
-use InvalidArgumentException;
-use SensitiveParameter;
-use WorkOS\AuditLogs;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
+use WorkOS\Actions;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Auth\ApiKeyValidation;
-use WorkOS\AuthKit\FGA\FGAService;
+use WorkOS\AuthKit\Auth\SessionManager;
+use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\FeatureFlags\FeatureFlagService;
+use WorkOS\AuthKit\FGA\FGAService;
 use WorkOS\AuthKit\Services\DomainService;
 use WorkOS\AuthKit\Services\PipesService;
 use WorkOS\AuthKit\Services\RadarService;
 use WorkOS\AuthKit\Services\VaultService;
-use WorkOS\AuthKit\Auth\SessionManager;
-use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\Testing\WorkOSFake;
-use WorkOS\DirectorySync;
-use WorkOS\MFA;
-use WorkOS\Organizations;
 use WorkOS\Passwordless;
-use WorkOS\Portal;
-use WorkOS\SSO;
-use WorkOS\UserManagement;
-use WorkOS\Webhook;
+use WorkOS\PKCEHelper;
+use WorkOS\Resource\UserManagementAuthenticationProvider;
+use WorkOS\Resource\UserManagementAuthenticationScreenHint;
+use WorkOS\Service\AdminPortal;
+use WorkOS\Service\ApiKeys;
+use WorkOS\Service\AuditLogs;
+use WorkOS\Service\Authorization;
+use WorkOS\Service\Connect;
+use WorkOS\Service\DirectorySync;
+use WorkOS\Service\Events;
+use WorkOS\Service\FeatureFlags;
+use WorkOS\Service\MultiFactorAuth;
+use WorkOS\Service\OrganizationDomains;
+use WorkOS\Service\Organizations;
+use WorkOS\Service\Pipes;
+use WorkOS\Service\Radar;
+use WorkOS\Service\SSO;
+use WorkOS\Service\UserManagement;
+use WorkOS\Service\Webhooks;
+use WorkOS\Service\Widgets;
+use WorkOS\Vault;
+use WorkOS\WebhookVerification;
 
 class WorkOS
 {
     /** @var WorkOSFake|null */
     private static $fake = null;
 
-    /** @var array<string, object> */
-    private array $instances = [];
-
-    /** @var array<string, class-string> */
-    private const array SERVICE_MAP = [
-        'auditLogs' => AuditLogs::class,
-        'directorySync' => DirectorySync::class,
-        'mfa' => MFA::class,
-        'organizations' => Organizations::class,
-        'passwordless' => Passwordless::class,
-        'portal' => Portal::class,
-        'sso' => SSO::class,
-        'userManagement' => UserManagement::class,
-        'webhook' => Webhook::class,
-    ];
-
     public function __construct(
+        private readonly \WorkOS\WorkOS $client,
         private readonly SessionManager $session,
     ) {}
 
-    /**
-     * @param  array<mixed>  $arguments
-     */
-    public function __call(string $name, array $arguments): object
-    {
-        if (! array_key_exists($name, self::SERVICE_MAP)) {
-            throw new InvalidArgumentException(
-                "WorkOS service [{$name}] is not supported. Available services: ".implode(', ', array_keys(self::SERVICE_MAP))
-            );
-        }
-
-        return $this->instances[$name] ??= new (self::SERVICE_MAP[$name]);
-    }
+    // SDK Service Accessors
 
     public function userManagement(): UserManagement
     {
-        /** @var UserManagement */
-        return $this->instances['userManagement'] ??= new UserManagement;
+        return $this->client->userManagement();
     }
 
     public function organizations(): Organizations
     {
-        /** @var Organizations */
-        return $this->instances['organizations'] ??= new Organizations;
+        return $this->client->organizations();
     }
 
     public function sso(): SSO
     {
-        /** @var SSO */
-        return $this->instances['sso'] ??= new SSO;
+        return $this->client->sso();
     }
 
     public function directorySync(): DirectorySync
     {
-        /** @var DirectorySync */
-        return $this->instances['directorySync'] ??= new DirectorySync;
+        return $this->client->directorySync();
     }
 
     public function auditLogs(): AuditLogs
     {
-        /** @var AuditLogs */
-        return $this->instances['auditLogs'] ??= new AuditLogs;
+        return $this->client->auditLogs();
     }
 
-    public function webhook(): Webhook
+    public function webhookVerification(): WebhookVerification
     {
-        /** @var Webhook */
-        return $this->instances['webhook'] ??= new Webhook;
+        return $this->client->webhookVerification();
     }
+
+    public function webhooks(): Webhooks
+    {
+        return $this->client->webhooks();
+    }
+
+    public function sdkSessionManager(): \WorkOS\SessionManager
+    {
+        return $this->client->sessionManager();
+    }
+
+    public function featureFlags(): FeatureFlags
+    {
+        return $this->client->featureFlags();
+    }
+
+    public function apiKeys(): ApiKeys
+    {
+        return $this->client->apiKeys();
+    }
+
+    public function connect(): Connect
+    {
+        return $this->client->connect();
+    }
+
+    public function events(): Events
+    {
+        return $this->client->events();
+    }
+
+    public function organizationDomains(): OrganizationDomains
+    {
+        return $this->client->organizationDomains();
+    }
+
+    public function sdkPipes(): Pipes
+    {
+        return $this->client->pipes();
+    }
+
+    public function sdkRadar(): Radar
+    {
+        return $this->client->radar();
+    }
+
+    public function sdkVault(): Vault
+    {
+        return $this->client->vault();
+    }
+
+    public function actions(): Actions
+    {
+        return $this->client->actions();
+    }
+
+    public function pkce(): PKCEHelper
+    {
+        return $this->client->pkce();
+    }
+
+    public function multiFactorAuth(): MultiFactorAuth
+    {
+        return $this->client->multiFactorAuth();
+    }
+
+    public function adminPortal(): AdminPortal
+    {
+        return $this->client->adminPortal();
+    }
+
+    public function authorization(): Authorization
+    {
+        return $this->client->authorization();
+    }
+
+    public function passwordless(): Passwordless
+    {
+        return $this->client->passwordless();
+    }
+
+    public function widgets(): Widgets
+    {
+        return $this->client->widgets();
+    }
+
+    // Feature-gated sub-services
+
+    public function flags(): FeatureFlagService
+    {
+        return app(FeatureFlagService::class);
+    }
+
+    public function fga(): FGAService
+    {
+        return app(FGAService::class);
+    }
+
+    public function vault(): VaultService
+    {
+        if (! config('workos.features.vault', false)) {
+            throw new \RuntimeException('WorkOS Vault is not enabled. Set WORKOS_FEATURE_VAULT=true in your .env.');
+        }
+
+        return new VaultService($this->client);
+    }
+
+    public function radar(): RadarService
+    {
+        if (! config('workos.features.radar', false)) {
+            throw new \RuntimeException('WorkOS Radar is not enabled. Set WORKOS_FEATURE_RADAR=true in your .env.');
+        }
+
+        return new RadarService($this->client);
+    }
+
+    public function pipes(): PipesService
+    {
+        if (! config('workos.features.pipes', false)) {
+            throw new \RuntimeException('WorkOS Pipes is not enabled. Set WORKOS_FEATURE_PIPES=true in your .env.');
+        }
+
+        return new PipesService($this->client);
+    }
+
+    public function domains(): DomainService
+    {
+        if (! config('workos.features.domain_verification', false)) {
+            throw new \RuntimeException('WorkOS Domain Verification is not enabled. Set WORKOS_FEATURE_DOMAIN_VERIFICATION=true in your .env.');
+        }
+
+        return new DomainService($this->client);
+    }
+
+    // Convenience methods
 
     public function user(): ?Authenticatable
     {
@@ -133,17 +246,23 @@ class WorkOS
         ?string $screenHint = null,
         ?string $loginHint = null,
     ): string {
-        /** @var UserManagement $userManagement */
-        $userManagement = $this->userManagement();
+        $screenHintEnum = $screenHint !== null
+            ? UserManagementAuthenticationScreenHint::tryFrom($screenHint)
+            : null;
 
-        return $userManagement->getAuthorizationUrl(
-            redirectUri: config('workos.redirect_uri'),
-            state: $state,
-            provider: 'authkit',
+        $stateStr = $state !== null ? json_encode($state) : null;
+
+        /** @var array{url: string} $response */
+        $response = $this->client->userManagement()->getAuthorizationUrl(
+            redirectUri: (string) config('workos.redirect_uri'),
+            provider: UserManagementAuthenticationProvider::Authkit,
+            state: $stateStr !== false ? $stateStr : null,
             organizationId: $organizationId,
             loginHint: $loginHint,
-            screenHint: $screenHint,
+            screenHint: $screenHintEnum,
         );
+
+        return $response['url'];
     }
 
     /**
@@ -193,84 +312,17 @@ class WorkOS
         return $this->validSession()?->hasEntitlement($entitlement) ?? false;
     }
 
-    public function flags(): FeatureFlagService
-    {
-        /** @var FeatureFlagService */
-        return $this->instances['flags'] ??= new FeatureFlagService(
-            $this->session,
-            $this->organizations(),
-        );
-    }
-
-    public function fga(): FGAService
-    {
-        /** @var FGAService */
-        return $this->instances['fga'] ??= app(FGAService::class);
-    }
-
-    public function vault(): VaultService
-    {
-        if (! config('workos.features.vault', false)) {
-            throw new \RuntimeException('WorkOS Vault is not enabled. Set WORKOS_FEATURE_VAULT=true in your .env.');
-        }
-
-        /** @var VaultService */
-        return $this->instances['vault'] ??= new VaultService;
-    }
-
-    public function radar(): RadarService
-    {
-        if (! config('workos.features.radar', false)) {
-            throw new \RuntimeException('WorkOS Radar is not enabled. Set WORKOS_FEATURE_RADAR=true in your .env.');
-        }
-
-        /** @var RadarService */
-        return $this->instances['radar'] ??= new RadarService;
-    }
-
-    public function pipes(): PipesService
-    {
-        if (! config('workos.features.pipes', false)) {
-            throw new \RuntimeException('WorkOS Pipes is not enabled. Set WORKOS_FEATURE_PIPES=true in your .env.');
-        }
-
-        /** @var PipesService */
-        return $this->instances['pipes'] ??= new PipesService;
-    }
-
-    public function domains(): DomainService
-    {
-        if (! config('workos.features.domain_verification', false)) {
-            throw new \RuntimeException('WorkOS Domain Verification is not enabled. Set WORKOS_FEATURE_DOMAIN_VERIFICATION=true in your .env.');
-        }
-
-        /** @var DomainService */
-        return $this->instances['domains'] ??= new DomainService;
-    }
-
     public function validateApiKey(string $key): ?ApiKeyValidation
     {
         try {
-            $client = new Client;
-            $baseUrl = config('workos.api_keys.base_url', 'https://api.workos.com');
+            $result = $this->client->apiKeys()->createValidations(value: $key);
 
-            $response = $client->post("{$baseUrl}/api_keys/validations", [
-                'headers' => [
-                    'Authorization' => 'Bearer '.\WorkOS\WorkOS::getApiKey(),
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => ['value' => $key],
-            ]);
-
-            /** @var array<string, mixed> $body */
-            $body = json_decode((string) $response->getBody(), true);
-
-            if (! isset($body['api_key']) || ! is_array($body['api_key'])) {
+            if ($result->apiKey === null) {
                 return null;
             }
 
-            return ApiKeyValidation::fromResponse($body['api_key']);
-        } catch (RequestException) {
+            return ApiKeyValidation::fromResponse($result->apiKey->toArray());
+        } catch (\Exception) {
             return null;
         }
     }
@@ -278,7 +330,7 @@ class WorkOS
     /**
      * @param  array<string, mixed>  $authResponse
      */
-    public function storeSession(#[SensitiveParameter] array $authResponse): WorkOSSession
+    public function storeSession(#[\SensitiveParameter] array $authResponse): WorkOSSession
     {
         return $this->session->store($authResponse);
     }
@@ -296,6 +348,8 @@ class WorkOS
     {
         app(AuditLogger::class)->log($action, $targets, metadata: $metadata);
     }
+
+    // Testing helpers
 
     public static function fake(): WorkOSFake
     {

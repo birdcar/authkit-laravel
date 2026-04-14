@@ -6,13 +6,17 @@ use Carbon\Carbon;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSSession;
 use WorkOS\AuthKit\FeatureFlags\FeatureFlagService;
-use WorkOS\Organizations;
-use WorkOS\Resource\FeatureFlag;
+use WorkOS\PaginatedResponse;
+use WorkOS\Resource\Flag;
+use WorkOS\Service\FeatureFlags;
+use WorkOS\WorkOS;
 
 beforeEach(function () {
     $this->sessionManager = Mockery::mock(SessionManager::class);
-    $this->organizations = Mockery::mock(Organizations::class);
-    $this->service = new FeatureFlagService($this->sessionManager, $this->organizations);
+    $this->featureFlagsService = Mockery::mock(FeatureFlags::class);
+    $this->sdkClient = Mockery::mock(WorkOS::class);
+    $this->sdkClient->shouldReceive('featureFlags')->andReturn($this->featureFlagsService);
+    $this->service = new FeatureFlagService($this->sessionManager, $this->sdkClient);
 });
 
 it('returns true when flag is in session featureFlags', function () {
@@ -53,12 +57,24 @@ it('falls back to API when no session and org ID is available', function () {
     $this->sessionManager->shouldReceive('getSession')->andReturn(null);
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_123');
 
-    $flag = FeatureFlag::constructFromResponse(['slug' => 'api-flag', 'id' => 'ff_1', 'name' => 'API Flag', 'description' => '', 'created_at' => '', 'updated_at' => '']);
+    $flag = Flag::fromArray([
+        'object' => 'feature_flag',
+        'id' => 'ff_1',
+        'slug' => 'api-flag',
+        'name' => 'API Flag',
+        'description' => null,
+        'tags' => [],
+        'enabled' => true,
+        'default_value' => true,
+        'created_at' => '2024-01-01T00:00:00Z',
+        'updated_at' => '2024-01-01T00:00:00Z',
+    ]);
 
-    $result = (object) ['feature_flags' => [$flag]];
-    $this->organizations->shouldReceive('listOrganizationFeatureFlags')
+    $page = new PaginatedResponse(data: [$flag], listMetadata: []);
+
+    $this->featureFlagsService->shouldReceive('listOrganizationFeatureFlags')
         ->with('org_123')
-        ->andReturn($result);
+        ->andReturn($page);
 
     expect($this->service->isEnabled('api-flag'))->toBeTrue();
 });
@@ -74,7 +90,7 @@ it('returns false when API call fails', function () {
     $this->sessionManager->shouldReceive('getSession')->andReturn(null);
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_123');
 
-    $this->organizations->shouldReceive('listOrganizationFeatureFlags')
+    $this->featureFlagsService->shouldReceive('listOrganizationFeatureFlags')
         ->andThrow(new RuntimeException('API error'));
 
     expect($this->service->isEnabled('any-flag'))->toBeFalse();
@@ -102,12 +118,24 @@ it('returns false when feature flags config is disabled', function () {
 it('uses explicit org ID over session org ID for API fallback', function () {
     $this->sessionManager->shouldReceive('getSession')->andReturn(null);
 
-    $flag = FeatureFlag::constructFromResponse(['slug' => 'org-flag', 'id' => 'ff_2', 'name' => 'Org Flag', 'description' => '', 'created_at' => '', 'updated_at' => '']);
+    $flag = Flag::fromArray([
+        'object' => 'feature_flag',
+        'id' => 'ff_2',
+        'slug' => 'org-flag',
+        'name' => 'Org Flag',
+        'description' => null,
+        'tags' => [],
+        'enabled' => true,
+        'default_value' => true,
+        'created_at' => '2024-01-01T00:00:00Z',
+        'updated_at' => '2024-01-01T00:00:00Z',
+    ]);
 
-    $result = (object) ['feature_flags' => [$flag]];
-    $this->organizations->shouldReceive('listOrganizationFeatureFlags')
+    $page = new PaginatedResponse(data: [$flag], listMetadata: []);
+
+    $this->featureFlagsService->shouldReceive('listOrganizationFeatureFlags')
         ->with('org_explicit')
-        ->andReturn($result);
+        ->andReturn($page);
 
     expect($this->service->isEnabled('org-flag', 'org_explicit'))->toBeTrue();
 });

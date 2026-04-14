@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Http;
-use WorkOS\AuthKit\Events\WorkOSEventReceived;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
 
 beforeEach(function () {
     Event::fake();
@@ -15,14 +15,6 @@ beforeEach(function () {
         'workos.events.routing.categories.user' => 'events_api',
         'workos.events.poll_interval' => 0,
     ]);
-});
-
-it('fails when API key is not configured', function () {
-    config(['workos.api_key' => null]);
-
-    $this->artisan('workos:events-listen', ['--once' => true])
-        ->expectsOutputToContain('API key not configured')
-        ->assertFailed();
 });
 
 it('exits with success when no event types configured for events_api', function () {
@@ -37,22 +29,24 @@ it('exits with success when no event types configured for events_api', function 
 });
 
 it('polls events API and dispatches events with --once', function () {
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [
-                [
-                    'id' => 'event_01',
-                    'event' => 'user.created',
-                    'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
-                ],
-                [
-                    'id' => 'event_02',
-                    'event' => 'user.updated',
-                    'data' => ['id' => 'user_123', 'email' => 'updated@example.com'],
-                ],
+    $this->queueSdkResponse([
+        'data' => [
+            [
+                'object' => 'event',
+                'id' => 'event_01',
+                'event' => 'user.created',
+                'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
+                'created_at' => '2024-01-15T12:00:00.000Z',
             ],
-            'list_metadata' => ['after' => null],
-        ]),
+            [
+                'object' => 'event',
+                'id' => 'event_02',
+                'event' => 'user.updated',
+                'data' => ['id' => 'user_123', 'email' => 'updated@example.com'],
+                'created_at' => '2024-01-15T12:00:01.000Z',
+            ],
+        ],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
@@ -66,22 +60,24 @@ it('polls events API and dispatches events with --once', function () {
 });
 
 it('persists cursor after each event', function () {
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [
-                [
-                    'id' => 'event_first',
-                    'event' => 'user.created',
-                    'data' => ['id' => 'user_1'],
-                ],
-                [
-                    'id' => 'event_second',
-                    'event' => 'user.created',
-                    'data' => ['id' => 'user_2'],
-                ],
+    $this->queueSdkResponse([
+        'data' => [
+            [
+                'object' => 'event',
+                'id' => 'event_first',
+                'event' => 'user.created',
+                'data' => ['id' => 'user_1'],
+                'created_at' => '2024-01-15T12:00:00.000Z',
             ],
-            'list_metadata' => ['after' => null],
-        ]),
+            [
+                'object' => 'event',
+                'id' => 'event_second',
+                'event' => 'user.created',
+                'data' => ['id' => 'user_2'],
+                'created_at' => '2024-01-15T12:00:01.000Z',
+            ],
+        ],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
@@ -93,30 +89,26 @@ it('persists cursor after each event', function () {
 it('resumes from cached cursor', function () {
     Cache::put('workos.events.cursor', 'event_previous');
 
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [],
-            'list_metadata' => ['after' => null],
-        ]),
+    $this->queueSdkResponse([
+        'data' => [],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
         ->assertSuccessful();
 
-    Http::assertSent(function ($request) {
-        $data = $request->data();
+    $lastRequest = end($this->guzzleHistory);
+    $query = [];
+    parse_str((string) $lastRequest['request']->getUri()->getQuery(), $query);
 
-        return ($data['after'] ?? null) === 'event_previous'
-            && ! isset($data['range_start']);
-    });
+    expect($query['after'] ?? null)->toBe('event_previous');
+    expect($query)->not->toHaveKey('range_start');
 });
 
 it('sends range_start with --since on first run', function () {
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [],
-            'list_metadata' => ['after' => null],
-        ]),
+    $this->queueSdkResponse([
+        'data' => [],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', [
@@ -124,35 +116,35 @@ it('sends range_start with --since on first run', function () {
         '--since' => '2024-06-15',
     ])->assertSuccessful();
 
-    Http::assertSent(function ($request) {
-        return $request->data()['range_start'] === '2024-06-15T00:00:00.000Z';
-    });
+    $lastRequest = end($this->guzzleHistory);
+    $query = [];
+    parse_str((string) $lastRequest['request']->getUri()->getQuery(), $query);
+
+    expect($query['range_start'] ?? null)->toBe('2024-06-15T00:00:00.000Z');
 });
 
 it('uses lookback_days when no cursor and no --since', function () {
     config(['workos.events.lookback_days' => 3]);
 
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [],
-            'list_metadata' => ['after' => null],
-        ]),
+    $this->queueSdkResponse([
+        'data' => [],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
         ->expectsOutputToContain('bootstrapping from 3 days ago')
         ->assertSuccessful();
 
-    Http::assertSent(function ($request) {
-        return isset($request->data()['range_start'])
-            && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/', $request->data()['range_start']);
-    });
+    $lastRequest = end($this->guzzleHistory);
+    $query = [];
+    parse_str((string) $lastRequest['request']->getUri()->getQuery(), $query);
+
+    expect($query)->toHaveKey('range_start');
+    expect($query['range_start'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/');
 });
 
 it('handles API error with --once', function () {
-    Http::fake([
-        'api.workos.com/events*' => Http::response(null, 500),
-    ]);
+    $this->guzzleMock->append(new Response(500, [], json_encode(['message' => 'Server Error'])));
 
     $this->artisan('workos:events-listen', ['--once' => true])
         ->expectsOutputToContain('API request failed')
@@ -162,29 +154,28 @@ it('handles API error with --once', function () {
 it('uses stored cursor as after parameter on subsequent runs', function () {
     Cache::put('workos.events.cursor', 'event_from_previous_run');
 
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [
-                [
-                    'id' => 'event_new',
-                    'event' => 'user.created',
-                    'data' => ['id' => 'user_1'],
-                ],
+    $this->queueSdkResponse([
+        'data' => [
+            [
+                'object' => 'event',
+                'id' => 'event_new',
+                'event' => 'user.created',
+                'data' => ['id' => 'user_1'],
+                'created_at' => '2024-01-15T12:00:00.000Z',
             ],
-            'list_metadata' => ['after' => null],
-        ]),
+        ],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
         ->assertSuccessful();
 
-    Http::assertSent(function ($request) {
-        $data = $request->data();
+    $lastRequest = end($this->guzzleHistory);
+    $query = [];
+    parse_str((string) $lastRequest['request']->getUri()->getQuery(), $query);
 
-        return ($data['after'] ?? null) === 'event_from_previous_run'
-            && ! isset($data['range_start']);
-    });
-
+    expect($query['after'] ?? null)->toBe('event_from_previous_run');
+    expect($query)->not->toHaveKey('range_start');
     expect(Cache::get('workos.events.cursor'))->toBe('event_new');
 });
 
@@ -194,46 +185,51 @@ it('only requests events_api-routed event types', function () {
         'workos.events.routing.categories.organization' => 'webhooks',
     ]);
 
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [],
-            'list_metadata' => ['after' => null],
-        ]),
+    $this->queueSdkResponse([
+        'data' => [],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
         ->assertSuccessful();
 
-    Http::assertSent(function ($request) {
-        $events = $request->data()['events'] ?? [];
+    $lastRequest = end($this->guzzleHistory);
+    $query = [];
+    parse_str((string) $lastRequest['request']->getUri()->getQuery(), $query);
 
-        $hasUser = false;
-        $hasOrg = false;
-        foreach ($events as $event) {
-            if (str_starts_with($event, 'user.')) {
-                $hasUser = true;
-            }
-            if (str_starts_with($event, 'organization.')) {
-                $hasOrg = true;
-            }
+    // events[] should contain user event types but not organization types
+    $events = $query['events'] ?? [];
+    if (is_string($events)) {
+        $events = [$events];
+    }
+
+    $hasUser = false;
+    $hasOrg = false;
+    foreach ($events as $event) {
+        if (str_starts_with($event, 'user.')) {
+            $hasUser = true;
         }
+        if (str_starts_with($event, 'organization.')) {
+            $hasOrg = true;
+        }
+    }
 
-        return $hasUser && ! $hasOrg;
-    });
+    expect($hasUser)->toBeTrue();
+    expect($hasOrg)->toBeFalse();
 });
 
 it('dispatches WorkOSEventReceived for unknown event types', function () {
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [
-                [
-                    'id' => 'event_unknown',
-                    'event' => 'some.unknown.event',
-                    'data' => ['id' => 'test_123'],
-                ],
+    $this->queueSdkResponse([
+        'data' => [
+            [
+                'object' => 'event',
+                'id' => 'event_unknown',
+                'event' => 'some.unknown.event',
+                'data' => ['id' => 'test_123'],
+                'created_at' => '2024-01-15T12:00:00.000Z',
             ],
-            'list_metadata' => ['after' => null],
-        ]),
+        ],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
@@ -249,22 +245,20 @@ it('dispatches WorkOSEventReceived for unknown event types', function () {
 it('sends correct request parameters', function () {
     config(['workos.events.limit' => 50]);
 
-    Http::fake([
-        'api.workos.com/events*' => Http::response([
-            'data' => [],
-            'list_metadata' => ['after' => null],
-        ]),
+    $this->queueSdkResponse([
+        'data' => [],
+        'list_metadata' => ['after' => null],
     ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
         ->assertSuccessful();
 
-    Http::assertSent(function ($request) {
-        $url = $request->url();
-        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+    $lastRequest = end($this->guzzleHistory);
+    $url = (string) $lastRequest['request']->getUri();
+    $query = [];
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
 
-        return str_starts_with($url, 'https://api.workos.com/events')
-            && ($query['limit'] ?? null) === '50'
-            && ($query['order'] ?? null) === 'asc';
-    });
+    expect($url)->toContain('/events');
+    expect($query['limit'] ?? null)->toBe('50');
+    expect($query['order'] ?? null)->toBe('asc');
 });

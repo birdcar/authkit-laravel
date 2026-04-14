@@ -12,7 +12,6 @@ use SensitiveParameter;
 use WorkOS\AuthKit\Events\UserAuthenticated;
 use WorkOS\AuthKit\Events\UserLoggedOut;
 use WorkOS\AuthKit\Facades\WorkOS;
-use WorkOS\Exception\BaseRequestException;
 
 class AuthController extends Controller
 {
@@ -95,18 +94,12 @@ class AuthController extends Controller
     protected function authenticateWithCode(#[SensitiveParameter] string $code): ?array
     {
         try {
-            /** @var string $clientId */
-            $clientId = config('workos.client_id');
-
             $response = WorkOS::userManagement()->authenticateWithCode(
-                clientId: $clientId,
                 code: $code,
             );
 
-            // Use the raw property which contains the original API response array
-            // (array) cast doesn't properly convert nested resource objects
-            return $response->raw;
-        } catch (BaseRequestException) {
+            return $response->toArray();
+        } catch (\Exception) {
             return null;
         }
     }

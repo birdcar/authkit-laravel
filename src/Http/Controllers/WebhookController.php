@@ -6,7 +6,6 @@ namespace WorkOS\AuthKit\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use WorkOS\AuthKit\Events\WorkOSEventReceived;
 use WorkOS\AuthKit\Events\Sync\WorkOSDsyncActivated;
 use WorkOS\AuthKit\Events\Sync\WorkOSDsyncDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupCreated;
@@ -18,23 +17,24 @@ use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserUpdated;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainUpdated;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainVerificationFailed;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainVerified;
-use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
-use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
-use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
-use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationUpdated;
 use WorkOS\AuthKit\Events\Sync\WorkOSSessionCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSSessionRevoked;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
+use WorkOS\AuthKit\Facades\WorkOS;
 use WorkOS\AuthKit\Support\EventRouting;
-use WorkOS\Webhook;
 
 class WebhookController
 {
@@ -76,14 +76,14 @@ class WebhookController
     ];
 
     public function __construct(
-        private readonly Webhook $webhook,
         private readonly EventRouting $routing,
     ) {}
 
     public function handle(Request $request): Response
     {
         $payload = $request->getContent();
-        $signature = $request->header('WorkOS-Signature', '');
+        $signatureHeader = $request->header('WorkOS-Signature');
+        $signature = is_string($signatureHeader) ? $signatureHeader : '';
         /** @var string $secret */
         $secret = config('workos.webhook_secret', '');
 
@@ -95,14 +95,13 @@ class WebhookController
             return response('Invalid signature', 400);
         }
 
-        $result = $this->webhook->constructEvent(
-            $signature,
-            $payload,
-            $secret,
-            180,
-        );
-
-        if (is_string($result)) {
+        try {
+            WorkOS::webhookVerification()->verifyEvent(
+                eventBody: $payload,
+                eventSignature: $signature,
+                secret: $secret,
+            );
+        } catch (\InvalidArgumentException) {
             return response('Invalid signature', 400);
         }
 

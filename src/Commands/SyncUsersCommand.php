@@ -6,7 +6,6 @@ namespace WorkOS\AuthKit\Commands;
 
 use Illuminate\Console\Command;
 use WorkOS\AuthKit\Facades\WorkOS;
-use WorkOS\Resource\User;
 
 class SyncUsersCommand extends Command
 {
@@ -42,28 +41,24 @@ class SyncUsersCommand extends Command
         $synced = 0;
 
         do {
-            // listUsers returns [$before, $after, $users]
-            /** @var array{0: ?string, 1: ?string, 2: array<User>} $response */
-            $response = WorkOS::userManagement()->listUsers(
+            $page = WorkOS::userManagement()->listUsers(
                 organizationId: $organizationId,
                 limit: $limit,
                 after: $cursor,
             );
 
-            [$before, $after, $users] = $response;
-
-            foreach ($users as $workosUser) {
-                $userModel::findOrCreateByWorkOS($workosUser->raw);
+            foreach ($page->data as $workosUser) {
+                $userModel::findOrCreateByWorkOS($workosUser->toArray());
                 $synced++;
             }
 
-            $cursor = $after;
+            $cursor = $page->listMetadata['after'] ?? null;
 
             $this->info("Synced {$synced} users...");
 
         } while ($cursor !== null);
 
-        $this->info("✓ Synced {$synced} users successfully.");
+        $this->info("Synced {$synced} users successfully.");
 
         return self::SUCCESS;
     }

@@ -8,10 +8,11 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use WorkOS\AuthKit\Events\WorkOSEventReceived;
+use WorkOS\AuthKit\Facades\WorkOS;
 use WorkOS\AuthKit\Http\Controllers\WebhookController;
 use WorkOS\AuthKit\Support\EventRouting;
+use WorkOS\Resource\EventsOrder;
 
 class EventsListenCommand extends Command
 {
@@ -32,15 +33,6 @@ class EventsListenCommand extends Command
 
     public function handle(EventRouting $routing): int
     {
-        /** @var string $apiKey */
-        $apiKey = config('workos.api_key');
-
-        if (empty($apiKey)) {
-            $this->error('WorkOS API key not configured.');
-
-            return self::FAILURE;
-        }
-
         $eventTypes = $routing->eventTypesFor('events_api');
 
         if (empty($eventTypes)) {
@@ -80,25 +72,16 @@ class EventsListenCommand extends Command
         $processed = 0;
 
         while (! $this->shouldStop) {
-            /** @var array<string, mixed> $params */
-            $params = [
-                'limit' => $limit,
-                'order' => 'asc',
-                'events' => $eventTypes,
-            ];
-
-            if ($cursor !== null) {
-                $params['after'] = $cursor;
-            } elseif ($since !== null) {
-                $params['range_start'] = $since;
-            }
-
-            $response = Http::withToken($apiKey)
-                ->acceptJson()
-                ->get('https://api.workos.com/events', $params);
-
-            if (! $response->successful()) {
-                $this->error("API request failed: {$response->status()} {$response->body()}");
+            try {
+                $page = WorkOS::events()->listEvents(
+                    after: $cursor,
+                    limit: $limit,
+                    order: EventsOrder::Asc,
+                    events: $eventTypes,
+                    rangeStart: $cursor === null ? $since : null,
+                );
+            } catch (\Exception $e) {
+                $this->error("API request failed: {$e->getMessage()}");
                 sleep(min($pollInterval * 2, 30));
 
                 if ($this->option('once')) {
@@ -110,16 +93,10 @@ class EventsListenCommand extends Command
                 continue;
             }
 
-            /** @var array<int, array<string, mixed>> $data */
-            $data = $response->json('data', []);
-            /** @var string|null $after */
-            $after = $response->json('list_metadata.after');
-
-            foreach ($data as $event) {
-                $this->processEvent($event);
-                /** @var string $eventId */
-                $eventId = $event['id'];
-                $cursor = $eventId;
+            foreach ($page->data as $event) {
+                $eventArray = $event->toArray();
+                $this->processEvent($eventArray);
+                $cursor = $eventArray['id'];
                 $cacheStore->put($cacheKey, $cursor);
                 $processed++;
 
@@ -134,12 +111,14 @@ class EventsListenCommand extends Command
                 break;
             }
 
-            if (empty($data) || $after === null) {
+            if (empty($page->data) || ! $page->hasMore()) {
                 if ($processed > 0) {
                     $this->info("Processed {$processed} events. Caught up, sleeping {$pollInterval}s...");
                     $processed = 0;
                 }
                 sleep($pollInterval);
+            } else {
+                $cursor = $page->listMetadata['after'] ?? $cursor;
             }
 
             $this->dispatchSignals();

@@ -6,6 +6,7 @@ namespace WorkOS\AuthKit\Auth;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\UserProvider;
+use WorkOS\AuthKit\WorkOS;
 
 class ApiKeyUserProvider implements UserProvider
 {
@@ -29,7 +30,7 @@ class ApiKeyUserProvider implements UserProvider
 
     public function retrieveByToken(mixed $identifier, mixed $token): ?Authenticatable
     {
-        $validation = app(\WorkOS\AuthKit\WorkOS::class)->validateApiKey((string) $token);
+        $validation = app(WorkOS::class)->validateApiKey((string) $token);
 
         if ($validation === null) {
             return null;

@@ -6,7 +6,7 @@ namespace WorkOS\AuthKit\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use WorkOS\Resource\Invitation;
+use WorkOS\Resource\UserInvite;
 
 class InvitationSent
 {
@@ -16,6 +16,6 @@ class InvitationSent
     public function __construct(
         public readonly string $organizationId,
         public readonly string $email,
-        public readonly Invitation $invitation,
+        public readonly UserInvite $invitation,
     ) {}
 }

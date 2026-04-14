@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Router;
@@ -14,15 +15,22 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Component;
-use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Audit\AuditMiddleware;
+use WorkOS\AuthKit\Auth\ApiKeyUserProvider;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Auth\WorkOSGuard;
 use WorkOS\AuthKit\Commands\EventsListenCommand;
+use WorkOS\AuthKit\Commands\FGACheckCommand;
 use WorkOS\AuthKit\Commands\InstallCommand;
 use WorkOS\AuthKit\Commands\MakeListenerCommand;
 use WorkOS\AuthKit\Commands\SyncUsersCommand;
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserUpdated;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
 use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
@@ -30,13 +38,20 @@ use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationUpdated;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
+use WorkOS\AuthKit\FeatureFlags\FeatureFlagService;
+use WorkOS\AuthKit\FGA\FGAResource;
+use WorkOS\AuthKit\FGA\FGAService;
+use WorkOS\AuthKit\Http\Middleware\CheckFeatureFlag;
+use WorkOS\AuthKit\Http\Middleware\CheckFGAAccess;
 use WorkOS\AuthKit\Http\Middleware\CheckOrganization;
 use WorkOS\AuthKit\Http\Middleware\CheckPermission;
 use WorkOS\AuthKit\Http\Middleware\CheckRole;
 use WorkOS\AuthKit\Http\Middleware\DetectImpersonation;
 use WorkOS\AuthKit\Http\Middleware\EnsureWorkOSAuthenticated;
+use WorkOS\AuthKit\Http\Middleware\ReportRadarAttempt;
 use WorkOS\AuthKit\Http\Middleware\SetCurrentOrganization;
 use WorkOS\AuthKit\Http\Middleware\ShareWorkOSData;
+use WorkOS\AuthKit\Http\Middleware\ValidateApiKey;
 use WorkOS\AuthKit\Install\AuthSystemInstaller;
 use WorkOS\AuthKit\Install\EnvManager;
 use WorkOS\AuthKit\Install\LaravelWorkosMigrator;
@@ -44,6 +59,8 @@ use WorkOS\AuthKit\Install\MigrationPlanGenerator;
 use WorkOS\AuthKit\Install\RouteInstaller;
 use WorkOS\AuthKit\Install\WebhookInstaller;
 use WorkOS\AuthKit\Install\WizardFlow;
+use WorkOS\AuthKit\Listeners\SyncDirectoryGroupFromWorkOS;
+use WorkOS\AuthKit\Listeners\SyncDirectoryUserFromWorkOS;
 use WorkOS\AuthKit\Listeners\SyncMembershipFromWorkOS;
 use WorkOS\AuthKit\Listeners\SyncOrganizationFromWorkOS;
 use WorkOS\AuthKit\Listeners\SyncUserFromWorkOS;
@@ -77,30 +94,50 @@ class WorkOSServiceProvider extends ServiceProvider
 
         $this->registerSessionManager();
 
-        $this->app->singleton('workos', function ($app) {
-            $this->configureWorkOSSdk();
+        $this->app->singleton(\WorkOS\WorkOS::class, function () {
+            $config = config('workos');
+            $apiKey = $config['api_key'] ?? null;
+            $clientId = $config['client_id'] ?? null;
 
-            return new WorkOS($app->make(SessionManager::class));
+            if (! is_string($apiKey) || $apiKey === '') {
+                throw Exceptions\WorkOSException::missingConfiguration('WORKOS_API_KEY');
+            }
+
+            if (! is_string($clientId) || $clientId === '') {
+                throw Exceptions\WorkOSException::missingConfiguration('WORKOS_CLIENT_ID');
+            }
+
+            return new \WorkOS\WorkOS(
+                apiKey: $apiKey,
+                clientId: $clientId,
+            );
+        });
+
+        $this->app->singleton('workos', function ($app) {
+            return new WorkOS(
+                $app->make(\WorkOS\WorkOS::class),
+                $app->make(SessionManager::class),
+            );
         });
 
         $this->app->alias('workos', WorkOS::class);
 
-        $this->app->singleton(\WorkOS\AuthKit\FeatureFlags\FeatureFlagService::class, function ($app) {
-            return new \WorkOS\AuthKit\FeatureFlags\FeatureFlagService(
+        $this->app->singleton(FeatureFlagService::class, function ($app) {
+            return new FeatureFlagService(
                 $app->make(SessionManager::class),
-                new \WorkOS\Organizations,
+                $app->make(\WorkOS\WorkOS::class),
             );
         });
 
-        $this->app->singleton(\WorkOS\AuthKit\FGA\FGAService::class, function ($app) {
-            return new \WorkOS\AuthKit\FGA\FGAService(
+        $this->app->singleton(FGAService::class, function ($app) {
+            return new FGAService(
                 $app->make(SessionManager::class),
             );
         });
 
         $this->app->singleton(AuditLogger::class, function ($app) {
             return new AuditLogger(
-                new AuditLogs,
+                $app->make(\WorkOS\WorkOS::class),
                 $app->make(SessionManager::class)
             );
         });
@@ -153,15 +190,19 @@ class WorkOSServiceProvider extends ServiceProvider
 
     protected function registerSessionManager(): void
     {
-        $this->app->singleton(SessionManager::class, function () {
-            $appKey = config('app.key');
+        $this->app->singleton(SessionManager::class, function ($app) {
+            $appKey = (string) config('app.key');
+
+            // v5 SDK's sealData/unsealData expect a base64-encoded 32-byte key.
+            // Strip the 'base64:' prefix but keep the base64 encoding intact.
             if (str_starts_with($appKey, 'base64:')) {
-                $appKey = base64_decode(substr($appKey, 7));
+                $appKey = substr($appKey, 7);
             }
 
             return new SessionManager(
+                $app->make(\WorkOS\WorkOS::class),
                 $appKey,
-                config('workos.session.cookie_name', 'wos-session')
+                (string) config('workos.session.cookie_name', 'wos-session')
             );
         });
     }
@@ -194,25 +235,6 @@ class WorkOSServiceProvider extends ServiceProvider
         EncryptCookies::except($cookieName);
     }
 
-    protected function configureWorkOSSdk(): void
-    {
-        $config = config('workos');
-
-        $apiKey = $config['api_key'] ?? null;
-        $clientId = $config['client_id'] ?? null;
-
-        if (! is_string($apiKey) || $apiKey === '') {
-            throw Exceptions\WorkOSException::missingConfiguration('WORKOS_API_KEY');
-        }
-
-        if (! is_string($clientId) || $clientId === '') {
-            throw Exceptions\WorkOSException::missingConfiguration('WORKOS_CLIENT_ID');
-        }
-
-        \WorkOS\WorkOS::setApiKey($apiKey);
-        \WorkOS\WorkOS::setClientId($clientId);
-    }
-
     protected function configureGuard(): void
     {
         Auth::extend('workos', function ($app, $name, array $config) {
@@ -223,7 +245,7 @@ class WorkOSServiceProvider extends ServiceProvider
             );
         });
 
-        Auth::provider('workos-apikey', fn () => new \WorkOS\AuthKit\Auth\ApiKeyUserProvider);
+        Auth::provider('workos-apikey', fn () => new ApiKeyUserProvider);
     }
 
     protected function configureMiddleware(): void
@@ -238,9 +260,9 @@ class WorkOSServiceProvider extends ServiceProvider
         $router->aliasMiddleware('workos.organization', CheckOrganization::class);
         $router->aliasMiddleware('workos.organization.current', SetCurrentOrganization::class);
         $router->aliasMiddleware('workos.audit', AuditMiddleware::class);
-        $router->aliasMiddleware('workos.apikey', \WorkOS\AuthKit\Http\Middleware\ValidateApiKey::class);
-        $router->aliasMiddleware('workos.feature', \WorkOS\AuthKit\Http\Middleware\CheckFeatureFlag::class);
-        $router->aliasMiddleware('workos.radar', \WorkOS\AuthKit\Http\Middleware\ReportRadarAttempt::class);
+        $router->aliasMiddleware('workos.apikey', ValidateApiKey::class);
+        $router->aliasMiddleware('workos.feature', CheckFeatureFlag::class);
+        $router->aliasMiddleware('workos.radar', ReportRadarAttempt::class);
         $router->aliasMiddleware('workos.inertia', ShareWorkOSData::class);
     }
 
@@ -273,7 +295,7 @@ class WorkOSServiceProvider extends ServiceProvider
         Blade::if('impersonating', fn () => $this->app->make(SessionManager::class)->isImpersonating()
         );
 
-        Blade::if('workosFeature', fn (string $flag) => $this->app->make(\WorkOS\AuthKit\FeatureFlags\FeatureFlagService::class)->isEnabled($flag));
+        Blade::if('workosFeature', fn (string $flag) => $this->app->make(FeatureFlagService::class)->isEnabled($flag));
 
         Blade::if('workosEntitlement', fn (string $entitlement) => $this->app->make('workos')->hasEntitlement($entitlement));
     }
@@ -348,12 +370,12 @@ class WorkOSServiceProvider extends ServiceProvider
             WorkOSMembershipCreated::class => [SyncMembershipFromWorkOS::class, 'handleCreated'],
             WorkOSMembershipUpdated::class => [SyncMembershipFromWorkOS::class, 'handleUpdated'],
             WorkOSMembershipDeleted::class => [SyncMembershipFromWorkOS::class, 'handleDeleted'],
-            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserCreated::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryUserFromWorkOS::class, 'handleCreatedOrUpdated'],
-            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserUpdated::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryUserFromWorkOS::class, 'handleCreatedOrUpdated'],
-            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserDeleted::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryUserFromWorkOS::class, 'handleDeleted'],
-            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupCreated::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryGroupFromWorkOS::class, 'handleCreatedOrUpdated'],
-            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupUpdated::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryGroupFromWorkOS::class, 'handleCreatedOrUpdated'],
-            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupDeleted::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryGroupFromWorkOS::class, 'handleDeleted'],
+            WorkOSDsyncUserCreated::class => [SyncDirectoryUserFromWorkOS::class, 'handleCreatedOrUpdated'],
+            WorkOSDsyncUserUpdated::class => [SyncDirectoryUserFromWorkOS::class, 'handleCreatedOrUpdated'],
+            WorkOSDsyncUserDeleted::class => [SyncDirectoryUserFromWorkOS::class, 'handleDeleted'],
+            WorkOSDsyncGroupCreated::class => [SyncDirectoryGroupFromWorkOS::class, 'handleCreatedOrUpdated'],
+            WorkOSDsyncGroupUpdated::class => [SyncDirectoryGroupFromWorkOS::class, 'handleCreatedOrUpdated'],
+            WorkOSDsyncGroupDeleted::class => [SyncDirectoryGroupFromWorkOS::class, 'handleDeleted'],
         ];
 
         /** @var array<class-string, class-string|null> $overrides */
@@ -384,7 +406,7 @@ class WorkOSServiceProvider extends ServiceProvider
             MakeListenerCommand::class,
             SyncUsersCommand::class,
             EventsListenCommand::class,
-            \WorkOS\AuthKit\Commands\FGACheckCommand::class,
+            FGACheckCommand::class,
         ]);
     }
 
@@ -396,10 +418,10 @@ class WorkOSServiceProvider extends ServiceProvider
 
         /** @var Router $router */
         $router = $this->app->make(Router::class);
-        $router->aliasMiddleware('workos.fga', \WorkOS\AuthKit\Http\Middleware\CheckFGAAccess::class);
+        $router->aliasMiddleware('workos.fga', CheckFGAAccess::class);
 
-        Blade::if('workosAccess', function (string $permission, \WorkOS\AuthKit\FGA\FGAResource $resource) {
-            return app(\WorkOS\AuthKit\FGA\FGAService::class)->checkForCurrentUser(
+        Blade::if('workosAccess', function (string $permission, FGAResource $resource) {
+            return app(FGAService::class)->checkForCurrentUser(
                 permission: $permission,
                 resourceType: $resource->resourceType,
                 resourceId: $resource->resourceId,
@@ -407,19 +429,19 @@ class WorkOSServiceProvider extends ServiceProvider
         });
 
         if (config('workos.fga.gate_integration', false)) {
-            Gate::after(function (\Illuminate\Contracts\Auth\Authenticatable $user, string $ability, ?bool $result, mixed $arguments) {
+            Gate::after(function (Authenticatable $user, string $ability, ?bool $result, mixed $arguments) {
                 if ($result !== null) {
                     return $result;
                 }
 
                 $resource = $arguments[0] ?? null;
-                if (! $resource instanceof \WorkOS\AuthKit\FGA\FGAResource) {
+                if (! $resource instanceof FGAResource) {
                     return null;
                 }
 
                 $userId = method_exists($user, 'getWorkOSId') ? $user->getWorkOSId() : (string) $user->getAuthIdentifier();
 
-                return app(\WorkOS\AuthKit\FGA\FGAService::class)->check(
+                return app(FGAService::class)->check(
                     userId: $userId,
                     permission: $ability,
                     resourceType: $resource->resourceType,

@@ -3,12 +3,22 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Event;
-use WorkOS\AuthKit\Events\WorkOSEventReceived;
 use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
-use WorkOS\Webhook;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
+use WorkOS\WebhookVerification;
+
+const ELR_WEBHOOK_SECRET = 'whsec_test_secret';
+
+function signElrPayload(string $payload): string
+{
+    $timestamp = (string) (time() * 1000);
+    $hash = WebhookVerification::computeSignature($timestamp, $payload, ELR_WEBHOOK_SECRET);
+
+    return "t={$timestamp}, v1={$hash}";
+}
 
 beforeEach(function () {
-    config(['workos.webhook_secret' => 'whsec_test_secret']);
+    config(['workos.webhook_secret' => ELR_WEBHOOK_SECRET]);
     Event::fake();
 });
 
@@ -20,14 +30,12 @@ it('dispatches typed event when routed to webhooks', function () {
         'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => signElrPayload($payload),
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSEventReceived::class);
     Event::assertDispatched(WorkOSUserCreated::class);
@@ -41,14 +49,12 @@ it('does not dispatch typed event when routed to events_api', function () {
         'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => signElrPayload($payload),
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSEventReceived::class);
     Event::assertNotDispatched(WorkOSUserCreated::class);
@@ -62,14 +68,12 @@ it('dispatches typed event when routed to both', function () {
         'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => signElrPayload($payload),
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSEventReceived::class);
     Event::assertDispatched(WorkOSUserCreated::class);
@@ -86,14 +90,12 @@ it('respects per-event-type overrides', function () {
         'data' => ['id' => 'user_123', 'email' => 'test@example.com'],
     ];
 
-    $this->mock(Webhook::class, function ($mock) use ($webhookData) {
-        $mock->shouldReceive('constructEvent')
-            ->andReturn((object) $webhookData);
-    });
+    $payload = json_encode($webhookData);
 
-    $this->postJson('/webhooks/workos', $webhookData, [
-        'WorkOS-Signature' => 'valid_signature',
-    ]);
+    $this->call('POST', '/webhooks/workos', [], [], [], [
+        'HTTP_WorkOS-Signature' => signElrPayload($payload),
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
 
     Event::assertDispatched(WorkOSEventReceived::class);
     Event::assertNotDispatched(WorkOSUserCreated::class);

@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace WorkOS\AuthKit\Tests;
 
 use Carbon\Carbon;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Orchestra\Testbench\TestCase as Orchestra;
 use WorkOS\AuthKit\Auth\WorkOSSession;
@@ -15,6 +19,45 @@ use WorkOS\AuthKit\WorkOSServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
+    protected MockHandler $guzzleMock;
+
+    protected HandlerStack $guzzleHandler;
+
+    /** @var array<int, array<string, mixed>> */
+    protected array $guzzleHistory = [];
+
+    protected function setUp(): void
+    {
+        $this->guzzleMock = new MockHandler;
+        $this->guzzleHandler = HandlerStack::create($this->guzzleMock);
+        $this->guzzleHandler->push(Middleware::history($this->guzzleHistory));
+
+        parent::setUp();
+
+        // Replace the SDK client singleton with one using the mock handler
+        $this->app->singleton(\WorkOS\WorkOS::class, function () {
+            return new \WorkOS\WorkOS(
+                apiKey: (string) config('workos.api_key'),
+                clientId: (string) config('workos.client_id'),
+                handler: $this->guzzleHandler,
+            );
+        });
+    }
+
+    /**
+     * Queue a Guzzle JSON response for the v5 SDK.
+     *
+     * @param  array<string, mixed>|string  $body
+     */
+    protected function queueSdkResponse(array|string $body = [], int $status = 200): void
+    {
+        $json = is_string($body) ? $body : json_encode($body);
+
+        $this->guzzleMock->append(
+            new Response($status, ['Content-Type' => 'application/json'], $json)
+        );
+    }
+
     protected function getPackageProviders($app): array
     {
         return [

@@ -4,19 +4,25 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Services;
 
-use Illuminate\Support\Facades\Http;
+use WorkOS\WorkOS;
 
 class DomainService
 {
+    public function __construct(
+        private readonly WorkOS $client,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
     public function create(string $organizationId, string $domain): array
     {
-        return $this->request('post', '/organization_domains', [
-            'organization_id' => $organizationId,
-            'domain' => $domain,
-        ]);
+        $result = $this->client->organizationDomains()->createOrganizationDomains(
+            domain: $domain,
+            organizationId: $organizationId,
+        );
+
+        return $result->toArray();
     }
 
     /**
@@ -24,7 +30,9 @@ class DomainService
      */
     public function get(string $id): array
     {
-        return $this->request('get', "/organization_domains/{$id}");
+        $result = $this->client->organizationDomains()->getOrganizationDomain(id: $id);
+
+        return $result->toArray();
     }
 
     /**
@@ -32,31 +40,13 @@ class DomainService
      */
     public function verify(string $id): array
     {
-        return $this->request('post', "/organization_domains/{$id}/verify");
+        $result = $this->client->organizationDomains()->verifyOrganizationDomain(id: $id);
+
+        return $result->toArray();
     }
 
     public function delete(string $id): void
     {
-        $this->request('delete', "/organization_domains/{$id}");
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function request(string $method, string $path, array $data = []): array
-    {
-        $url = rtrim((string) config('workos.widgets.base_url', 'https://api.workos.com'), '/').$path;
-
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.config('workos.api_key'),
-        ])->$method($url, $data);
-
-        if (! $response->successful()) {
-            throw new \RuntimeException("WorkOS Domain API error: {$response->status()} {$response->body()}");
-        }
-
-        /** @var array<string, mixed> */
-        return $response->json() ?? [];
+        $this->client->organizationDomains()->deleteOrganizationDomain(id: $id);
     }
 }

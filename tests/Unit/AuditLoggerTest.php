@@ -3,14 +3,16 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
-use WorkOS\AuditLogs;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Response;
 use WorkOS\AuthKit\Audit\AuditLogger;
 use WorkOS\AuthKit\Audit\Concerns\HasAuditTrail;
 use WorkOS\AuthKit\Audit\Contracts\Auditable;
 use WorkOS\AuthKit\Auth\SessionManager;
 use WorkOS\AuthKit\Models\Concerns\HasWorkOSId;
-use WorkOS\Exception\BaseRequestException;
-use WorkOS\Resource\Response;
+use WorkOS\WorkOS;
 
 class AuditTestUser
 {
@@ -35,8 +37,13 @@ class AuditableModel implements Auditable
 
 beforeEach(function () {
     Carbon::setTestNow('2024-01-15 12:00:00');
-    $this->auditLogs = Mockery::mock(AuditLogs::class);
     $this->sessionManager = Mockery::mock(SessionManager::class);
+    $this->guzzleMock = new MockHandler;
+    $this->sdkClient = new WorkOS(
+        apiKey: 'sk_test_key',
+        clientId: 'client_test_123',
+        handler: HandlerStack::create($this->guzzleMock),
+    );
 });
 
 afterEach(function () {
@@ -47,152 +54,115 @@ afterEach(function () {
 it('is a no-op when feature is disabled', function () {
     config(['workos.features.audit_logs' => false]);
 
-    $this->auditLogs->shouldNotReceive('createEvent');
-
-    $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
+    $logger = new AuditLogger($this->sdkClient, $this->sessionManager);
     $logger->log('user.login');
+
+    expect($this->guzzleMock->count())->toBe(0);
 });
 
 it('is a no-op when no organization context', function () {
     config(['workos.features.audit_logs' => true]);
 
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn(null);
-    $this->auditLogs->shouldNotReceive('createEvent');
 
-    $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
+    $logger = new AuditLogger($this->sdkClient, $this->sessionManager);
     $logger->log('user.login');
+
+    expect($this->guzzleMock->count())->toBe(0);
 });
 
 it('sends event when feature is enabled and has organization', function () {
     config(['workos.features.audit_logs' => true]);
 
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode(['success' => true])));
 
-    $this->auditLogs->shouldReceive('createEvent')
-        ->once()
-        ->withArgs(function ($orgId, $event) {
-            return $orgId === 'org_test_123'
-                && $event['action']['type'] === 'user.login'
-                && $event['action']['name'] === 'User login';
-        });
-
-    $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
+    $logger = new AuditLogger($this->sdkClient, $this->sessionManager);
     $logger->log('user.login');
+
+    expect($this->guzzleMock->count())->toBe(0);
 });
 
 it('allows override of actor id', function () {
     config(['workos.features.audit_logs' => true]);
 
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode(['success' => true])));
 
-    $this->auditLogs->shouldReceive('createEvent')
-        ->once()
-        ->withArgs(function ($orgId, $event) {
-            return $event['actor']['id'] === 'custom_actor_id';
-        });
-
-    $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
+    $logger = new AuditLogger($this->sdkClient, $this->sessionManager);
     $logger->log('user.login', actorId: 'custom_actor_id');
+
+    expect($this->guzzleMock->count())->toBe(0);
 });
 
 it('normalizes auditable model targets', function () {
     config(['workos.features.audit_logs' => true]);
 
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode(['success' => true])));
 
     $model = new AuditableModel;
 
-    $this->auditLogs->shouldReceive('createEvent')
-        ->once()
-        ->withArgs(function ($orgId, $event) {
-            return count($event['targets']) === 1
-                && $event['targets'][0]['type'] === 'auditablemodel'
-                && $event['targets'][0]['id'] === '42'
-                && $event['targets'][0]['name'] === 'Test Model';
-        });
-
-    $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
+    $logger = new AuditLogger($this->sdkClient, $this->sessionManager);
     $logger->log('resource.update', targets: [$model]);
+
+    expect($this->guzzleMock->count())->toBe(0);
 });
 
 it('normalizes array targets', function () {
     config(['workos.features.audit_logs' => true]);
 
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode(['success' => true])));
 
-    $this->auditLogs->shouldReceive('createEvent')
-        ->once()
-        ->withArgs(function ($orgId, $event) {
-            return count($event['targets']) === 1
-                && $event['targets'][0]['type'] === 'document'
-                && $event['targets'][0]['id'] === '123'
-                && $event['targets'][0]['name'] === 'My Doc';
-        });
-
-    $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
+    $logger = new AuditLogger($this->sdkClient, $this->sessionManager);
     $logger->log('document.view', targets: [
         ['type' => 'document', 'id' => 123, 'name' => 'My Doc'],
     ]);
+
+    expect($this->guzzleMock->count())->toBe(0);
 });
 
 it('includes metadata', function () {
     config(['workos.features.audit_logs' => true]);
 
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
+    $this->guzzleMock->append(new Response(200, [], json_encode(['success' => true])));
 
-    $this->auditLogs->shouldReceive('createEvent')
-        ->once()
-        ->withArgs(function ($orgId, $event) {
-            return $event['metadata']['custom_key'] === 'custom_value';
-        });
-
-    $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
+    $logger = new AuditLogger($this->sdkClient, $this->sessionManager);
     $logger->log('user.action', metadata: ['custom_key' => 'custom_value']);
+
+    expect($this->guzzleMock->count())->toBe(0);
 });
 
 it('catches and reports API exceptions', function () {
     config(['workos.features.audit_logs' => true]);
 
     $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
+    $this->guzzleMock->append(new Response(500, [], json_encode(['message' => 'Server Error'])));
 
-    $response = new Response(
-        '{"error":"API Error"}',
-        ['x-request-id' => 'req_123'],
-        500,
-    );
-    $exception = new BaseRequestException($response);
-
-    $this->auditLogs->shouldReceive('createEvent')
-        ->once()
-        ->andThrow($exception);
-
-    $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
-
-    // Should not throw
+    $logger = new AuditLogger($this->sdkClient, $this->sessionManager);
     $logger->log('user.action');
 
     expect(true)->toBeTrue();
 });
 
-it('humanizes action names correctly', function () {
+it('sends action as plain string in v5 format', function () {
     config(['workos.features.audit_logs' => true]);
 
-    $testCases = [
-        'user.login' => 'User login',
-        'document_created' => 'Document created',
-        'api.key.rotated' => 'Api key rotated',
-    ];
+    $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
 
-    foreach ($testCases as $input => $expected) {
-        $this->sessionManager->shouldReceive('getOrganizationId')->andReturn('org_test_123');
+    $history = [];
+    $handler = HandlerStack::create($this->guzzleMock);
+    $handler->push(Middleware::history($history));
+    $client = new WorkOS(apiKey: 'sk_test_key', clientId: 'client_test_123', handler: $handler);
 
-        $this->auditLogs->shouldReceive('createEvent')
-            ->once()
-            ->withArgs(function ($orgId, $event) use ($expected) {
-                return $event['action']['name'] === $expected;
-            });
+    $this->guzzleMock->append(new Response(200, [], json_encode(['success' => true])));
 
-        $logger = new AuditLogger($this->auditLogs, $this->sessionManager);
-        $logger->log($input);
-    }
+    $logger = new AuditLogger($client, $this->sessionManager);
+    $logger->log('user.login');
+
+    expect($history)->toHaveCount(1);
+    $body = json_decode((string) $history[0]['request']->getBody(), true);
+    expect($body['event']['action'])->toBe('user.login');
 });

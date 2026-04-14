@@ -6,15 +6,15 @@ namespace WorkOS\AuthKit\Audit;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Guard;
-use WorkOS\AuditLogs;
 use WorkOS\AuthKit\Audit\Contracts\Auditable;
 use WorkOS\AuthKit\Auth\SessionManager;
-use WorkOS\Exception\BaseRequestException;
+use WorkOS\Resource\AuditLogEvent;
+use WorkOS\WorkOS;
 
 class AuditLogger
 {
     public function __construct(
-        private readonly AuditLogs $auditLogs,
+        private readonly WorkOS $client,
         private readonly SessionManager $sessionManager,
     ) {}
 
@@ -44,27 +44,27 @@ class AuditLogger
 
         /** @var array<string, mixed> $event */
         $event = [
-            'action' => [
-                'type' => $action,
-                'name' => $this->humanize($action),
-            ],
+            'action' => $action,
             'actor' => [
                 'type' => 'user',
-                'id' => $actorId ?? $this->getActorId($user),
+                'id' => $actorId ?? $this->getActorId($user) ?? 'unknown',
                 'name' => $this->getUserName($user),
             ],
             'targets' => $this->normalizeTargets($targets),
             'context' => [
-                'location' => request()->ip(),
+                'location' => request()->ip() ?? '0.0.0.0',
                 'user_agent' => request()->userAgent(),
             ],
-            'metadata' => $metadata,
+            'metadata' => ! empty($metadata) ? $metadata : null,
             'occurred_at' => now()->toIso8601String(),
         ];
 
         try {
-            $this->auditLogs->createEvent($orgId, $event);
-        } catch (BaseRequestException $e) {
+            $this->client->auditLogs()->createEvent(
+                organizationId: $orgId,
+                event: AuditLogEvent::fromArray($event),
+            );
+        } catch (\Exception $e) {
             report($e);
         }
     }
@@ -87,11 +87,6 @@ class AuditLogger
                 'metadata' => $target['metadata'] ?? null,
             ];
         }, $targets);
-    }
-
-    private function humanize(string $action): string
-    {
-        return ucfirst(str_replace(['.', '_'], ' ', $action));
     }
 
     private function getActorId(?Authenticatable $user): ?string

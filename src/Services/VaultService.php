@@ -4,22 +4,25 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Services;
 
-use Illuminate\Support\Facades\Http;
+use WorkOS\WorkOS;
 
 class VaultService
 {
+    public function __construct(
+        private readonly WorkOS $client,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $context
      * @return array<string, mixed>
      */
     public function store(string $name, string $value, array $context = []): array
     {
-        $body = ['name' => $name, 'value' => $value];
-        if (! empty($context)) {
-            $body['context'] = $context;
-        }
-
-        return $this->request('post', '/vault/objects', $body);
+        return $this->client->vault()->createObject(
+            name: $name,
+            value: $value,
+            keyContext: $context,
+        );
     }
 
     /**
@@ -27,7 +30,7 @@ class VaultService
      */
     public function get(string $id): array
     {
-        return $this->request('get', "/vault/objects/{$id}");
+        return $this->client->vault()->readObject(objectId: $id);
     }
 
     /**
@@ -35,7 +38,7 @@ class VaultService
      */
     public function getByName(string $name): array
     {
-        return $this->request('get', "/vault/objects/by-name/{$name}");
+        return $this->client->vault()->readObjectByName(name: $name);
     }
 
     /**
@@ -43,12 +46,12 @@ class VaultService
      */
     public function update(string $id, string $value): array
     {
-        return $this->request('patch', "/vault/objects/{$id}", ['value' => $value]);
+        return $this->client->vault()->updateObject(objectId: $id, value: $value);
     }
 
     public function delete(string $id): void
     {
-        $this->request('delete', "/vault/objects/{$id}");
+        $this->client->vault()->deleteObject(objectId: $id);
     }
 
     /**
@@ -56,12 +59,9 @@ class VaultService
      */
     public function list(int $limit = 10, ?string $after = null): array
     {
-        $params = ['limit' => $limit];
-        if ($after !== null) {
-            $params['after'] = $after;
-        }
+        $result = $this->client->vault()->listObjects(limit: $limit, after: $after);
 
-        return $this->request('get', '/vault/objects', $params);
+        return $result;
     }
 
     /**
@@ -69,54 +69,22 @@ class VaultService
      */
     public function versions(string $id): array
     {
-        return $this->request('get', "/vault/objects/{$id}/versions");
+        return $this->client->vault()->listObjectVersions(objectId: $id);
     }
 
     /**
      * @param  array<string, mixed>  $context
-     * @return array<string, mixed>
      */
-    public function encrypt(string $plaintext, array $context = []): array
+    public function encrypt(string $plaintext, array $context = []): string
     {
-        $body = ['plaintext' => $plaintext];
-        if (! empty($context)) {
-            $body['context'] = $context;
-        }
-
-        return $this->request('post', '/vault/keys/encrypt', $body);
+        return $this->client->vault()->encrypt(data: $plaintext, keyContext: $context);
     }
 
     /**
      * @param  array<string, mixed>  $context
-     * @return array<string, mixed>
      */
-    public function decrypt(string $ciphertext, array $context = []): array
+    public function decrypt(string $ciphertext, array $context = []): string
     {
-        $body = ['ciphertext' => $ciphertext];
-        if (! empty($context)) {
-            $body['context'] = $context;
-        }
-
-        return $this->request('post', '/vault/keys/decrypt', $body);
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function request(string $method, string $path, array $data = []): array
-    {
-        $url = rtrim((string) config('workos.widgets.base_url', 'https://api.workos.com'), '/').$path;
-
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.config('workos.api_key'),
-        ])->$method($url, $data);
-
-        if (! $response->successful()) {
-            throw new \RuntimeException("WorkOS Vault API error: {$response->status()} {$response->body()}");
-        }
-
-        /** @var array<string, mixed> */
-        return $response->json() ?? [];
+        return $this->client->vault()->decrypt(encryptedData: $ciphertext);
     }
 }
