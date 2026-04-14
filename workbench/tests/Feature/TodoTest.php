@@ -31,7 +31,7 @@ test('user can create a todo', function () {
     $fake = WorkOS::fake()->actingAs($user, permissions: ['todos.read']);
     session(['current_organization_id' => $org->id]);
 
-    Livewire::test(TodoList::class)
+    Livewire::actingAs($user)->test(TodoList::class)
         ->set('newTodo', 'My new task')
         ->call('addTodo');
 

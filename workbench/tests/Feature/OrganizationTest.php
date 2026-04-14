@@ -28,7 +28,7 @@ test('organization switcher shows all organizations', function () {
 
     WorkOS::fake()->actingAs($user);
 
-    Livewire::test(OrganizationSwitcher::class)
+    Livewire::actingAs($user)->test(OrganizationSwitcher::class)
         ->assertSee('Acme Corp')
         ->assertSee('Globex Inc');
 })->afterEach(fn () => WorkOS::restore());
@@ -42,7 +42,7 @@ test('user can switch organizations', function () {
     WorkOS::fake()->actingAs($user);
     session(['current_organization_id' => $org1->id]);
 
-    Livewire::test(OrganizationSwitcher::class)
+    Livewire::actingAs($user)->test(OrganizationSwitcher::class)
         ->call('switch', $org2->id);
 
     expect(session('current_organization_id'))->toBe($org2->id);
