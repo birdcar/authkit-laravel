@@ -4,7 +4,7 @@
     ".": {
       "release-type": "php",
       "changelog-type": "default",
-      "bump-minor-pre-major": true,
+      "bump-minor-pre-major": false,
       "include-component-in-tag": false,
       "include-v-in-tag": true
     }
