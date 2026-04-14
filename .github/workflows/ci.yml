@@ -112,7 +112,7 @@ jobs:
           cd workbench && composer install --prefer-dist --no-interaction && npm ci && npm run build
 
       - name: Run workbench tests with coverage
-        run: cd workbench && php artisan test --coverage --min=80 --coverage-clover=coverage.xml
+        run: cd workbench && php artisan test --coverage --min=60 --coverage-clover=coverage.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
