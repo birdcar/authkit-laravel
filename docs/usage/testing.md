@@ -153,6 +153,15 @@ public function test_admin_can_manage_org_users()
 }
 ```
 
+> **Note:** `InteractsWithWorkOS::actingAsWorkOS()` only accepts `($user, $roles, $permissions, $organizationId)`. To set `featureFlags` or `entitlements`, use `WorkOS::fake()->actingAs()` directly and chain builder methods:
+>
+> ```php
+> $fake = $this->fakeWorkOS();
+> $fake->actingAs($user)
+>     ->withFeatureFlags(['new_dashboard'])
+>     ->withEntitlements(['advanced_reporting']);
+> ```
+
 ## Using WorkOSFake Directly
 
 For more control, use the `fakeWorkOS()` method:
@@ -181,11 +190,13 @@ $fake = WorkOS::fake()
     ->actingAs($user)
     ->withRoles(['admin', 'editor'])
     ->withPermissions(['posts:create', 'posts:delete'])
+    ->withFeatureFlags(['new_dashboard'])
+    ->withEntitlements(['advanced_reporting'])
     ->inOrganization('org_123abc')
     ->impersonating(['email' => 'admin@example.com', 'reason' => 'Testing']);
 
 // Verify settings
-$this->assertTrue($fake->isImpersonating());
+expect($fake->isImpersonating())->toBeTrue();
 $this->assertTrue($fake->hasPermission('posts:create'));
 ```
 
@@ -319,16 +330,80 @@ $fake->assertHasPermission('posts:create'); // Passes
 $fake->assertHasPermission('posts:delete'); // Fails
 ```
 
-### assertIsImpersonating()
+### assertHasFeatureFlag()
 
-Verify admin is impersonating the user:
+Verify user has a specific feature flag:
+
+```php
+$fake = WorkOS::fake()
+    ->actingAs($user)
+    ->withFeatureFlags(['new_dashboard']);
+
+$fake->assertHasFeatureFlag('new_dashboard'); // Passes
+$fake->assertHasFeatureFlag('beta_feature'); // Fails
+```
+
+### assertHasEntitlement()
+
+Verify user has a specific entitlement:
+
+```php
+$fake = WorkOS::fake()
+    ->actingAs($user)
+    ->withEntitlements(['advanced_reporting']);
+
+$fake->assertHasEntitlement('advanced_reporting'); // Passes
+```
+
+### assertInOrganization()
+
+Verify user is in a specific organization:
+
+```php
+$fake = WorkOS::fake()
+    ->actingAs($user)
+    ->inOrganization('org_123abc');
+
+$fake->assertInOrganization('org_123abc'); // Passes
+```
+
+### assertAudited()
+
+Assert an audit event was logged for a given action:
+
+```php
+$fake->assertAudited('posts.created');
+
+// With a callback to inspect the event data:
+$fake->assertAudited('posts.created', fn ($e) => $e['metadata']['category'] === 'technology');
+```
+
+### assertNotAudited()
+
+Assert an audit event was NOT logged:
+
+```php
+$fake->assertNotAudited('posts.deleted');
+```
+
+### assertAuditedCount()
+
+Assert the total number of audit events logged:
+
+```php
+$fake->assertAuditedCount(3);
+```
+
+### Impersonation
+
+`isImpersonating()` is a boolean method, not an assertion. Use it with `expect()`:
 
 ```php
 $fake = WorkOS::fake()
     ->actingAs($user)
     ->impersonating(['email' => 'admin@example.com', 'reason' => 'Testing']);
 
-$fake->assertIsImpersonating(); // Passes
+expect($fake->isImpersonating())->toBeTrue();
 ```
 
 ## Testing Model Methods
@@ -555,7 +630,7 @@ For testing code that calls WorkOS services directly:
 
 ```php
 use Mockery;
-use WorkOS\UserManagement;
+use WorkOS\Service\UserManagement;
 
 public function test_sync_users_from_workos()
 {

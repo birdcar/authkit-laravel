@@ -14,7 +14,11 @@ The package configuration is organized into sections:
 6. **Routes** — Built-in route configuration
 7. **Webhooks** — Webhook endpoint configuration
 8. **Events** — Events API polling configuration
-9. **Models** — User and Organization model classes
+9. **API Keys** — API key validation base URL
+10. **FGA** — Fine-grained authorization
+11. **Sync** — Custom sync listener overrides
+12. **Models** — User and Organization model classes
+13. **DSync** — Directory sync model classes
 
 ## API Credentials
 
@@ -192,6 +196,61 @@ Requires Livewire to be installed. When disabled, widget classes are not registe
 WORKOS_FEATURE_WIDGETS=true
 ```
 
+### features.feature_flags
+
+**Type:** `bool`  
+**Default:** `env('WORKOS_FEATURE_FLAGS', true)`
+
+Enable the WorkOS Feature Flags service.
+
+```env
+WORKOS_FEATURE_FLAGS=true
+```
+
+### features.vault
+
+**Type:** `bool`  
+**Default:** `env('WORKOS_FEATURE_VAULT', false)`
+
+Enable the WorkOS Vault service for secrets management.
+
+```env
+WORKOS_FEATURE_VAULT=false
+```
+
+### features.radar
+
+**Type:** `bool`  
+**Default:** `env('WORKOS_FEATURE_RADAR', false)`
+
+Enable the WorkOS Radar service for bot and abuse detection.
+
+```env
+WORKOS_FEATURE_RADAR=false
+```
+
+### features.pipes
+
+**Type:** `bool`  
+**Default:** `env('WORKOS_FEATURE_PIPES', false)`
+
+Enable the WorkOS Pipes integration service.
+
+```env
+WORKOS_FEATURE_PIPES=false
+```
+
+### features.domain_verification
+
+**Type:** `bool`  
+**Default:** `env('WORKOS_FEATURE_DOMAIN_VERIFICATION', false)`
+
+Enable domain verification workflows.
+
+```env
+WORKOS_FEATURE_DOMAIN_VERIFICATION=false
+```
+
 ## Widgets Configuration
 
 The `widgets` array configures the Livewire widget components.
@@ -329,6 +388,7 @@ Supported categories:
 - `'dsync'` — Directory sync (LDAP, SCIM) events
 - `'session'` — Session lifecycle events
 - `'authentication'` — Authentication method events
+- `'organization_domain'` — Organization domain verification events
 
 Example configuration:
 
@@ -340,6 +400,7 @@ Example configuration:
     'dsync' => env('WORKOS_SYNC_DSYNC', 'events_api'),
     'session' => env('WORKOS_SYNC_SESSION', 'webhooks'),
     'authentication' => env('WORKOS_SYNC_AUTH', 'webhooks'),
+    'organization_domain' => env('WORKOS_SYNC_ORGANIZATION_DOMAIN', 'webhooks'),
 ],
 ```
 
@@ -352,6 +413,7 @@ WORKOS_SYNC_MEMBERSHIP=webhooks
 WORKOS_SYNC_DSYNC=events_api
 WORKOS_SYNC_SESSION=webhooks
 WORKOS_SYNC_AUTH=webhooks
+WORKOS_SYNC_ORGANIZATION_DOMAIN=webhooks
 ```
 
 ### events.routing.overrides
@@ -433,6 +495,74 @@ Cache key for storing the event cursor.
 'cache_key' => 'workos.events.cursor',
 ```
 
+## API Keys Configuration
+
+The `api_keys` array configures WorkOS API key validation.
+
+### api_keys.base_url
+
+**Type:** `string`  
+**Default:** `env('WORKOS_BASE_API_URL', 'https://api.workos.com')`
+
+Base URL for API key validation requests.
+
+Override for staging or local development:
+
+```env
+WORKOS_BASE_API_URL=https://staging-api.workos.com
+```
+
+## FGA Configuration
+
+The `fga` array configures WorkOS Fine-Grained Authorization.
+
+### fga.enabled
+
+**Type:** `bool`  
+**Default:** `env('WORKOS_FGA_ENABLED', false)`
+
+Enable FGA for resource-level access control.
+
+When enabled, the `workos.fga` middleware and `@workosAccess` Blade directive become available.
+
+```env
+WORKOS_FGA_ENABLED=false
+```
+
+### fga.gate_integration
+
+**Type:** `bool`  
+**Default:** `env('WORKOS_FGA_GATE_INTEGRATION', false)`
+
+Register a Laravel Gate after-hook that delegates to FGA for `FGAResource` arguments.
+
+When enabled, `Gate::allows()` calls with FGA resource types automatically check WorkOS FGA.
+
+```env
+WORKOS_FGA_GATE_INTEGRATION=false
+```
+
+## Sync Configuration
+
+The `sync` array controls which listeners handle WorkOS sync events.
+
+### sync.listeners
+
+**Type:** `array<class-string, class-string|null>`  
+**Default:** `[]`
+
+Map event classes to custom listener classes, or `null` to disable a listener entirely. Events omitted from this array use the package's default listeners.
+
+```php
+'listeners' => [
+    // Replace the default listener with your own
+    WorkOS\AuthKit\Events\Sync\WorkOSUserCreated::class => App\Listeners\MyUserSync::class,
+
+    // Disable the default listener for this event
+    WorkOS\AuthKit\Events\Sync\WorkOSUserDeleted::class => null,
+],
+```
+
 ## Models Configuration
 
 ### user_model
@@ -459,6 +589,36 @@ Used for organization-related webhook sync. The model should implement Laravel's
 
 ```env
 WORKOS_ORGANIZATION_MODEL=App\Models\Organization
+```
+
+## DSync Configuration
+
+The `dsync` array configures models for directory sync data.
+
+### dsync.user_model
+
+**Type:** `string | null`  
+**Default:** `env('WORKOS_DSYNC_USER_MODEL')`
+
+Fully qualified class name of the model that receives directory user records.
+
+Directory users are IDP-managed records (LDAP/SCIM), distinct from your application's auth user model. Set to `null` to disable directory user sync.
+
+```env
+WORKOS_DSYNC_USER_MODEL=App\Models\DirectoryUser
+```
+
+### dsync.group_model
+
+**Type:** `string | null`  
+**Default:** `env('WORKOS_DSYNC_GROUP_MODEL')`
+
+Fully qualified class name of the model that receives directory group records.
+
+Set to `null` to disable directory group sync.
+
+```env
+WORKOS_DSYNC_GROUP_MODEL=App\Models\DirectoryGroup
 ```
 
 ## Complete Example
@@ -491,6 +651,11 @@ return [
         'impersonation' => env('WORKOS_FEATURE_IMPERSONATION', true),
         'webhooks' => env('WORKOS_FEATURE_WEBHOOKS', true),
         'widgets' => env('WORKOS_FEATURE_WIDGETS', true),
+        'feature_flags' => env('WORKOS_FEATURE_FLAGS', true),
+        'vault' => env('WORKOS_FEATURE_VAULT', false),
+        'radar' => env('WORKOS_FEATURE_RADAR', false),
+        'pipes' => env('WORKOS_FEATURE_PIPES', false),
+        'domain_verification' => env('WORKOS_FEATURE_DOMAIN_VERIFICATION', false),
     ],
 
     // Widgets
@@ -523,6 +688,7 @@ return [
                 'dsync' => env('WORKOS_SYNC_DSYNC', 'events_api'),
                 'session' => env('WORKOS_SYNC_SESSION', 'webhooks'),
                 'authentication' => env('WORKOS_SYNC_AUTH', 'webhooks'),
+                'organization_domain' => env('WORKOS_SYNC_ORGANIZATION_DOMAIN', 'webhooks'),
             ],
             'overrides' => [],
         ],
@@ -533,9 +699,31 @@ return [
         'cache_key' => 'workos.events.cursor',
     ],
 
+    // API Keys
+    'api_keys' => [
+        'base_url' => env('WORKOS_BASE_API_URL', 'https://api.workos.com'),
+    ],
+
+    // FGA
+    'fga' => [
+        'enabled' => env('WORKOS_FGA_ENABLED', false),
+        'gate_integration' => env('WORKOS_FGA_GATE_INTEGRATION', false),
+    ],
+
+    // Sync listeners
+    'sync' => [
+        'listeners' => [],
+    ],
+
     // Models
     'user_model' => env('WORKOS_USER_MODEL', 'App\\Models\\User'),
     'organization_model' => env('WORKOS_ORGANIZATION_MODEL', 'App\\Models\\Organization'),
+
+    // DSync
+    'dsync' => [
+        'user_model' => env('WORKOS_DSYNC_USER_MODEL'),
+        'group_model' => env('WORKOS_DSYNC_GROUP_MODEL'),
+    ],
 ];
 ```
 

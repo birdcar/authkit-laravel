@@ -61,7 +61,6 @@ WorkOS::audit('users.promoted', [
 WorkOS::audit(
     string $action,
     array $targets = [],
-    ?string $actorId = null,
     array $metadata = [],
 ): void
 ```
@@ -82,13 +81,6 @@ Array of resources affected by the action. Each target is an array:
 ```
 
 Or use Auditable models (see below).
-
-**$actorId**
-Override the actor (defaults to current user). Useful for system actions:
-
-```php
-WorkOS::audit('password.reset', targets: [...], actorId: 'system');
-```
 
 **$metadata**
 Additional context for the action:
@@ -370,11 +362,13 @@ class PostTest extends TestCase
 ### Assertion Methods
 
 **assertAudited()**
-Assert an action was audited:
+Assert an action was audited. Pass an optional callback to inspect event data:
 
 ```php
 $fake->assertAudited('posts.created');
-$fake->assertAudited('posts.deleted', times: 2); // Audited twice
+
+// Check metadata via callback:
+$fake->assertAudited('posts.created', fn ($e) => $e['metadata']['category'] === 'technology');
 ```
 
 **assertNotAudited()**
@@ -384,14 +378,11 @@ Assert an action was not audited:
 $fake->assertNotAudited('posts.deleted');
 ```
 
-**assertAuditedWithTarget()**
-Assert an action was audited with a specific target:
+**assertAuditedCount()**
+Assert the total number of audit events logged:
 
 ```php
-$fake->assertAuditedWithTarget('posts.created', [
-    'type' => 'post',
-    'id' => '123',
-]);
+$fake->assertAuditedCount(3);
 ```
 
 ## Disabling Audit Logs

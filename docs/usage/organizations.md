@@ -254,23 +254,26 @@ When webhooks are enabled, organization data is automatically synced from WorkOS
 
 - **organization.created**: Creates a new Organization record
 - **organization.updated**: Updates the organization name and metadata
+- **organization.deleted**: Deletes the Organization record
 - **organization_membership.created**: Links user to organization
 - **organization_membership.updated**: Updates the user's role in the organization
 - **organization_membership.deleted**: Removes the user from the organization
 
-Disable auto-sync in `config/workos.php`:
+Disable auto-sync for a specific listener by setting it to `null` in `config/workos.php`:
 
 ```php
-'webhooks' => [
-    'sync_enabled' => false, // Disable auto-sync
+'sync' => [
+    'listeners' => [
+        \WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated::class => null,
+    ],
 ],
 ```
 
-Then handle webhooks manually by listening to events:
+Then handle sync events manually by listening to them:
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
 
 Event::listen(WorkOSOrganizationCreated::class, function ($event) {
     // Custom sync logic
@@ -278,6 +281,33 @@ Event::listen(WorkOSOrganizationCreated::class, function ($event) {
         ['workos_id' => $event->data['id']],
         ['name' => $event->data['name']]
     );
+});
+```
+
+## Organization Domain Events
+
+The following events are dispatched when organization domain state changes in WorkOS. All are in the `WorkOS\AuthKit\Events\Sync` namespace.
+
+| Event class | Trigger |
+|---|---|
+| `WorkOSOrganizationDomainCreated` | A domain is added to an organization |
+| `WorkOSOrganizationDomainUpdated` | A domain record is updated |
+| `WorkOSOrganizationDomainDeleted` | A domain is removed from an organization |
+| `WorkOSOrganizationDomainVerified` | A domain passes verification |
+| `WorkOSOrganizationDomainVerificationFailed` | A domain fails verification |
+
+Listen to these events to react to domain lifecycle changes:
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainVerified;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainVerificationFailed;
+
+Event::listen(WorkOSOrganizationDomainVerified::class, function ($event) {
+    // Domain has been verified — enable domain-restricted features
+});
+
+Event::listen(WorkOSOrganizationDomainVerificationFailed::class, function ($event) {
+    // Notify org admin that verification failed
 });
 ```
 
@@ -472,4 +502,4 @@ Ensure `SetCurrentOrganization` middleware is applied and the user has active or
 Verify the user belongs to that organization in your WorkOS Dashboard. Use `belongsToOrganization()` to debug.
 
 **Organization data is stale**
-Run `php artisan workos:sync-organizations` to manually sync organizations from WorkOS, or enable webhooks for real-time sync.
+Run `php artisan workos:sync-users` to manually sync user and organization data from WorkOS, or enable webhooks for real-time sync.

@@ -116,6 +116,11 @@ return [
         'impersonation' => env('WORKOS_FEATURE_IMPERSONATION', true),
         'webhooks' => env('WORKOS_FEATURE_WEBHOOKS', true),
         'widgets' => env('WORKOS_FEATURE_WIDGETS', true),
+        'feature_flags' => env('WORKOS_FEATURE_FEATURE_FLAGS', true),
+        'vault' => env('WORKOS_FEATURE_VAULT', false),
+        'radar' => env('WORKOS_FEATURE_RADAR', false),
+        'pipes' => env('WORKOS_FEATURE_PIPES', false),
+        'domain_verification' => env('WORKOS_FEATURE_DOMAIN_VERIFICATION', false),
     ],
 
     // Widgets API configuration
@@ -136,7 +141,28 @@ return [
     'webhooks' => [
         'enabled' => true,
         'prefix' => 'webhooks/workos',
-        'sync_enabled' => env('WORKOS_WEBHOOK_SYNC_ENABLED', true),
+    ],
+
+    // API keys configuration
+    'api_keys' => [
+        // ...
+    ],
+
+    // Fine-Grained Authorization configuration
+    'fga' => [
+        // ...
+    ],
+
+    // Sync configuration
+    'sync' => [
+        'listeners' => [
+            // Set a listener class to null to disable it
+        ],
+    ],
+
+    // Directory Sync configuration
+    'dsync' => [
+        // ...
     ],
 
     // User and organization models
@@ -163,6 +189,11 @@ Feature flags control optional functionality:
 - `impersonation`: Allow admin impersonation for testing
 - `webhooks`: Enable webhook ingestion from WorkOS
 - `widgets`: Enable Livewire widget components
+- `feature_flags`: Enable WorkOS Feature Flags integration (default: true)
+- `vault`: Enable WorkOS Vault integration (default: false)
+- `radar`: Enable WorkOS Radar integration (default: false)
+- `pipes`: Enable WorkOS Pipes integration (default: false)
+- `domain_verification`: Enable domain verification support (default: false)
 
 **user_model** and **organization_model**
 Fully qualified class names of your User and Organization models. These are used for syncing data from WorkOS webhooks.
@@ -285,13 +316,7 @@ Review the migration plan carefully, as it depends on your specific implementati
 
 ## Verify Installation
 
-Test that everything is working:
-
-```bash
-php artisan workos:install --verify
-```
-
-Or manually test by visiting your login page:
+Manually test by visiting your login page:
 
 ```
 http://localhost:8000/auth/login

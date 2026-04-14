@@ -82,7 +82,7 @@ The package dispatches Laravel events for these WorkOS events:
 Fired when a user is created in WorkOS.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
 
 Event::listen(WorkOSUserCreated::class, function ($event) {
     $data = $event->data; // WorkOS user data
@@ -94,7 +94,7 @@ Event::listen(WorkOSUserCreated::class, function ($event) {
 Fired when a user is updated in WorkOS.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
 
 Event::listen(WorkOSUserUpdated::class, function ($event) {
     $data = $event->data;
@@ -105,7 +105,7 @@ Event::listen(WorkOSUserUpdated::class, function ($event) {
 Fired when a user is deleted in WorkOS.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserDeleted;
 
 Event::listen(WorkOSUserDeleted::class, function ($event) {
     $workosUserId = $event->data['id'];
@@ -118,7 +118,7 @@ Event::listen(WorkOSUserDeleted::class, function ($event) {
 Fired when an organization is created.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationCreated;
 
 Event::listen(WorkOSOrganizationCreated::class, function ($event) {
     $data = $event->data; // $data['id'], $data['name'], etc.
@@ -129,14 +129,14 @@ Event::listen(WorkOSOrganizationCreated::class, function ($event) {
 Fired when an organization is updated.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationUpdated;
 ```
 
 **WorkOSOrganizationDeleted**
 Fired when an organization is deleted.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDeleted;
 ```
 
 ### Membership Events
@@ -145,7 +145,7 @@ use WorkOS\AuthKit\Events\Webhooks\WorkOSOrganizationDeleted;
 Fired when a user joins an organization.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipCreated;
 
 Event::listen(WorkOSMembershipCreated::class, function ($event) {
     $data = $event->data;
@@ -157,14 +157,14 @@ Event::listen(WorkOSMembershipCreated::class, function ($event) {
 Fired when a membership is updated (role changed, etc.).
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipUpdated;
 ```
 
 **WorkOSMembershipDeleted**
 Fired when a user leaves an organization.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
+use WorkOS\AuthKit\Events\Sync\WorkOSMembershipDeleted;
 ```
 
 ### Session Events
@@ -173,7 +173,7 @@ use WorkOS\AuthKit\Events\Webhooks\WorkOSMembershipDeleted;
 Fired when a user authenticates successfully.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSSessionCreated;
 
 Event::listen(WorkOSSessionCreated::class, function ($event) {
     $data = $event->data;
@@ -184,21 +184,150 @@ Event::listen(WorkOSSessionCreated::class, function ($event) {
 Fired when a user's session is revoked.
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSSessionRevoked;
+use WorkOS\AuthKit\Events\Sync\WorkOSSessionRevoked;
 
 Event::listen(WorkOSSessionRevoked::class, function ($event) {
     $data = $event->data;
 });
 ```
 
-### Generic Webhook Event
+### Organization Domain Events
 
-All webhooks also fire a generic `WebhookReceived` event:
+**WorkOSOrganizationDomainCreated**
+Fired when a domain is added to an organization.
 
 ```php
-use WorkOS\AuthKit\Events\WebhookReceived;
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainCreated;
 
-Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
+Event::listen(WorkOSOrganizationDomainCreated::class, function ($event) {
+    $data = $event->data; // $data['id'], $data['domain'], $data['organization_id'], etc.
+});
+```
+
+**WorkOSOrganizationDomainUpdated**
+Fired when an organization domain is updated.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainUpdated;
+```
+
+**WorkOSOrganizationDomainDeleted**
+Fired when a domain is removed from an organization.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainDeleted;
+```
+
+**WorkOSOrganizationDomainVerified**
+Fired when an organization domain is successfully verified.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainVerified;
+```
+
+**WorkOSOrganizationDomainVerificationFailed**
+Fired when an organization domain verification attempt fails.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSOrganizationDomainVerificationFailed;
+```
+
+### Directory Sync (DSync) Events
+
+**WorkOSDsyncActivated**
+Fired when a directory sync connection is activated.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncActivated;
+
+Event::listen(WorkOSDsyncActivated::class, function ($event) {
+    $data = $event->data; // $data['id'], $data['organization_id'], $data['type'], etc.
+});
+```
+
+**WorkOSDsyncDeleted**
+Fired when a directory sync connection is deleted.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncDeleted;
+```
+
+**WorkOSDsyncUserCreated**
+Fired when a user is provisioned via directory sync.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserCreated;
+
+Event::listen(WorkOSDsyncUserCreated::class, function ($event) {
+    $data = $event->data; // $data['id'], $data['emails'], $data['first_name'], etc.
+});
+```
+
+**WorkOSDsyncUserUpdated**
+Fired when a directory sync user's attributes are updated.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserUpdated;
+```
+
+**WorkOSDsyncUserDeleted**
+Fired when a directory sync user is deprovisioned.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserDeleted;
+```
+
+**WorkOSDsyncGroupCreated**
+Fired when a directory sync group is created.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupCreated;
+
+Event::listen(WorkOSDsyncGroupCreated::class, function ($event) {
+    $data = $event->data; // $data['id'], $data['name'], $data['organization_id'], etc.
+});
+```
+
+**WorkOSDsyncGroupUpdated**
+Fired when a directory sync group is updated.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupUpdated;
+```
+
+**WorkOSDsyncGroupDeleted**
+Fired when a directory sync group is deleted.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupDeleted;
+```
+
+**WorkOSDsyncGroupUserAdded**
+Fired when a user is added to a directory sync group.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupUserAdded;
+
+Event::listen(WorkOSDsyncGroupUserAdded::class, function ($event) {
+    $data = $event->data; // $data['user'], $data['group'], $data['organization_id']
+});
+```
+
+**WorkOSDsyncGroupUserRemoved**
+Fired when a user is removed from a directory sync group.
+
+```php
+use WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupUserRemoved;
+```
+
+### Generic Webhook Event
+
+All webhooks also fire a generic `WorkOSEventReceived` event:
+
+```php
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
+
+Event::listen(WorkOSEventReceived::class, function (WorkOSEventReceived $event) {
     $eventType = $event->type;      // 'user.created', 'organization.updated', etc.
     $eventData = $event->data;      // Raw event data
 });
@@ -208,7 +337,7 @@ Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
 
 When webhooks are configured to route events (via `workos.events.routing`), the package automatically syncs data using built-in listeners.
 
-**SyncUserFromWebhook**
+**SyncUserFromWorkOS**
 - `user.created` → Creates or updates the User record
 - `user.updated` → Updates the User record
 
@@ -228,7 +357,7 @@ public static function findOrCreateByWorkOS(array $workosUser): self
 }
 ```
 
-**SyncOrganizationFromWebhook**
+**SyncOrganizationFromWorkOS**
 - `organization.created` → Creates the Organization record
 - `organization.updated` → Updates the Organization record
 
@@ -247,7 +376,7 @@ public static function findOrCreateByWorkOS(array $workosOrg): self
 }
 ```
 
-**SyncMembershipFromWebhook**
+**SyncMembershipFromWorkOS**
 - `organization_membership.created` → Links user to organization
 - `organization_membership.updated` → Updates user's role in organization
 - `organization_membership.deleted` → Removes user from organization
@@ -271,7 +400,7 @@ namespace App\Listeners;
 
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserUpdated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
 
 class SyncUserAvatarFromWorkOS implements ShouldQueue
 {
@@ -288,14 +417,17 @@ class SyncUserAvatarFromWorkOS implements ShouldQueue
 }
 ```
 
-Register in `app/Providers/EventServiceProvider.php`:
+Register in `app/Providers/AppServiceProvider.php`:
 
 ```php
-protected $listen = [
-    WorkOSUserUpdated::class => [
-        SyncUserAvatarFromWorkOS::class,
-    ],
-];
+use Illuminate\Support\Facades\Event;
+use App\Listeners\SyncUserAvatarFromWorkOS;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
+
+public function boot(): void
+{
+    Event::listen(WorkOSUserUpdated::class, SyncUserAvatarFromWorkOS::class);
+}
 ```
 
 ## Handling Webhook Data
@@ -425,7 +557,7 @@ tail -f storage/logs/laravel.log | grep webhook
 Process webhooks asynchronously to avoid blocking the response:
 
 ```php
-class SyncUserFromWebhook implements ShouldQueue
+class SyncUserFromWorkOS implements ShouldQueue
 {
     // Implements queueable processing
 }
@@ -495,7 +627,7 @@ Event::listen(WorkOSMembershipCreated::class, function ($event) {
 **Webhooks not being received**
 1. Verify webhook URL in WorkOS Dashboard
 2. Check that your server is accessible from the internet
-3. Use `php artisan workos:listen-events` to test locally
+3. Use `php artisan workos:events-listen` to test locally
 4. Check webhook logs in WorkOS Dashboard
 
 **"Webhook secret not configured"**
@@ -512,6 +644,6 @@ Ensure your `WORKOS_WEBHOOK_SECRET` matches exactly what's in your WorkOS Dashbo
 5. If webhooks aren't being triggered, verify the webhook is actually being sent by WorkOS in your Dashboard
 
 **Listeners not executing**
-1. Check that the event is registered in `EventServiceProvider`
+1. Check that the event is registered via `Event::listen()` in `AppServiceProvider::boot()`
 2. Verify the listener class exists and is correctly namespaced
 3. Check that the webhook is actually being sent by WorkOS

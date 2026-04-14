@@ -118,6 +118,23 @@ $url = WorkOS::loginUrl(organizationId: 'org_123abc');
 $url = WorkOS::loginUrl(state: ['order_id' => 123]);
 ```
 
+### Get Sign-Up URL
+
+Generate a link to the sign-up page:
+
+```php
+// Basic sign-up
+$url = WorkOS::signUpUrl();
+
+// With organization pre-selected
+$url = WorkOS::signUpUrl(organizationId: 'org_123abc');
+
+// With custom state
+$url = WorkOS::signUpUrl(state: ['plan' => 'pro']);
+```
+
+Signature: `WorkOS::signUpUrl(?string $organizationId = null, ?array $state = null): string`
+
 ### Get Logout URL
 
 Get the WorkOS logout URL before the session is destroyed:
@@ -138,6 +155,18 @@ if (WorkOS::hasPermission('posts:create')) {
 }
 ```
 
+### Check Feature Flags and Entitlements
+
+```php
+if (WorkOS::hasFeatureFlag('new-dashboard')) {
+    // Feature flag is enabled for this user
+}
+
+if (WorkOS::hasEntitlement('advanced-analytics')) {
+    // User has this entitlement
+}
+```
+
 ## WorkOSSession Object
 
 The session object contains all authentication data:
@@ -154,7 +183,10 @@ $session->sessionId;        // "sess_123abc"
 $session->roles;            // ['admin', 'member']
 $session->permissions;      // ['posts:create', 'posts:read']
 $session->organizationId;   // "org_123abc" or null
-$session->impersonator;     // Impersonator data or null
+$session->impersonator;     // ['email' => 'admin@example.com', 'reason' => '...'] or null
+$session->featureFlags;     // ['new-dashboard', 'beta-feature']
+$session->entitlements;     // ['advanced-analytics', 'api-access']
+$session->claims;           // ['custom_claim' => 'value', ...]
 
 // Check expiry
 $session->isExpired();           // bool
@@ -163,6 +195,10 @@ $session->needsRefresh(5);       // bool - needs refresh within 5 minutes?
 // Check roles/permissions
 $session->hasRole('admin');              // bool
 $session->hasPermission('posts:create'); // bool
+
+// Check feature flags and entitlements
+$session->hasFeatureFlag('new-dashboard');      // bool
+$session->hasEntitlement('advanced-analytics'); // bool
 ```
 
 ## Using the Auth Guard
@@ -325,7 +361,7 @@ Use Blade directives to check authentication in views:
 <!-- Check if impersonating -->
 @impersonating
     <div class="alert alert-warning">
-        You are being impersonated by {{ session()->get('impersonator.email') }}
+        You are being impersonated by {{ WorkOS::session()->impersonator['email'] }}
     </div>
 @endimpersonating
 ```

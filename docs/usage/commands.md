@@ -4,11 +4,13 @@ Complete reference for all WorkOS artisan commands.
 
 ## Overview
 
-The package registers three main commands:
+The package registers five main commands:
 
 1. `workos:install` — Interactive setup wizard
 2. `workos:sync-users` — Manual user sync from WorkOS
 3. `workos:events-listen` — Events API polling worker
+4. `workos:fga-check` — Check FGA access for a user against a resource
+5. `workos:make-listener` — Scaffold a custom WorkOS event listener
 
 ## workos:install
 
@@ -345,7 +347,7 @@ workos:events-listen
 2. Loads or initializes the event cursor from cache
 3. Continuously polls the WorkOS Events API
 4. For each event:
-   - Dispatches a `WebhookReceived` event
+   - Dispatches a `WorkOSEventReceived` event
    - Dispatches the specific event class (e.g., `WorkOSUserCreated`)
 5. Persists the cursor after each event
 6. Sleeps between polling cycles
@@ -509,6 +511,129 @@ ps aux | grep workos:events-listen
 
 If memory grows unbounded, there may be a listener accumulating state. Ensure listeners are stateless.
 
+## workos:fga-check
+
+Check whether a user has FGA access to a specific resource. Useful for debugging permission configurations without writing application code.
+
+### Usage
+
+```bash
+php artisan workos:fga-check {userId} {permission} {resource}
+```
+
+Example:
+
+```bash
+php artisan workos:fga-check user_01abc123 document:read document:doc_456xyz
+```
+
+### Signature
+
+```
+workos:fga-check
+  {userId : The WorkOS user ID to check access for}
+  {permission : The permission to check (e.g. document:read)}
+  {resource : The resource to check against (e.g. document:doc_456xyz)}
+```
+
+### What It Does
+
+1. Looks up the user by WorkOS ID
+2. Calls the WorkOS FGA API with the given permission and resource
+3. Outputs whether access is granted or denied
+
+### Output Example
+
+```
+Checking FGA access...
+
+  User:       user_01abc123
+  Permission: document:read
+  Resource:   document:doc_456xyz
+
+  ✓ Access granted
+```
+
+### Requirements
+
+`features.fga` must be enabled in your config and `WORKOS_FGA_ENABLED=true` must be set.
+
+## workos:make-listener
+
+Scaffold a custom WorkOS event listener class. Generates a listener stub pre-wired to handle one or more WorkOS sync events.
+
+### Usage
+
+```bash
+php artisan workos:make-listener {name}
+```
+
+Generate a listener for specific events:
+
+```bash
+php artisan workos:make-listener MyUserSync --events=WorkOSUserCreated --events=WorkOSUserUpdated
+```
+
+### Signature
+
+```
+workos:make-listener
+  {name? : The name of the listener class to generate}
+  {--events=* : WorkOS event class names to handle (can be specified multiple times)}
+```
+
+### What It Does
+
+1. Generates a listener class in `app/Listeners/`
+2. Adds `handle()` method stubs for each specified event type
+3. Outputs the file path and next steps for registering the listener
+
+### Output Example
+
+```
+Creating listener...
+
+  ✓ Created app/Listeners/MyUserSync.php
+
+Next Steps:
+
+  Register your listener in config/workos.php:
+
+  'sync' => [
+      'listeners' => [
+          WorkOS\AuthKit\Events\Sync\WorkOSUserCreated::class => App\Listeners\MyUserSync::class,
+      ],
+  ],
+```
+
+### Customizing the Generated Listener
+
+The generated listener handles each event type you specify:
+
+```php
+<?php
+
+namespace App\Listeners;
+
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserUpdated;
+
+class MyUserSync
+{
+    public function handleWorkOSUserCreated(WorkOSUserCreated $event): void
+    {
+        // Handle user created
+    }
+
+    public function handleWorkOSUserUpdated(WorkOSUserUpdated $event): void
+    {
+        // Handle user updated
+    }
+}
+```
+
+Register it in `config/workos.php` under `sync.listeners` to override the default listener for those events.
+
 ## Quick Reference
 
 | Command | Purpose | Key Options |
@@ -516,6 +641,8 @@ If memory grows unbounded, there may be a listener accumulating state. Ensure li
 | `workos:install` | Initial setup | `--force`, `--mini` |
 | `workos:sync-users` | Manual user sync | `--organization`, `--limit` |
 | `workos:events-listen` | Poll Events API | `--once`, `--since`, `--sleep` |
+| `workos:fga-check` | Check FGA access | `{userId}`, `{permission}`, `{resource}` |
+| `workos:make-listener` | Scaffold event listener | `{name}`, `--events` |
 
 ## Related Documentation
 

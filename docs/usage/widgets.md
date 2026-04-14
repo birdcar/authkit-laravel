@@ -4,7 +4,7 @@ Embed ready-made Livewire components for user management, settings, and more.
 
 ## Overview
 
-AuthKit includes 8 widget groups with pre-built UI components for common authentication and organization management tasks. All widgets are Livewire 4+ components styled with Tailwind CSS.
+AuthKit includes 7 widget groups with pre-built UI components for common authentication and organization management tasks. All widgets are Livewire 4+ components styled with Tailwind CSS.
 
 **Requirements:**
 - Livewire ^4.0

@@ -34,6 +34,7 @@ The package organizes events into categories for easier routing:
 - `user` — User creation, updates, deletion
 - `organization` — Org creation, updates, deletion
 - `organization_membership` — Membership create/update/delete
+- `organization_domain` — Domain create/update/delete/verify events
 - `session` — Session lifecycle and authentication events
 - `authentication` — Auth method succeeded events
 - `dsync` — Directory sync (LDAP, SCIM) events
@@ -343,7 +344,7 @@ In this setup:
 Regardless of source (webhooks or Events API), events are dispatched identically:
 
 ```php
-use WorkOS\AuthKit\Events\Webhooks\WorkOSUserCreated;
+use WorkOS\AuthKit\Events\Sync\WorkOSUserCreated;
 
 Event::listen(WorkOSUserCreated::class, function ($event) {
     // $event->data contains the user data
@@ -351,12 +352,12 @@ Event::listen(WorkOSUserCreated::class, function ($event) {
 });
 ```
 
-The `WebhookReceived` event is also dispatched with the raw event type and data:
+The `WorkOSEventReceived` event is also dispatched with the raw event type and data:
 
 ```php
-use WorkOS\AuthKit\Events\WebhookReceived;
+use WorkOS\AuthKit\Events\WorkOSEventReceived;
 
-Event::listen(WebhookReceived::class, function (WebhookReceived $event) {
+Event::listen(WorkOSEventReceived::class, function (WorkOSEventReceived $event) {
     // $event->type = 'user.created', 'organization.updated', etc.
     // $event->data = raw event payload
 });
@@ -552,7 +553,7 @@ Balance latency vs API quota:
 Track what events are processed:
 
 ```php
-Event::listen(WebhookReceived::class, function ($event) {
+Event::listen(WorkOSEventReceived::class, function ($event) {
     \Log::info('Event received', [
         'type' => $event->type,
         'source' => 'events_api',  // or 'webhooks'

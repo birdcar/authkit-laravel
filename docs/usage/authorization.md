@@ -51,6 +51,28 @@ Route::middleware('workos.permission:posts:create,posts:edit')->group(function (
 - Throws `MissingPermissionException` if user doesn't have all required permissions
 - The exception includes permission information for custom error pages
 
+### CheckFGAAccess Middleware
+
+Require FGA resource-level access (requires FGA enabled in config):
+
+```php
+Route::middleware('workos.fga:viewer,document,{document}')->group(function () {
+    Route::get('/documents/{document}', [DocumentController::class, 'show']);
+});
+```
+
+The middleware accepts a permission slug and an `FGAResource` value object identifying the resource. FGA access checks are evaluated against the WorkOS Fine-Grained Authorization service.
+
+### CheckFeatureFlag Middleware
+
+Require a feature flag to be enabled for the current user:
+
+```php
+Route::middleware('workos.feature:new-dashboard')->group(function () {
+    Route::get('/dashboard/v2', NewDashboardController::class);
+});
+```
+
 ### Combined Middleware
 
 Combine authentication, roles, and permissions:
@@ -197,6 +219,41 @@ Use Blade directives to conditionally show content:
     <!-- Only shown if user has this permission -->
     <a href="/posts/new" class="btn btn-primary">New Post</a>
 @endworkosPermission
+```
+
+### @workosAccess
+
+Check FGA resource-level access (requires FGA enabled in config):
+
+```html
+@workosAccess('viewer', $document)
+    <!-- Only shown if user has viewer access to this resource -->
+    <a href="/documents/{{ $document->id }}">View Document</a>
+@endworkosAccess
+```
+
+The second argument is an `FGAResource` value object identifying the resource to check access against.
+
+### @workosFeature
+
+Check if a feature flag is enabled for the current user:
+
+```html
+@workosFeature('new-dashboard')
+    <!-- Only shown if feature flag is enabled -->
+    <a href="/dashboard/v2">Try New Dashboard</a>
+@endworkosFeature
+```
+
+### @workosEntitlement
+
+Check if the current user has an entitlement:
+
+```html
+@workosEntitlement('advanced-analytics')
+    <!-- Only shown if user has this entitlement -->
+    <a href="/analytics/advanced">Advanced Analytics</a>
+@endworkosEntitlement
 ```
 
 ### Combined with @auth
@@ -362,6 +419,20 @@ public function deletePost($id)
     ]);
 }
 ```
+
+## Middleware Reference
+
+| Alias | Class | Description |
+|---|---|---|
+| `workos.auth` | `EnsureWorkOSAuthenticated` | Require authentication, redirect guests |
+| `workos.role` | `CheckRole` | Require one or more roles |
+| `workos.permission` | `CheckPermission` | Require one or more permissions |
+| `workos.organization` | `CheckOrganization` | Require organization membership |
+| `workos.apikey` | `ValidateApiKey` | Validate WorkOS API key |
+| `workos.radar` | `ReportRadarAttempt` | Report authentication attempt to Radar |
+| `workos.feature` | `CheckFeatureFlag` | Require feature flag enabled |
+| `workos.fga` | `CheckFGAAccess` | FGA resource-level access check |
+| `workos.inertia` | `ShareWorkOSData` | Share auth state with Inertia.js |
 
 ## Troubleshooting
 
