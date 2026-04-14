@@ -99,12 +99,18 @@ jobs:
           extensions: mbstring, xml, ctype, json, curl, sqlite3
           coverage: pcov
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Install dependencies
         env:
           COMPOSER_AUTH: ${{ secrets.COMPOSER_AUTH }}
         run: |
           composer install --prefer-dist --no-interaction
           cd workbench && composer install --prefer-dist --no-interaction
+          cd workbench && npm ci && npm run build
 
       - name: Run workbench tests with coverage
         run: cd workbench && php artisan test --coverage --min=80 --coverage-clover=coverage.xml
