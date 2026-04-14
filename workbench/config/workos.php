@@ -65,6 +65,11 @@ return [
         'impersonation' => env('WORKOS_FEATURE_IMPERSONATION', true),
         'webhooks' => env('WORKOS_FEATURE_WEBHOOKS', true),
         'widgets' => env('WORKOS_FEATURE_WIDGETS', true),
+        'feature_flags' => env('WORKOS_FEATURE_FLAGS', true),
+        'vault' => env('WORKOS_FEATURE_VAULT', false),
+        'radar' => env('WORKOS_FEATURE_RADAR', false),
+        'pipes' => env('WORKOS_FEATURE_PIPES', false),
+        'domain_verification' => env('WORKOS_FEATURE_DOMAIN_VERIFICATION', false),
     ],
 
     /*
@@ -133,6 +138,7 @@ return [
                 'dsync' => env('WORKOS_SYNC_DSYNC', 'events_api'),
                 'session' => env('WORKOS_SYNC_SESSION', 'webhooks'),
                 'authentication' => env('WORKOS_SYNC_AUTH', 'webhooks'),
+                'organization_domain' => env('WORKOS_SYNC_ORGANIZATION_DOMAIN', 'webhooks'),
             ],
 
             'overrides' => [],
@@ -143,6 +149,37 @@ return [
         'limit' => env('WORKOS_EVENTS_LIMIT', 100),
         'cache_store' => env('WORKOS_EVENTS_CACHE_STORE'),
         'cache_key' => 'workos.events.cursor',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | API Keys Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for WorkOS API key validation. The base_url can be
+    | overridden for staging or local development environments.
+    |
+    */
+
+    'api_keys' => [
+        'base_url' => env('WORKOS_BASE_API_URL', 'https://api.workos.com'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fine-Grained Authorization (FGA)
+    |--------------------------------------------------------------------------
+    |
+    | Configure WorkOS FGA for resource-level access control. When enabled,
+    | the workos.fga middleware and @workosAccess Blade directive become
+    | available. Gate integration is a separate opt-in that registers an
+    | after hook so Gate::allows() delegates to FGA for FGAResource args.
+    |
+    */
+
+    'fga' => [
+        'enabled' => env('WORKOS_FGA_ENABLED', false),
+        'gate_integration' => env('WORKOS_FGA_GATE_INTEGRATION', false),
     ],
 
     /*
@@ -188,4 +225,20 @@ return [
     */
 
     'organization_model' => env('WORKOS_ORGANIZATION_MODEL', 'App\\Models\\Organization'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Directory Sync Models
+    |--------------------------------------------------------------------------
+    |
+    | The fully qualified class names for models that receive directory sync
+    | data. Directory users and groups are IDP-managed records, distinct from
+    | your application's auth user model. Set to null to disable sync.
+    |
+    */
+
+    'dsync' => [
+        'user_model' => env('WORKOS_DSYNC_USER_MODEL'),
+        'group_model' => env('WORKOS_DSYNC_GROUP_MODEL'),
+    ],
 ];

@@ -8,7 +8,7 @@ use App\Models\Organization;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 use WorkOS\AuthKit\Facades\WorkOS;
-use WorkOS\Portal;
+use WorkOS\Resource\GenerateLinkIntent;
 
 class AdminPortalLinks extends Component
 {
@@ -54,12 +54,9 @@ class AdminPortalLinks extends Component
         }
 
         try {
-            /** @var Portal $portal */
-            $portal = WorkOS::portal();
-
-            $link = $portal->generateLink(
+            $link = WorkOS::adminPortal()->generateLink(
                 organization: $this->organization->workos_id,
-                intent: $intent,
+                intent: GenerateLinkIntent::from($intent),
                 returnUrl: route('organizations.settings'),
                 successUrl: route('organizations.settings'),
             );

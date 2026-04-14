@@ -21,7 +21,6 @@ use WorkOS\AuthKit\Testing\WorkOSFake;
 use WorkOS\Passwordless;
 use WorkOS\PKCEHelper;
 use WorkOS\Resource\UserManagementAuthenticationProvider;
-use WorkOS\Resource\UserManagementAuthenticationScreenHint;
 use WorkOS\Service\AdminPortal;
 use WorkOS\Service\ApiKeys;
 use WorkOS\Service\AuditLogs;
@@ -246,23 +245,20 @@ class WorkOS
         ?string $screenHint = null,
         ?string $loginHint = null,
     ): string {
-        $screenHintEnum = $screenHint !== null
-            ? UserManagementAuthenticationScreenHint::tryFrom($screenHint)
-            : null;
-
         $stateStr = $state !== null ? json_encode($state) : null;
 
-        /** @var array{url: string} $response */
-        $response = $this->client->userManagement()->getAuthorizationUrl(
-            redirectUri: (string) config('workos.redirect_uri'),
-            provider: UserManagementAuthenticationProvider::Authkit,
-            state: $stateStr !== false ? $stateStr : null,
-            organizationId: $organizationId,
-            loginHint: $loginHint,
-            screenHint: $screenHintEnum,
-        );
+        $params = array_filter([
+            'client_id' => config('workos.client_id'),
+            'redirect_uri' => (string) config('workos.redirect_uri'),
+            'response_type' => 'code',
+            'provider' => UserManagementAuthenticationProvider::Authkit->value,
+            'state' => $stateStr !== false ? $stateStr : null,
+            'organization_id' => $organizationId,
+            'login_hint' => $loginHint,
+            'screen_hint' => $screenHint,
+        ], fn ($v) => $v !== null);
 
-        return $response['url'];
+        return 'https://api.workos.com/user_management/authorize?'.http_build_query($params);
     }
 
     /**
