@@ -19,6 +19,8 @@ class AuthController extends Controller
     public function login(Request $request): RedirectResponse
     {
         $organizationId = $request->query('organization_id');
+        $screenHint = $request->query('screen_hint');
+        $loginHint = $request->query('login_hint');
         $state = $request->query('state');
 
         $stateArray = null;
@@ -31,6 +33,8 @@ class AuthController extends Controller
         return redirect(WorkOS::loginUrl(
             organizationId: is_string($organizationId) ? $organizationId : null,
             state: $stateArray,
+            screenHint: is_string($screenHint) ? $screenHint : null,
+            loginHint: is_string($loginHint) ? $loginHint : null,
         ));
     }
 

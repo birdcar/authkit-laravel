@@ -196,6 +196,13 @@ class SessionManager
             $resultRoles,
         );
 
+        /** @var array<\WorkOS\Resource\FeatureFlag> $resultFlags */
+        $resultFlags = $result->featureFlags ?? [];
+        $featureFlags = array_map(
+            fn (\WorkOS\Resource\FeatureFlag $flag): string => $flag->slug,
+            $resultFlags,
+        );
+
         return new WorkOSSession(
             userId: $result->user->id ?? '',
             accessToken: $result->accessToken ?? '',
@@ -206,6 +213,8 @@ class SessionManager
             sessionId: $result->sessionId,
             roles: $roles,
             permissions: $result->permissions ?? [],
+            featureFlags: $featureFlags,
+            entitlements: $result->entitlements ?? [],
             organizationId: $result->organizationId,
             impersonator: $this->impersonatorToArray($result->impersonator),
         );

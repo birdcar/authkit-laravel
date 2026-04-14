@@ -52,3 +52,32 @@ it('handles logout without active session', function () {
     $response->assertRedirect('/');
     Event::assertNotDispatched(UserLoggedOut::class);
 });
+
+it('passes screen hint to workos authorization url', function () {
+    $response = $this->get('/auth/login?screen_hint=sign-up');
+
+    $response->assertRedirect();
+
+    $location = $response->headers->get('Location');
+    expect($location)->toContain('screen_hint=sign-up');
+});
+
+it('passes login hint to workos authorization url', function () {
+    $response = $this->get('/auth/login?login_hint=user%40example.com');
+
+    $response->assertRedirect();
+
+    $location = $response->headers->get('Location');
+    expect($location)->toContain('login_hint=user%40example.com');
+});
+
+it('passes both screen hint and login hint', function () {
+    $response = $this->get('/auth/login?screen_hint=sign-up&login_hint=user%40example.com');
+
+    $response->assertRedirect();
+
+    $location = $response->headers->get('Location');
+    expect($location)
+        ->toContain('screen_hint=sign-up')
+        ->toContain('login_hint=user%40example.com');
+});

@@ -171,3 +171,48 @@ it('destroys session', function () {
 
     $this->workos->destroySession();
 });
+
+it('passes screen hint to login url', function () {
+    \WorkOS\WorkOS::setApiKey('sk_test_key');
+    \WorkOS\WorkOS::setClientId('client_id_123');
+
+    $url = $this->workos->loginUrl(screenHint: 'sign-up');
+
+    expect($url)->toContain('screen_hint=sign-up');
+});
+
+it('passes login hint to login url', function () {
+    \WorkOS\WorkOS::setApiKey('sk_test_key');
+    \WorkOS\WorkOS::setClientId('client_id_123');
+
+    $url = $this->workos->loginUrl(loginHint: 'user@example.com');
+
+    expect($url)->toContain('login_hint=user%40example.com');
+});
+
+it('combines all params in login url', function () {
+    \WorkOS\WorkOS::setApiKey('sk_test_key');
+    \WorkOS\WorkOS::setClientId('client_id_123');
+
+    $url = $this->workos->loginUrl(
+        organizationId: 'org_123',
+        screenHint: 'sign-in',
+        loginHint: 'user@example.com',
+    );
+
+    expect($url)
+        ->toContain('organization_id=org_123')
+        ->toContain('screen_hint=sign-in')
+        ->toContain('login_hint=user%40example.com');
+});
+
+it('signUpUrl sets screen hint to sign-up', function () {
+    \WorkOS\WorkOS::setApiKey('sk_test_key');
+    \WorkOS\WorkOS::setClientId('client_id_123');
+
+    $url = $this->workos->signUpUrl(organizationId: 'org_123');
+
+    expect($url)
+        ->toContain('screen_hint=sign-up')
+        ->toContain('organization_id=org_123');
+});

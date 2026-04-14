@@ -40,6 +40,16 @@ trait HasWorkOSPermissions
         return empty(array_diff($permissions, $this->workosSession?->permissions ?? []));
     }
 
+    public function hasFeatureFlag(string $flag): bool
+    {
+        return $this->workosSession?->hasFeatureFlag($flag) ?? false;
+    }
+
+    public function hasEntitlement(string $entitlement): bool
+    {
+        return $this->workosSession?->hasEntitlement($entitlement) ?? false;
+    }
+
     public function currentOrganizationId(): ?string
     {
         return $this->workosSession?->organizationId;

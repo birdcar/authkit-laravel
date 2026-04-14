@@ -20,6 +20,12 @@ class WorkOSFake
     /** @var array<string> */
     private array $permissions = [];
 
+    /** @var array<string> */
+    private array $featureFlags = [];
+
+    /** @var array<string> */
+    private array $entitlements = [];
+
     private ?string $organizationId = null;
 
     /** @var array<string, mixed>|null */
@@ -31,16 +37,22 @@ class WorkOSFake
     /**
      * @param  array<string>  $roles
      * @param  array<string>  $permissions
+     * @param  array<string>  $featureFlags
+     * @param  array<string>  $entitlements
      */
     public function actingAs(
         Authenticatable $user,
         array $roles = [],
         array $permissions = [],
         ?string $organizationId = null,
+        array $featureFlags = [],
+        array $entitlements = [],
     ): static {
         $this->user = $user;
         $this->roles = $roles;
         $this->permissions = $permissions;
+        $this->featureFlags = $featureFlags;
+        $this->entitlements = $entitlements;
         $this->organizationId = $organizationId;
 
         $session = $this->buildSession();
@@ -73,6 +85,28 @@ class WorkOSFake
     public function withPermissions(array $permissions): static
     {
         $this->permissions = array_merge($this->permissions, $permissions);
+        $this->refreshSession();
+
+        return $this;
+    }
+
+    /**
+     * @param  array<string>  $featureFlags
+     */
+    public function withFeatureFlags(array $featureFlags): static
+    {
+        $this->featureFlags = array_merge($this->featureFlags, $featureFlags);
+        $this->refreshSession();
+
+        return $this;
+    }
+
+    /**
+     * @param  array<string>  $entitlements
+     */
+    public function withEntitlements(array $entitlements): static
+    {
+        $this->entitlements = array_merge($this->entitlements, $entitlements);
         $this->refreshSession();
 
         return $this;
@@ -122,6 +156,16 @@ class WorkOSFake
         return in_array($permission, $this->permissions, true);
     }
 
+    public function hasFeatureFlag(string $flag): bool
+    {
+        return in_array($flag, $this->featureFlags, true);
+    }
+
+    public function hasEntitlement(string $entitlement): bool
+    {
+        return in_array($entitlement, $this->entitlements, true);
+    }
+
     public function isAuthenticated(): bool
     {
         return $this->user !== null;
@@ -147,6 +191,8 @@ class WorkOSFake
         $this->user = null;
         $this->roles = [];
         $this->permissions = [];
+        $this->featureFlags = [];
+        $this->entitlements = [];
         $this->organizationId = null;
         $this->impersonator = null;
     }
@@ -196,6 +242,26 @@ class WorkOSFake
         Assert::assertTrue(
             $this->hasPermission($permission),
             "Expected user to have permission [{$permission}]."
+        );
+
+        return $this;
+    }
+
+    public function assertHasFeatureFlag(string $flag): static
+    {
+        Assert::assertTrue(
+            $this->hasFeatureFlag($flag),
+            "Expected user to have feature flag [{$flag}]."
+        );
+
+        return $this;
+    }
+
+    public function assertHasEntitlement(string $entitlement): static
+    {
+        Assert::assertTrue(
+            $this->hasEntitlement($entitlement),
+            "Expected user to have entitlement [{$entitlement}]."
         );
 
         return $this;
@@ -280,6 +346,8 @@ class WorkOSFake
             sessionId: 'fake_session_id',
             roles: $this->roles,
             permissions: $this->permissions,
+            featureFlags: $this->featureFlags,
+            entitlements: $this->entitlements,
             organizationId: $this->organizationId,
             impersonator: $this->impersonator,
         );

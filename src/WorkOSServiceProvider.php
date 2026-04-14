@@ -10,6 +10,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Component;
@@ -83,6 +84,19 @@ class WorkOSServiceProvider extends ServiceProvider
         });
 
         $this->app->alias('workos', WorkOS::class);
+
+        $this->app->singleton(\WorkOS\AuthKit\FeatureFlags\FeatureFlagService::class, function ($app) {
+            return new \WorkOS\AuthKit\FeatureFlags\FeatureFlagService(
+                $app->make(SessionManager::class),
+                new \WorkOS\Organizations,
+            );
+        });
+
+        $this->app->singleton(\WorkOS\AuthKit\FGA\FGAService::class, function ($app) {
+            return new \WorkOS\AuthKit\FGA\FGAService(
+                $app->make(SessionManager::class),
+            );
+        });
 
         $this->app->singleton(AuditLogger::class, function ($app) {
             return new AuditLogger(
@@ -164,6 +178,7 @@ class WorkOSServiceProvider extends ServiceProvider
         $this->configureWebhooks();
         $this->configureEventListeners();
         $this->configureCommands();
+        $this->configureFGA();
         $this->configureLivewireWidgets();
     }
 
@@ -207,6 +222,8 @@ class WorkOSServiceProvider extends ServiceProvider
                 $app['request']
             );
         });
+
+        Auth::provider('workos-apikey', fn () => new \WorkOS\AuthKit\Auth\ApiKeyUserProvider);
     }
 
     protected function configureMiddleware(): void
@@ -221,6 +238,9 @@ class WorkOSServiceProvider extends ServiceProvider
         $router->aliasMiddleware('workos.organization', CheckOrganization::class);
         $router->aliasMiddleware('workos.organization.current', SetCurrentOrganization::class);
         $router->aliasMiddleware('workos.audit', AuditMiddleware::class);
+        $router->aliasMiddleware('workos.apikey', \WorkOS\AuthKit\Http\Middleware\ValidateApiKey::class);
+        $router->aliasMiddleware('workos.feature', \WorkOS\AuthKit\Http\Middleware\CheckFeatureFlag::class);
+        $router->aliasMiddleware('workos.radar', \WorkOS\AuthKit\Http\Middleware\ReportRadarAttempt::class);
         $router->aliasMiddleware('workos.inertia', ShareWorkOSData::class);
     }
 
@@ -252,6 +272,10 @@ class WorkOSServiceProvider extends ServiceProvider
 
         Blade::if('impersonating', fn () => $this->app->make(SessionManager::class)->isImpersonating()
         );
+
+        Blade::if('workosFeature', fn (string $flag) => $this->app->make(\WorkOS\AuthKit\FeatureFlags\FeatureFlagService::class)->isEnabled($flag));
+
+        Blade::if('workosEntitlement', fn (string $entitlement) => $this->app->make('workos')->hasEntitlement($entitlement));
     }
 
     protected function configureMigrations(): void
@@ -324,6 +348,12 @@ class WorkOSServiceProvider extends ServiceProvider
             WorkOSMembershipCreated::class => [SyncMembershipFromWorkOS::class, 'handleCreated'],
             WorkOSMembershipUpdated::class => [SyncMembershipFromWorkOS::class, 'handleUpdated'],
             WorkOSMembershipDeleted::class => [SyncMembershipFromWorkOS::class, 'handleDeleted'],
+            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserCreated::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryUserFromWorkOS::class, 'handleCreatedOrUpdated'],
+            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserUpdated::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryUserFromWorkOS::class, 'handleCreatedOrUpdated'],
+            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncUserDeleted::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryUserFromWorkOS::class, 'handleDeleted'],
+            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupCreated::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryGroupFromWorkOS::class, 'handleCreatedOrUpdated'],
+            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupUpdated::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryGroupFromWorkOS::class, 'handleCreatedOrUpdated'],
+            \WorkOS\AuthKit\Events\Sync\WorkOSDsyncGroupDeleted::class => [\WorkOS\AuthKit\Listeners\SyncDirectoryGroupFromWorkOS::class, 'handleDeleted'],
         ];
 
         /** @var array<class-string, class-string|null> $overrides */
@@ -354,7 +384,49 @@ class WorkOSServiceProvider extends ServiceProvider
             MakeListenerCommand::class,
             SyncUsersCommand::class,
             EventsListenCommand::class,
+            \WorkOS\AuthKit\Commands\FGACheckCommand::class,
         ]);
+    }
+
+    protected function configureFGA(): void
+    {
+        if (! config('workos.fga.enabled', false)) {
+            return;
+        }
+
+        /** @var Router $router */
+        $router = $this->app->make(Router::class);
+        $router->aliasMiddleware('workos.fga', \WorkOS\AuthKit\Http\Middleware\CheckFGAAccess::class);
+
+        Blade::if('workosAccess', function (string $permission, \WorkOS\AuthKit\FGA\FGAResource $resource) {
+            return app(\WorkOS\AuthKit\FGA\FGAService::class)->checkForCurrentUser(
+                permission: $permission,
+                resourceType: $resource->resourceType,
+                resourceId: $resource->resourceId,
+            );
+        });
+
+        if (config('workos.fga.gate_integration', false)) {
+            Gate::after(function (\Illuminate\Contracts\Auth\Authenticatable $user, string $ability, ?bool $result, mixed $arguments) {
+                if ($result !== null) {
+                    return $result;
+                }
+
+                $resource = $arguments[0] ?? null;
+                if (! $resource instanceof \WorkOS\AuthKit\FGA\FGAResource) {
+                    return null;
+                }
+
+                $userId = method_exists($user, 'getWorkOSId') ? $user->getWorkOSId() : (string) $user->getAuthIdentifier();
+
+                return app(\WorkOS\AuthKit\FGA\FGAService::class)->check(
+                    userId: $userId,
+                    permission: $ability,
+                    resourceType: $resource->resourceType,
+                    resourceId: $resource->resourceId,
+                );
+            });
+        }
     }
 
     protected function configureLivewireWidgets(): void
