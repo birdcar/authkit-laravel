@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0](https://github.com/birdcar/authkit-laravel/compare/v0.8.0...v1.0.0) (2026-04-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* This release graduates the package from pre-1.0 to stable. No API changes from 0.8.0.
+
+### Features
+
+* Stabilize public API for v1.0.0 ([f836154](https://github.com/birdcar/authkit-laravel/commit/f8361541ca31bf5eccba8910a8b0c3b23f5e2eb6))
+
 ## [0.8.0](https://github.com/birdcar/authkit-laravel/compare/v0.7.0...v0.8.0) (2026-04-14)
 
 
