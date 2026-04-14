@@ -18,6 +18,9 @@
         </include>
     </source>
     <php>
+        <env name="APP_KEY" value="base64:ZX0mpRCVqvzkE/iXU+KbZLuXGUxWVhy8nRLtBCuvE4Q="/>
+        <env name="WORKOS_API_KEY" value="sk_test_fake_key_for_ci"/>
+        <env name="WORKOS_CLIENT_ID" value="client_fake_id_for_ci"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
