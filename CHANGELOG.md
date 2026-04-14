@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/birdcar/authkit-laravel/compare/v0.7.0...v0.8.0) (2026-04-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* Requires workos/workos-php ^5.0. SessionManager, AuditLogger, and all service constructors changed. WorkOS facade methods updated. Existing v4 session cookies will be invalidated.
+
+### Features
+
+* Add API key validation ([39ef63f](https://github.com/birdcar/authkit-laravel/commit/39ef63fe3298404828fc569865923ac2b14a47f9))
+* Add feature flags and FGA services ([8022eba](https://github.com/birdcar/authkit-laravel/commit/8022ebaf8df301c9b4cfb9136d0e8c86f0303058))
+* Add session token parity and auth flow ([a49e311](https://github.com/birdcar/authkit-laravel/commit/a49e311322069743fe8d9a9dacb536c5e6c84735))
+* Add typed dsync and domain verification events ([8a69275](https://github.com/birdcar/authkit-laravel/commit/8a69275589c386e0f01d7d7a1514aa6f6f8cbb72))
+* Add Vault, Radar, Pipes, and Domain services ([ed37f3b](https://github.com/birdcar/authkit-laravel/commit/ed37f3b00ebec885a87d17a6aa2b634ad5faa4a5))
+* Upgrade WorkOS PHP SDK to v5 ([6a96b6d](https://github.com/birdcar/authkit-laravel/commit/6a96b6dcc0e9e81258d7407563babd7c3aa66b96))
+
 ## [0.7.0](https://github.com/birdcar/authkit-laravel/compare/v0.6.0...v0.7.0) (2026-04-11)
 
 
@@ -181,4 +197,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Modernize codebase with PHP 8.3 features ([5673977](https://github.com/birdcar/authkit-laravel/commit/567397720ce3bbe70aebcc9b8d5f4baa4d7eab5e))
 * Redirect org switch through WorkOS login ([d4884dc](https://github.com/birdcar/authkit-laravel/commit/d4884dcbad873ff20afd2a65fbaeb030d9fea314))
 * Remove package Organization model, rename pivot table ([0815b87](https://github.com/birdcar/authkit-laravel/commit/0815b87eeae9bdb0dda9a03887d04e0011389cf5))
-
