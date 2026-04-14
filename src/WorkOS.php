@@ -311,7 +311,7 @@ class WorkOS
     public function validateApiKey(string $key): ?ApiKeyValidation
     {
         try {
-            $result = $this->client->apiKeys()->createValidations(value: $key);
+            $result = $this->client->apiKeys()->createValidation(value: $key);
 
             if ($result->apiKey === null) {
                 return null;
