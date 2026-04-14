@@ -15,6 +15,7 @@ class EventRouting
      */
     private const array CATEGORY_MAP = [
         'organization_membership.' => 'organization_membership',
+        'organization_domain.' => 'organization_domain',
         'organization.' => 'organization',
         'authentication.' => 'authentication',
         'session.' => 'session',

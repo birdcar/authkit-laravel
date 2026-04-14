@@ -88,12 +88,15 @@ describe('EventRouting', function () use ($defaultCategories) {
     });
 
     describe('eventTypesFor', function () use ($defaultCategories) {
-        it('returns empty when no EVENT_MAP entries match events_api-routed categories', function () use ($defaultCategories) {
+        it('returns dsync types for events_api with default config', function () use ($defaultCategories) {
             $routing = new EventRouting($defaultCategories, []);
 
             $eventsApiTypes = $routing->eventTypesFor('events_api');
 
-            expect($eventsApiTypes)->toBeEmpty();
+            expect($eventsApiTypes)->toContain('dsync.activated')
+                ->and($eventsApiTypes)->toContain('dsync.user.created')
+                ->and($eventsApiTypes)->toContain('dsync.group.created')
+                ->and($eventsApiTypes)->not->toContain('user.created');
         });
 
         it('returns all non-dsync types for webhooks with default config', function () use ($defaultCategories) {

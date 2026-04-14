@@ -26,7 +26,10 @@ it('fails when API key is not configured', function () {
 });
 
 it('exits with success when no event types configured for events_api', function () {
-    config(['workos.events.routing.categories.user' => 'webhooks']);
+    config([
+        'workos.events.routing.categories.user' => 'webhooks',
+        'workos.events.routing.categories.dsync' => 'webhooks',
+    ]);
 
     $this->artisan('workos:events-listen', ['--once' => true])
         ->expectsOutputToContain('No event types configured')

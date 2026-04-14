@@ -105,7 +105,7 @@ it('maps session revoked event to correct class', function () {
 });
 
 it('has all expected event mappings', function () {
-    expect(WebhookController::EVENT_MAP)->toHaveCount(18);
+    expect(WebhookController::EVENT_MAP)->toHaveCount(33);
 });
 
 it('returns null for unknown event types', function () {
