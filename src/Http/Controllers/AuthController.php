@@ -126,13 +126,21 @@ class AuthController extends Controller
         if (method_exists($userModel, 'findOrCreateByWorkOS')) {
             $user = $userModel::findOrCreateByWorkOS($workosUser);
         } else {
-            $user = $userModel::updateOrCreate(
-                ['workos_id' => $workosUser['id']],
-                [
-                    'email' => $workosUser['email'] ?? null,
-                    'name' => trim(($workosUser['first_name'] ?? '').' '.($workosUser['last_name'] ?? '')),
-                ]
-            );
+            $user = $userModel::where('workos_id', $workosUser['id'])
+                ->orWhere('email', $workosUser['email'] ?? null)
+                ->first();
+
+            $attributes = [
+                'workos_id' => $workosUser['id'],
+                'email' => $workosUser['email'] ?? null,
+                'name' => trim(($workosUser['first_name'] ?? '').' '.($workosUser['last_name'] ?? '')),
+            ];
+
+            if ($user) {
+                $user->update($attributes);
+            } else {
+                $user = $userModel::create($attributes);
+            }
         }
 
         return $user instanceof Authenticatable ? $user : null;

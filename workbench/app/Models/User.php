@@ -41,13 +41,23 @@ class User extends Authenticatable
 
     public static function findOrCreateByWorkOS(array $data): static
     {
-        return static::updateOrCreate(
-            ['workos_id' => $data['id']],
-            [
-                'email' => $data['email'] ?? null,
-                'name' => trim(($data['first_name'] ?? '').' '.($data['last_name'] ?? '')),
-                'avatar_url' => $data['profile_picture_url'] ?? null,
-            ]
-        );
+        $user = static::where('workos_id', $data['id'])
+            ->orWhere('email', $data['email'] ?? null)
+            ->first();
+
+        $attributes = [
+            'workos_id' => $data['id'],
+            'email' => $data['email'] ?? null,
+            'name' => trim(($data['first_name'] ?? '').' '.($data['last_name'] ?? '')),
+            'avatar_url' => $data['profile_picture_url'] ?? null,
+        ];
+
+        if ($user) {
+            $user->update($attributes);
+
+            return $user;
+        }
+
+        return static::create($attributes);
     }
 }
