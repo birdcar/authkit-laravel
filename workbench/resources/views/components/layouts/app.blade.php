@@ -8,6 +8,7 @@
     <title>{{ $title ?? config('app.name', 'Todo App') }}</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @workosStyles
     @fluxAppearance
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-800">

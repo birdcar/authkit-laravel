@@ -11,12 +11,8 @@ class OrganizationController extends Controller
 {
     public function settings(Request $request): View
     {
-        $organization = $request->attributes->get('current_organization');
-        $members = $organization?->users()->withPivot('role')->get() ?? collect();
-
         return view('organizations.settings', [
-            'organization' => $organization,
-            'members' => $members,
+            'organization' => $request->attributes->get('current_organization'),
         ]);
     }
 }
