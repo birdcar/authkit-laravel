@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1](https://github.com/birdcar/authkit-laravel/compare/v1.0.0...v1.0.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* Add test env vars to workbench phpunit.xml for CI ([9377739](https://github.com/birdcar/authkit-laravel/commit/9377739e139acf5dd4c3c6bc4c16a925fc3050c0))
+* Add timestamp prefixes to package migrations for correct ordering ([d79281f](https://github.com/birdcar/authkit-laravel/commit/d79281f1d0f4644bd1c8f88c87cf8b4b848de5e1))
+* Align SDK method names with v5.0.2 and add Flux Pro auth to CI ([12000f4](https://github.com/birdcar/authkit-laravel/commit/12000f4278b2966ae13e28a8b67c324c2465eab3))
+* **auth:** Resolve unique constraint violation on user login ([969819d](https://github.com/birdcar/authkit-laravel/commit/969819d7d6ea401a59a69244c910ab0ebecfa4c2))
+* Build workbench frontend assets in CI ([64f8d50](https://github.com/birdcar/authkit-laravel/commit/64f8d5058d14f2b75feba2f1ed8cfdc4e1721b5c))
+* Chain workbench npm build in same cd context ([411df7f](https://github.com/birdcar/authkit-laravel/commit/411df7f8624930fe829f5b07554b196cc742321d))
+* Commit workbench composer.lock for reproducible CI builds ([1e7ccd7](https://github.com/birdcar/authkit-laravel/commit/1e7ccd7645db53068fd6b445d811083c90c57954))
+* Lower workbench coverage threshold to 60% ([03ffc32](https://github.com/birdcar/authkit-laravel/commit/03ffc32f8a9c172a84da708f96b3c7a3a02e7559))
+* Update workbench app and loginUrl for WorkOS PHP SDK v5 ([f88bbbf](https://github.com/birdcar/authkit-laravel/commit/f88bbbfc20d60d951a36c53bd6eeff0e6478dfae))
+* Use Livewire::actingAs in workbench tests for CI compatibility ([d923ddc](https://github.com/birdcar/authkit-laravel/commit/d923ddc8fb8a3fee758c3d58950457339b86756c))
+* **widgets:** Align scopes with SDK enum and add [@workos](https://github.com/workos)Styles ([75a1066](https://github.com/birdcar/authkit-laravel/commit/75a1066e0a7f81ce4be670556f97697ed3d181b0))
+
+
+### Miscellaneous Chores
+
+* Remove .github/README.md that overrides root README ([5348295](https://github.com/birdcar/authkit-laravel/commit/5348295d31bb36b0b328141d09ed985d263ff231))
+
 ## [1.0.0](https://github.com/birdcar/authkit-laravel/compare/v0.8.0...v1.0.0) (2026-04-14)
 
 
