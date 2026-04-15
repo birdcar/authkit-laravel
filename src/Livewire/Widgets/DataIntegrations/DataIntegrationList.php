@@ -23,7 +23,7 @@ class DataIntegrationList extends Component
 
     protected function widgetScope(): string
     {
-        return 'widgets:data-integrations:manage';
+        return 'widgets:users-table:manage';
     }
 
     public function mount(): void

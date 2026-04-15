@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WorkOS\AuthKit\Livewire\Concerns;
 
+use WorkOS\Resource\WidgetSessionTokenScopes;
+
 trait WithWidgetToken
 {
     private ?string $widgetToken = null;
@@ -26,10 +28,12 @@ trait WithWidgetToken
             throw new \RuntimeException('No organization context. Widget token requires an organization.');
         }
 
+        $scopeEnum = WidgetSessionTokenScopes::from($scope);
+
         $response = workos()->widgets()->createToken(
             organizationId: $session->organizationId,
             userId: $session->userId,
-            scopes: [$scope],
+            scopes: [$scopeEnum],
         );
 
         $this->widgetToken = $response->token;

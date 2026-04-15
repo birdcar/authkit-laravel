@@ -44,7 +44,7 @@ class DirectoryList extends Component
 
     protected function widgetScope(): string
     {
-        return 'widgets:directory-sync:manage';
+        return 'widgets:dsync:manage';
     }
 
     public function mount(): void

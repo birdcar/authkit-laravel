@@ -23,7 +23,7 @@ class OrganizationSettings extends Component
 
     protected function widgetScope(): string
     {
-        return 'widgets:settings:read';
+        return 'widgets:users-table:manage';
     }
 
     public function mount(): void

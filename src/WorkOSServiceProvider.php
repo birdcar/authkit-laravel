@@ -298,6 +298,18 @@ class WorkOSServiceProvider extends ServiceProvider
         Blade::if('workosFeature', fn (string $flag) => $this->app->make(FeatureFlagService::class)->isEnabled($flag));
 
         Blade::if('workosEntitlement', fn (string $entitlement) => $this->app->make('workos')->hasEntitlement($entitlement));
+
+        Blade::directive('workosStyles', function () {
+            return '{!! \WorkOS\AuthKit\WorkOSServiceProvider::widgetStylesTag() !!}';
+        });
+    }
+
+    public static function widgetStylesTag(): string
+    {
+        $cssFile = __DIR__.'/../resources/css/widgets.css';
+        $versionHash = md5_file($cssFile) ?: '';
+
+        return '<link rel="stylesheet" href="'.url('/workos/widgets.css?id='.$versionHash).'">';
     }
 
     protected function configureMigrations(): void
@@ -324,6 +336,17 @@ class WorkOSServiceProvider extends ServiceProvider
 
     protected function configureRoutes(): void
     {
+        Route::get('/workos/widgets.css', function () {
+            $file = __DIR__.'/../resources/css/widgets.css';
+            $lastModified = filemtime($file) ?: time();
+
+            return response()->file($file, [
+                'Content-Type' => 'text/css',
+                'Cache-Control' => 'public, max-age=31536000',
+                'Last-Modified' => gmdate('D, d M Y H:i:s', $lastModified).' GMT',
+            ]);
+        });
+
         if (! config('workos.routes.enabled', true)) {
             return;
         }
