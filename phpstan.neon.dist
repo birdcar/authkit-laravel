@@ -5,6 +5,9 @@ parameters:
         - config
         - database
         - routes
+        # The workbench User model is the only class that uses HasWorkosUser, and
+        # PHPStan cannot analyse a trait with no using class.
+        - workbench/app
     # This package ships its own config/ directory. Without this, Larastan's
     # noEnvCallsOutsideOfConfig rule defaults to the host app's config_path(),
     # which resolves to Testbench's skeleton app and flags every env() call in

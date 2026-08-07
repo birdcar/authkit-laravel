@@ -12,12 +12,33 @@ return [
     'timeout' => (int) env('WORKOS_TIMEOUT', 60),
     'max_retries' => (int) env('WORKOS_MAX_RETRIES', 3),
 
-    // SessionManager does not verify iss/aud (decodeAccessToken TODO). These
-    // MUST be replaced with values confirmed by docs/token-audit.md before
-    // Phase 2 implements guard-level enforcement — see docs/token-audit-findings.md.
+    // SessionManager does not verify iss/aud (decodeAccessToken TODO), so the
+    // guard layers those checks itself via JwtClaimsValidator.
+    //
+    // 'audience' falls back to authkit.client_id when null — AuthKit tokens carry
+    // no `aud` claim, and `client_id` is what stops a token minted for a different
+    // application in the same WorkOS environment from being accepted here.
+    //
+    // 'issuer' is left null on purpose: docs/token-audit-findings.md is still TBD,
+    // and enforcing a guessed issuer would silently lock out every environment
+    // using a custom AuthKit auth domain. While null, issuer validation is skipped;
+    // setting WORKOS_JWT_ISSUER turns it on with no code change.
     'jwt' => [
         'issuer' => env('WORKOS_JWT_ISSUER'),
         'audience' => env('WORKOS_JWT_AUDIENCE'),
+    ],
+
+    'session' => [
+        'cookie' => env('WORKOS_SESSION_COOKIE', 'authkit_session'),
+        'same_site' => env('WORKOS_SESSION_SAME_SITE', 'lax'),
+        'refresh_before_seconds' => (int) env('WORKOS_SESSION_REFRESH_BEFORE_SECONDS', 60),
+        'lock_wait_seconds' => (int) env('WORKOS_SESSION_LOCK_WAIT_SECONDS', 5),
+        'lock_ttl_seconds' => (int) env('WORKOS_SESSION_LOCK_TTL_SECONDS', 10),
+        'max_cookie_bytes' => (int) env('WORKOS_SESSION_MAX_COOKIE_BYTES', 3800),
+        // Much longer than the SDK's own 300s freshness cache: that one answers
+        // "how often do we re-check", this one answers "how long will we serve
+        // stale keys during an outage before giving up".
+        'jwks_grace_ttl_seconds' => (int) env('WORKOS_SESSION_JWKS_GRACE_TTL_SECONDS', 86400),
     ],
 
     'routes' => [

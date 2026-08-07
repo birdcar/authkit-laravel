@@ -49,6 +49,27 @@ afterEach(function (): void {
 
     $restore($this->originalEnv, $this->envPath);
     $restore($this->originalEnvExample, $this->envExamplePath);
+
+    // Published migrations, unlike the published config above, MUST be removed.
+    // The skeleton's database/migrations is a default migration path, so a copy
+    // left behind makes `artisan migrate` apply this package's migrations twice —
+    // once from the package path, once from the published copy — and a DB-backed
+    // test dies on "duplicate column name". The config-file race that argues for
+    // leaving that file behind does not apply: migration files are read by a
+    // running migrator, not glob-required on boot.
+    //
+    // Derived from the package's own migration directory rather than hardcoded, so
+    // this keeps working as later phases add migrations. vendor:publish renames
+    // each copy with a fresh timestamp, hence matching on the descriptive suffix.
+    foreach ((array) glob(dirname(__DIR__, 2).'/database/migrations/*.php') as $packageMigration) {
+        $suffix = preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}_/', '', basename((string) $packageMigration));
+
+        foreach ((array) glob(database_path('migrations').'/*_'.$suffix) as $published) {
+            if (is_string($published) && is_file($published)) {
+                unlink($published);
+            }
+        }
+    }
 });
 
 it('registers the config publish group under the authkit-config tag', function (): void {

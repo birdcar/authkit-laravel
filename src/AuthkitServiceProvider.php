@@ -4,15 +4,31 @@ declare(strict_types=1);
 
 namespace Authkit\Authkit;
 
+use Authkit\Authkit\Auth\JwtClaimsValidator;
+use Authkit\Authkit\Auth\SessionRefresher;
+use Authkit\Authkit\Auth\WorkosGuard;
 use Authkit\Authkit\Console\Commands\AuthkitCommand;
 use Authkit\Authkit\Console\Commands\InspectTokenCommand;
 use Authkit\Authkit\Console\Commands\InstallCommand;
 use Authkit\Authkit\Contracts\WorkosClientManager as WorkosClientManagerContract;
+use Authkit\Authkit\Http\JwksGraceCache;
+use Authkit\Authkit\Http\Middleware\RefreshWorkosSession;
+use Authkit\Authkit\Http\SessionCookie;
+use Authkit\Authkit\Support\AuthkitConfig;
 use Authkit\Authkit\Support\WorkosClientManager;
 use GuzzleHttp\HandlerStack;
+use Illuminate\Contracts\Auth\UserProvider;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
+use WorkOS\PKCEHelper;
+use WorkOS\Service\UserManagement;
+use WorkOS\SessionManager;
 
 class AuthkitServiceProvider extends ServiceProvider
 {
@@ -25,10 +41,57 @@ class AuthkitServiceProvider extends ServiceProvider
 
         $this->app->singleton(Authkit::class);
 
+        // The SDK's HttpClient hands this straight to Guzzle and then keeps the
+        // client private, so binding the stack here is the only way to get the
+        // JWKS grace middleware in front of the SDK's own requests. bindIf keeps
+        // the MockHandler test harness (which binds an instance) authoritative.
+        $this->app->bindIf(HandlerStack::class, function (Container $app): HandlerStack {
+            $stack = HandlerStack::create();
+            $stack->push($app->make(JwksGraceCache::class)->middleware());
+
+            return $stack;
+        });
+
+        $this->app->bind(JwksGraceCache::class, function (Container $app): JwksGraceCache {
+            return new JwksGraceCache(
+                $app->make(CacheRepository::class),
+                (int) $app->make(Repository::class)->get('authkit.session.jwks_grace_ttl_seconds', 86400),
+            );
+        });
+
         $this->app->singleton(WorkosClientManagerContract::class, function (Container $app): WorkosClientManager {
             return WorkosClientManager::fromConfig(
                 $app->make(Repository::class),
                 $app->bound(HandlerStack::class) ? $app->make(HandlerStack::class) : null,
+            );
+        });
+
+        // Derived from the one client rather than constructing a second one. Bound
+        // (not singleton) so swapping the handler stack mid-test is picked up.
+        $this->app->bind(UserManagement::class, fn (Container $app): UserManagement => $app->make(WorkosClientManagerContract::class)->client()->userManagement());
+        $this->app->bind(SessionManager::class, fn (Container $app): SessionManager => $app->make(WorkosClientManagerContract::class)->client()->sessionManager());
+        $this->app->bind(PKCEHelper::class, fn (Container $app): PKCEHelper => $app->make(WorkosClientManagerContract::class)->client()->pkce());
+
+        $this->app->singleton(JwtClaimsValidator::class, function (Container $app): JwtClaimsValidator {
+            $config = $app->make(Repository::class);
+            $issuer = $config->get('authkit.jwt.issuer');
+            $audience = $config->get('authkit.jwt.audience');
+
+            return new JwtClaimsValidator(
+                expectedIssuer: is_string($issuer) && $issuer !== '' ? $issuer : null,
+                expectedAudience: is_string($audience) && $audience !== ''
+                    ? $audience
+                    : AuthkitConfig::clientId(),
+            );
+        });
+
+        $this->app->bind(SessionRefresher::class, function (Container $app): SessionRefresher {
+            $config = $app->make(Repository::class);
+
+            return new SessionRefresher(
+                $app->make(SessionManager::class),
+                (int) $config->get('authkit.session.lock_ttl_seconds', 10),
+                (int) $config->get('authkit.session.lock_wait_seconds', 5),
             );
         });
     }
@@ -43,6 +106,22 @@ class AuthkitServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'authkit-laravel');
 
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'authkit-laravel');
+
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
+        $this->registerGuard();
+
+        /** @var Router $router */
+        $router = $this->app->make(Router::class);
+        $router->aliasMiddleware('authkit.session', RefreshWorkosSession::class);
+
+        // The sealed cookie is already AEAD-sealed by WorkOS, so Laravel's cookie
+        // encryption adds nothing — but it does make the guard's behavior depend on
+        // whether a route group runs EncryptCookies, silently yielding guest on
+        // `api` routes. Excluding it keeps the guard and the authkit.session
+        // middleware usable in any group, and keeps the max_cookie_bytes check
+        // measuring the bytes the browser actually receives.
+        EncryptCookies::except(SessionCookie::name());
 
         if (! $this->app->runningInConsole()) {
             return;
@@ -73,5 +152,42 @@ class AuthkitServiceProvider extends ServiceProvider
             InstallCommand::class,
             InspectTokenCommand::class,
         ]);
+    }
+
+    private function registerGuard(): void
+    {
+        // AuthManager::extend() rebinds the callback's $this *and its class scope*
+        // to the AuthManager (RebindsCallbacksToSelf), so `self::` and `$this`
+        // inside the closure would resolve against AuthManager, not this provider.
+        // Everything the closure needs is captured here instead.
+        $container = $this->app;
+
+        Auth::extend('workos', function (Container $app, string $name, array $config) use ($container): WorkosGuard {
+            $configRepository = $app->make(Repository::class);
+            $providerName = $config['provider'] ?? null;
+            $provider = Auth::createUserProvider(is_string($providerName) ? $providerName : null);
+
+            if (! $provider instanceof UserProvider) {
+                throw new RuntimeException("The [{$name}] guard has no user provider configured. Set auth.guards.{$name}.provider in config/auth.php.");
+            }
+
+            $guard = new WorkosGuard(
+                provider: $provider,
+                sessionManager: $app->make(SessionManager::class),
+                validator: $app->make(JwtClaimsValidator::class),
+                request: $app->make('request'),
+                cookieName: (string) $configRepository->get('authkit.session.cookie', 'authkit_session'),
+                cookiePassword: AuthkitConfig::cookiePassword(),
+                clientId: AuthkitConfig::clientId(),
+                baseUrl: AuthkitConfig::baseUrl(),
+            );
+
+            // AuthManager memoizes guards and, unlike its own session/token drivers,
+            // never rebinds the request for a custom creator — so a second request in
+            // the same process would otherwise read the first request's cookies.
+            $container->refresh('request', $guard, 'setRequest');
+
+            return $guard;
+        });
     }
 }
