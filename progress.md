@@ -2,9 +2,11 @@
 
 ## Current State
 
-**Last Updated:** 2026-08-06
-**Session ID:** ideation-authkit-laravel-v1 (ideation express, walk-away)
-**Active Feature:** none executing yet — full v1 roadmap planned; execution starts when the /goal is pasted
+**Last Updated:** 2026-08-07
+**Session ID:** authkit-laravel-v1 execution (/goal-driven, direct build authorized by Nick)
+**Active Feature:** Phase 2 (Auth Core & Sealed Sessions) executing; Phase 1 committed
+
+**Execution mode note:** The ideation plugin gates all execution skills (`execute-spec`, `autopilot`) behind human invocation (`disable-model-invocation`), so autopilot could not dispatch phases. Nick explicitly authorized direct spec implementation instead: sequential fresh-context subagents, one per phase in numeric order, each with an `ideation:scout` readiness gate, `composer test` green, an `ideation:reviewer` cycle (strict fail-closed, max 3), and a commit referencing the slug-qualified spec path.
 
 ## Status
 
@@ -13,10 +15,17 @@
 - [x] feat-001 Project Setup: `./init.sh` green (2026-08-03)
 - [x] Full ideation for AuthKit Laravel v1: interview to 5/5 gates, Mission Brief contract approved (Full tier, express finish), 4 plan critics run and folded, 13 implementation specs written + adversarially reviewed + fixed (all Strong at the feedback-quality gate)
 - [x] Artifacts in `docs/ideation/authkit-laravel-v1/`: contract-data.json (Approved), contract.html, contract.md, spec-template-feature-area.md, spec-phase-1..13.md
+- [x] Phase 1 (Foundation & Client Binding): commit `2605b16`, composer test green (phpstan 0 errors, pint pass, 100% type coverage, pest 56/56, 123 assertions). Token-audit docs shipped with TBD findings pending a human run against a real WorkOS environment.
+- [x] Phase 2 (Auth Core & Sealed Sessions): commit `d6cc2c2` (unsigned), 47 files/+3031, reviewer PASS after 3 cycles, composer test green (124 tests, 296 assertions, PHPStan level 7 clean, 100% type coverage)
 
 ### What's In Progress
 
-- [ ] Nothing mid-flight. Ideation artifacts are committed on `main` (`ada41d3`); execution has not started.
+- [ ] Phase 3 (Organizations & Org Context) — spec-phase-3.md, fresh-context build agent
+
+### Known Gaps To Fold In Later
+
+- [ ] authkit:install does not write config/auth.php guard/provider entries (spec-phase-2 Assumed Phase 1 Interface says it should) — consumer running only the installer gets "Auth guard [workos] is not defined"; fix before/within Phase 13 acceptance (task #21)
+- [ ] jwt.issuer ships with null default; iss enforcement turns on via WORKOS_JWT_ISSUER once the human token audit confirms the canonical value (spec-phase-2 Open Item 1)
 
 ### What's Next
 
@@ -24,6 +33,8 @@
 2. Phase 13 replaces feature_list.json placeholders (feat-002..005) with the real roadmap — do not hand-edit them before that
 
 ## Blockers / Risks
+
+- [ ] **Commits from Phase 2 onward are unsigned** (Nick's decision 2026-08-07: 1Password SSH signing agent locks during the unattended run). Before pushing/releasing, re-sign the chain with 1Password unlocked: `git rebase --exec 'git commit --amend -S --no-edit' ac79efe`
 
 - [ ] Phase 1 must complete the empirical AuthKit token audit (canonical iss/aud values + default claim presence) before Phase 2 starts — encoded in the specs
 - [ ] Execution runs directly on `main` by stakeholder decision; recovery anchor for a bad run is the pre-execution tip (the handoff commit — last commit before Phase 1), which preserves the committed plan
