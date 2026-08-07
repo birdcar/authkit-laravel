@@ -5,6 +5,13 @@ declare(strict_types=1);
 namespace Authkit\Authkit;
 
 use Authkit\Authkit\Console\Commands\AuthkitCommand;
+use Authkit\Authkit\Console\Commands\InspectTokenCommand;
+use Authkit\Authkit\Console\Commands\InstallCommand;
+use Authkit\Authkit\Contracts\WorkosClientManager as WorkosClientManagerContract;
+use Authkit\Authkit\Support\WorkosClientManager;
+use GuzzleHttp\HandlerStack;
+use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
 
 class AuthkitServiceProvider extends ServiceProvider
@@ -14,9 +21,16 @@ class AuthkitServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/authkit-laravel.php', 'authkit-laravel');
+        $this->mergeConfigFrom(__DIR__.'/../config/authkit.php', 'authkit');
 
         $this->app->singleton(Authkit::class);
+
+        $this->app->singleton(WorkosClientManagerContract::class, function (Container $app): WorkosClientManager {
+            return WorkosClientManager::fromConfig(
+                $app->make(Repository::class),
+                $app->bound(HandlerStack::class) ? $app->make(HandlerStack::class) : null,
+            );
+        });
     }
 
     /**
@@ -35,8 +49,8 @@ class AuthkitServiceProvider extends ServiceProvider
         }
 
         $this->publishes([
-            __DIR__.'/../config/authkit-laravel.php' => config_path('authkit-laravel.php'),
-        ], ['authkit-laravel', 'authkit-laravel-config']);
+            __DIR__.'/../config/authkit.php' => config_path('authkit.php'),
+        ], ['authkit-laravel', 'authkit-config']);
 
         $this->publishes([
             __DIR__.'/../resources/views' => resource_path('views/vendor/authkit-laravel'),
@@ -56,6 +70,8 @@ class AuthkitServiceProvider extends ServiceProvider
 
         $this->commands([
             AuthkitCommand::class,
+            InstallCommand::class,
+            InspectTokenCommand::class,
         ]);
     }
 }

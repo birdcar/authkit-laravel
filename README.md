@@ -20,7 +20,16 @@ You can install the package via Composer:
 composer require birdcar/authkit-laravel
 ```
 
-You may publish all of the package's resources at once:
+Then run the installer, which publishes the config, appends the `WORKOS_*` keys to
+your `.env` and `.env.example`, and generates a session cookie password:
+
+```bash
+php artisan authkit:install
+```
+
+It is safe to re-run: existing keys are left untouched.
+
+You may instead publish all of the package's resources at once:
 
 ```bash
 php artisan vendor:publish --tag="authkit-laravel"
@@ -31,10 +40,12 @@ Or, you may publish each resource individually:
 ### Publishing the Configuration File
 
 ```bash
-php artisan vendor:publish --tag="authkit-laravel-config"
+php artisan vendor:publish --tag="authkit-config"
 ```
 
 ### Publishing and Running the Migrations
+
+The package does not ship any migrations yet, so this currently publishes nothing.
 
 ```bash
 php artisan vendor:publish --tag="authkit-laravel-migrations"

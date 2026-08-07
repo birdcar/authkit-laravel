@@ -1,0 +1,14 @@
+# Minimal seed for the package's own emulate-backed tests.
+# Test-only: this file is not a publishable resource in Phase 1 (see spec Open Items).
+users:
+  - email: alice@acme.com
+    first_name: Alice
+    last_name: Anderson
+    password: test123
+    email_verified: true
+
+organizations:
+  - name: Acme Corp
+    domains:
+      - domain: acme.com
+        state: verified
