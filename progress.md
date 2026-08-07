@@ -2,47 +2,46 @@
 
 ## Current State
 
-**Last Updated:** 2026-08-03
-**Session ID:** harness-scaffold (skill-forge forge-harness)
-**Active Feature:** none — feat-001 done; next unstarted feature is feat-002 (placeholder, needs real definition)
+**Last Updated:** 2026-08-06
+**Session ID:** ideation-authkit-laravel-v1 (ideation express, walk-away)
+**Active Feature:** none executing yet — full v1 roadmap planned; execution starts when the /goal is pasted
 
 ## Status
 
 ### What's Done
 
-- [x] feat-001 Project Setup: `./init.sh` (composer install + composer test) runs green from the current working tree
-- [x] Harness scaffolded and wired into `AGENTS.md`; structural validation 100/100
+- [x] feat-001 Project Setup: `./init.sh` green (2026-08-03)
+- [x] Full ideation for AuthKit Laravel v1: interview to 5/5 gates, Mission Brief contract approved (Full tier, express finish), 4 plan critics run and folded, 13 implementation specs written + adversarially reviewed + fixed (all Strong at the feedback-quality gate)
+- [x] Artifacts in `docs/ideation/authkit-laravel-v1/`: contract-data.json (Approved), contract.html, contract.md, spec-template-feature-area.md, spec-phase-1..13.md
 
 ### What's In Progress
 
-- [ ] Nothing mid-flight. Conversion (`16db5e9`) and the harness commit (HEAD) are on `main`; tree clean.
+- [ ] Nothing mid-flight. Ideation artifacts are committed on `main` (`ada41d3`); execution has not started.
 
 ### What's Next
 
-1. Replace placeholder features feat-002..feat-005 in `feature_list.json` with the real AuthKit package roadmap
+1. Paste the prepared `/goal` (drives `/ideation:autopilot docs/ideation/authkit-laravel-v1/contract.md`) to run all 13 phases unattended on `main`
+2. Phase 13 replaces feature_list.json placeholders (feat-002..005) with the real roadmap — do not hand-edit them before that
 
 ## Blockers / Risks
 
-- [ ] None outstanding
+- [ ] Phase 1 must complete the empirical AuthKit token audit (canonical iss/aud values + default claim presence) before Phase 2 starts — encoded in the specs
+- [ ] Execution runs directly on `main` by stakeholder decision; recovery anchor for a bad run is the pre-execution tip (the handoff commit — last commit before Phase 1), which preserves the committed plan
 
 ## Decisions Made
 
-- **init.sh = `composer install` + `composer test` only**
-  - Context: `composer test` already chains `@analyse`, `@lint:check`, `@test:types`, `@test:unit`
-  - Alternatives considered: auto-detected set (`composer lint` + `composer analyse` + `composer test`) — rejected because `composer lint` runs Pint in fix mode and mutates files during verification
+- Full decision log (19 entries) lives in `docs/ideation/authkit-laravel-v1/contract-data.json` → decisions; highlights: sealed-session guard (WorkOS canonical), RBAC via JWT claims zero-HTTP + FGA Check API, emulate-in-CI truth bar with MockHandler fallback, breadth-complete v1 at Full tier, Pennant driver for flags, no isolation branch (main, repo exists on GitHub with local main 3 ahead — premise corrected and re-confirmed)
 
 ## Files Modified This Session
 
-- `AGENTS.md` - merged Agent Harness section + `./init.sh` quick command
-- `feature_list.json` - new; feat-001 marked done with evidence
-- `init.sh`, `progress.md`, `session-handoff.md` - new harness files
+- `docs/ideation/authkit-laravel-v1/*` — all new (contract + 13 specs + shared template)
+- No src/config/test changes; package code untouched this session
 
 ## Evidence of Completion
 
-- [x] Tests pass: `./init.sh` → pest 11 tests / 15 assertions passed, type coverage 100%
-- [x] Type check clean: phpstan 0 errors (via `composer test`)
-- [x] Manual verification: pint check-only clean; harness validator 100/100 across all 5 subsystems
+- [x] Contract gates 5/5 with evidence; 15 success criteria (14 mechanical)
+- [x] Spec quality gate: 13/13 specs Strong after adversarial review + fixes (2 workflow runs, 57 agents; phase-2's final finding hand-fixed and vendor-verified)
 
 ## Notes for Next Session
 
-Read `session-handoff.md` first — it has the full decision log and the recommended next step. The feature tracker's feat-002..005 are still generic scaffolder placeholders; define the real roadmap before picking one up.
+If you are the /goal execution session: run `./init.sh` first, then `/ideation:autopilot docs/ideation/authkit-laravel-v1/contract.md`. Specs are standalone; the feature-area template (`spec-template-feature-area.md`) is required reading for phases 5–12. The ideation artifacts are already committed, so spec paths referenced in phase commit messages exist in history.

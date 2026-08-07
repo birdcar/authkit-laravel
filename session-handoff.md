@@ -2,48 +2,46 @@
 
 ## Current Objective
 
-- Goal: Convert the package skeleton into `birdcar/authkit-laravel` and make the repo agent-ready with a harness (AGENTS.md wiring, feature tracker, verification path).
-- Current status: Harness scaffolded, validated 100/100, baseline verification green. Conversion and harness are committed; working tree clean.
-- Branch / commit: `main` — `16db5e9` (feat: skeleton→authkit conversion) with the agent-harness chore commit at HEAD
+- Goal: Plan AuthKit Laravel v1 end-to-end (ideation express) and hand off an unattended execution run.
+- Current status: Planning COMPLETE. Contract Approved (Full tier, express, no isolation branch). 13 specs written, adversarially reviewed, all Strong. Awaiting the /goal paste to start execution.
+- Branch / commit: `main` — ideation artifacts committed at `ada41d3`, handoff commit at HEAD (5 commits ahead of origin/main, unpushed).
 
 ## Completed This Session
 
-- [x] Scaffolded `feature_list.json`, `progress.md`, `session-handoff.md`, `init.sh` via skill-forge forge-harness
-- [x] Merged an "Agent Harness" section into the existing `AGENTS.md` (CLAUDE.md is a symlink, so both carry it)
-- [x] Overrode init.sh verification to `composer install` + `composer test` (see Decisions)
-- [x] Ran `./init.sh` — baseline green
-- [x] Marked `feat-001` (Project Setup) done with verification evidence
+- [x] Interview to 5/5 evidence gates (research: repo map, workos-php v9.1 SDK audit, laravel/workos + emulate + version-matrix research, WorkOS API coverage — condensed into the specs)
+- [x] contract-data.json written; 4 plan critics (scope-creep, over-engineering, hidden-dependency, success-criteria) run concurrently; every blocker folded (Widgets cut per Nick, Phase-1 token audit added, org prereqs fixed, quickstart criterion split, projection-boundary arch test added)
+- [x] Tier chosen: Full (MVP 16 areas + 5 depth extensions as Phase 12). Express finish, walk-away, main branch (no isolation) — all stakeholder-confirmed
+- [x] 13 specs + shared feature-area template generated via 2 workflows (49 + 8 agents): write → adversarial review → fix → re-verify; final phase-2 finding (users-table loading in package Pest suites) hand-verified against vendor/orchestra/testbench-core and fixed
+- [x] contract.html + contract.md rendered from Approved contract; /goal built and copied to clipboard
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 | ----- | ------- | ------ | ----- |
-| Baseline (full validation) | `./init.sh` | PASS | phpstan 0 errors; pint check clean; pest type coverage 100%; 11 tests / 15 assertions passed (2026-08-03) |
-| Harness structure | skill-forge `validate-harness.mjs` | 100/100 | All 5 subsystems 5/5 |
+| Spec quality gate | 2 workflow runs (journals in session subagents/workflows/) | 13/13 Strong | phases 1,2,3 needed extra rounds; all resolved |
+| Contract render | contract-gen.ts --output + --md-output | PASS | 83KB html / 25KB md, status Approved |
+| Baseline | ./init.sh (unchanged since 2026-08-03) | PASS (prior) | no package code touched this session |
 
 ## Files Changed
 
-- `AGENTS.md` — appended Agent Harness section (startup workflow, working rules, definition of done, end-of-session) + `./init.sh` quick command
-- `feature_list.json` — new; feat-001 done with evidence, feat-002..005 are placeholders
-- `progress.md`, `session-handoff.md`, `init.sh` — new harness files
-- Skeleton→authkit rename across src/, config/, routes/, tests/, docs (committed as `16db5e9`)
+- `docs/ideation/authkit-laravel-v1/` — contract-data.json, contract.html, contract.md, spec-template-feature-area.md, spec-phase-1..13.md (all new, committed at `ada41d3`)
+- `progress.md`, `session-handoff.md` — this handoff
 
 ## Decisions Made
 
-- `init.sh` runs only `composer install` + `composer test`: the `test` script already chains `@analyse`, `@lint:check`, `@test:types`, `@test:unit`, and the auto-detected `composer lint` runs Pint in fix mode (mutates files during verification).
-- Merged harness wiring into the existing `AGENTS.md` instead of overwriting it, preserving package conventions and the local skills list.
+- 19-entry decision log in contract-data.json (authoritative). Session-critical ones: execution on `main` (recovery anchor `git reset --hard 4d04d0b`); Phase 1 ends with empirical token audit gating Phase 2; emulate ^0.6 via npx in CI; Pest 4 stays (PHP 8.3 floor).
 
 ## Blockers / Risks
 
-- `feat-002`..`feat-005` in `feature_list.json` are generic placeholders, not the real AuthKit roadmap.
+- Phase 2 (sealed sessions) and Phase 4 (events pipeline) are the high-risk phases; their specs carry the deepest failure-mode tables — strict mode will stop on scout HOLDs rather than proceed.
+- Events retention period and org-domain verification state strings are unverified in WorkOS docs — encoded as Open Items, not assumptions.
 
 ## Next Session Startup
 
-1. Read `AGENTS.md`.
-2. Read `feature_list.json` and `progress.md`.
-3. Review this handoff.
-4. Run `./init.sh` or the documented verification command before editing.
+1. Run `./init.sh`.
+2. Paste the /goal (or run `/ideation:autopilot docs/ideation/authkit-laravel-v1/contract.md` to watch instead).
+3. Ideation artifacts are already committed — start Phase 1 directly.
 
 ## Recommended Next Step
 
-- Replace placeholder features `feat-002`..`feat-005` with the real AuthKit package roadmap (e.g., WorkOS client wiring, config + publish tags, AuthKit middleware/routes, install command).
+- Paste the prepared /goal to start the unattended 13-phase build on `main`.
