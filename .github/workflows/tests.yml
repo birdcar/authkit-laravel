@@ -67,9 +67,18 @@ jobs:
       - name: Linter
         run: composer lint:check
 
+      # FORK_IO_FACTOR=-1 clamps Pokio's maxProcesses to 1, serializing
+      # pest-plugin-type-coverage's forks: parallel forks race on the
+      # plugin's shared .temp cache file and intermittently corrupt it into
+      # a parse error (observed twice on these runners; unfixed in the 4.x
+      # plugin line, and 5.x needs Pest 5). Read via getenv(), so it works
+      # regardless of variables_order — the plugin's own $_ENV escape hatch
+      # does not.
       - name: Type Coverage
         if: runner.os != 'Windows'
         run: composer test:types
+        env:
+          FORK_IO_FACTOR: "-1"
 
       # The emulate-backed suites boot @workos/emulate themselves, per suite,
       # via tests/Support/EmulateServer (npx, per-suite ports and seed files) —
