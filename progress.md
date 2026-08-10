@@ -2,9 +2,9 @@
 
 ## Current State
 
-**Last Updated:** 2026-08-07
+**Last Updated:** 2026-08-09
 **Session ID:** authkit-laravel-v1 execution (/goal-driven, direct build authorized by Nick)
-**Active Feature:** Phase 2 (Auth Core & Sealed Sessions) executing; Phase 1 committed
+**Active Feature:** Phase 3 (Organizations & Org Context) committed; Phase 4 next
 
 **Execution mode note:** The ideation plugin gates all execution skills (`execute-spec`, `autopilot`) behind human invocation (`disable-model-invocation`), so autopilot could not dispatch phases. Nick explicitly authorized direct spec implementation instead: sequential fresh-context subagents, one per phase in numeric order, each with an `ideation:scout` readiness gate, `composer test` green, an `ideation:reviewer` cycle (strict fail-closed, max 3), and a commit referencing the slug-qualified spec path.
 
@@ -17,10 +17,11 @@
 - [x] Artifacts in `docs/ideation/authkit-laravel-v1/`: contract-data.json (Approved), contract.html, contract.md, spec-template-feature-area.md, spec-phase-1..13.md
 - [x] Phase 1 (Foundation & Client Binding): commit `2605b16`, composer test green (phpstan 0 errors, pint pass, 100% type coverage, pest 56/56, 123 assertions). Token-audit docs shipped with TBD findings pending a human run against a real WorkOS environment.
 - [x] Phase 2 (Auth Core & Sealed Sessions): commit `d6cc2c2` (unsigned), 47 files/+3031, reviewer PASS after 3 cycles, composer test green (124 tests, 296 assertions, PHPStan level 7 clean, 100% type coverage)
+- [x] Phase 3 (Organizations & Org Context): commit `952e344` (unsigned), 37 files/+2013, reviewer PASS cycle 1 (1 medium + 2 low, mediums fixed in-cycle), composer test green (169 tests, 425 assertions, PHPStan level 7 clean, Pint clean, 100% type coverage, env-grep clean). Ran before Phase 5, so Component 7 step 0 "no" branch taken: `ResolvesOrganizationMembershipId` + `bindIf()` authored here; `WorkosGuard::accessTokenClaims()` thin accessor added per spec-phase-5 §4.1. Decision log: `docs/ideation/authkit-laravel-v1/implementation-notes-phase-3.html` (9 entries — includes two spec-snippet fatals fixed empirically: `static::observe()` in a boot hook, `$afterCommit` redeclaration vs Queueable). Baseline repair folded in: tests/TestCase.php pins app.key (skeleton .env purged by composer install made the 10 web-group tests fail on fresh checkout).
 
 ### What's In Progress
 
-- [ ] Phase 3 (Organizations & Org Context) — spec-phase-3.md, fresh-context build agent
+- [ ] Phase 4 (Events Pipeline) — next in numeric order; must reconcile its listener table/model names against Phase 3's shipped `WorkosOrganizationDomain`/`WorkosMembership` (spec-phase-3 Interface Reconciliation items 1-3)
 
 ### Known Gaps To Fold In Later
 
