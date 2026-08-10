@@ -2,6 +2,7 @@
 
 namespace Workbench\App\Models;
 
+use Authkit\Authkit\Concerns\HasOrganizationApiKeys;
 use Authkit\Authkit\Concerns\HasWorkosOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Workbench\Database\Factories\OrganizationFactory;
 class Organization extends Model
 {
     /** @use HasFactory<OrganizationFactory> */
-    use HasFactory, HasWorkosOrganization;
+    use HasFactory, HasOrganizationApiKeys, HasWorkosOrganization;
 
     protected $guarded = ['id'];
 

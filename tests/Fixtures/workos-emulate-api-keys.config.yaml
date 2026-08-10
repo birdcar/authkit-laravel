@@ -1,0 +1,33 @@
+# Seed for the API keys emulate suite ONLY (ApiKeysTest.php).
+#
+# Deliberately separate from workos-emulate.config.yaml: an array-form apiKeys
+# seed REPLACES emulate's default auth allow-list, so the SDK's own admin key
+# (sk_test_default) must be re-seeded here explicitly — adding this block to
+# the shared fixture would silently 401 every other emulate-backed suite.
+#
+# Organization ids are pinned so tests can create local projection rows whose
+# workos_id matches what the validate endpoint reports as the key owner.
+organizations:
+  - id: org_01HACMEAPIKEYS
+    name: Acme Corp
+  - id: org_01HSHADOWORG
+    name: Shadow Org
+
+apiKeys:
+  # The SDK client's admin credential (authkit.emulate.api_key default) —
+  # parked on Shadow Org so Acme Corp's key listings stay assertable.
+  - name: sdk-admin
+    organization: Shadow Org
+    value: sk_test_default
+  - name: acme-ci
+    organization: Acme Corp
+    value: sk_test_acme_ci_key
+    permissions:
+      - posts:read
+  # Validates fine remotely, but no local Organization row will exist for
+  # Shadow Org — the guard's data-shadow (projection-missing) case.
+  - name: shadow-key
+    organization: Shadow Org
+    value: sk_test_shadow_key
+    permissions:
+      - posts:read

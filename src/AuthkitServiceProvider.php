@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Authkit\Authkit;
 
+use Authkit\Authkit\Auth\ApiKeyAuthenticator;
+use Authkit\Authkit\Auth\ApiKeyRequestGuard;
 use Authkit\Authkit\Auth\JwtClaimsValidator;
 use Authkit\Authkit\Auth\SessionRefresher;
 use Authkit\Authkit\Auth\WorkosGuard;
+use Authkit\Authkit\Authorization\ApiKeyGateHook;
 use Authkit\Authkit\Authorization\ClaimsGateHook;
 use Authkit\Authkit\Console\Commands\AuthkitCommand;
 use Authkit\Authkit\Console\Commands\InspectTokenCommand;
@@ -90,6 +93,19 @@ class AuthkitServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/authkit.php', 'authkit');
 
         $this->app->singleton(Authkit::class);
+
+        // Default guard entry so `Auth::guard('authkit-key')` / `auth:authkit-key`
+        // work without the consumer hand-editing config/auth.php — without it,
+        // AuthManager::resolve() throws "Auth guard [authkit-key] is not
+        // defined.". Merged so a consumer's own entry wins (theirs is loaded
+        // from config/auth.php before any provider registers).
+        $config = $this->app->make(Repository::class);
+        $existingGuard = $config->get('auth.guards.authkit-key', []);
+
+        $config->set('auth.guards.authkit-key', array_merge(
+            ['driver' => 'authkit-key'],
+            is_array($existingGuard) ? $existingGuard : [],
+        ));
 
         // The SDK's HttpClient hands this straight to Guzzle and then keeps the
         // client private, so binding the stack here is the only way to get the
@@ -220,6 +236,8 @@ class AuthkitServiceProvider extends ServiceProvider
 
         $this->registerGuard();
 
+        $this->registerApiKeyGuard();
+
         /** @var Router $router */
         $router = $this->app->make(Router::class);
         $router->aliasMiddleware('authkit.session', RefreshWorkosSession::class);
@@ -243,6 +261,12 @@ class AuthkitServiceProvider extends ServiceProvider
         // null only — a non-null before-result short-circuits every policy, so
         // false here would be a global deny (spec-phase-5 Failure Mode 1).
         Gate::before($this->app->make(ClaimsGateHook::class));
+
+        // API-key permissions into Gate. Registered after ClaimsGateHook for
+        // reading order only: the two hooks read mutually exclusive permission
+        // sources (JWT claims vs key permissions, populated by different
+        // guards), so order never changes an outcome (spec-phase-8 §3.4).
+        Gate::before($this->app->make(ApiKeyGateHook::class));
 
         // The sealed cookie is already AEAD-sealed by WorkOS, so Laravel's cookie
         // encryption adds nothing — but it does make the guard's behavior depend on
@@ -424,6 +448,44 @@ class AuthkitServiceProvider extends ServiceProvider
         // call Feature::resolveScopeUsing() again and win (spec-phase-7
         // Decision D-5).
         Feature::resolveScopeUsing(fn (): ?Authenticatable => Auth::guard('workos')->user());
+    }
+
+    /**
+     * The stateless API-key guard. This mirrors AuthManager::viaRequest()'s
+     * paved path exactly — same RequestGuard machinery, same request refresh —
+     * except the guard is the package's ApiKeyRequestGuard subclass, whose
+     * setRequest() clears the memoized user (viaRequest's stock RequestGuard
+     * would hand request #2 in the same process request #1's principal).
+     */
+    private function registerApiKeyGuard(): void
+    {
+        // Same rebinding trap as registerGuard() below: Auth::extend() rebinds
+        // the callback's $this to the AuthManager, so the provider's container
+        // is captured explicitly.
+        $container = $this->app;
+
+        Auth::extend('authkit-key', function (Container $app, string $name, array $config) use ($container): ApiKeyRequestGuard {
+            $providerName = $config['provider'] ?? null;
+
+            $guard = new ApiKeyRequestGuard(
+                // The authenticator is made per invocation, not captured at
+                // boot: it holds the WorkosClientManager, whose singleton the
+                // MockHandler test harness forgets mid-test — a boot-time
+                // instance would pin the pre-fake client and never see the
+                // swapped handler stack.
+                function (Request $request) use ($container): ?Authenticatable {
+                    $authenticator = $container->make(ApiKeyAuthenticator::class);
+
+                    return $authenticator($request);
+                },
+                $app->make('request'),
+                Auth::createUserProvider(is_string($providerName) ? $providerName : null),
+            );
+
+            $container->refresh('request', $guard, 'setRequest');
+
+            return $guard;
+        });
     }
 
     private function registerGuard(): void

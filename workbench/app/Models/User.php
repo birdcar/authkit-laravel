@@ -4,6 +4,7 @@ namespace Workbench\App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Authkit\Authkit\Concerns\BelongsToWorkosOrganizations;
+use Authkit\Authkit\Concerns\HasApiKeys;
 use Authkit\Authkit\Concerns\HasWorkosUser;
 use Authkit\Authkit\Contracts\WorkosUser;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,7 +19,7 @@ use Workbench\Database\Factories\UserFactory;
 class User extends Authenticatable implements WorkosUser
 {
     /** @use HasFactory<UserFactory> */
-    use BelongsToWorkosOrganizations, HasFactory, HasWorkosUser, Notifiable;
+    use BelongsToWorkosOrganizations, HasApiKeys, HasFactory, HasWorkosUser, Notifiable;
 
     /**
      * Get the attributes that should be cast.

@@ -85,6 +85,14 @@ return [
         ],
     ],
 
+    'api_keys' => [
+        // Where the authkit-key guard reads the key from. 'bearer' reads
+        // `Authorization: Bearer <value>`; any other string is treated as a
+        // literal header name read via $request->header(), e.g. set this to
+        // 'X-Api-Key' to accept `X-Api-Key: <value>` instead.
+        'header' => env('AUTHKIT_API_KEYS_HEADER', 'bearer'),
+    ],
+
     'authorization' => [
         // Swappable seam: resolves a WorkOS organization_membership_id for a
         // (user, organization) pair from the local workos_memberships
