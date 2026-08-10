@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Authkit\Authkit;
 
+use Authkit\Authkit\AuditLogs\Support\AuditActorResolver;
 use Authkit\Authkit\Auth\ApiKeyAuthenticator;
 use Authkit\Authkit\Auth\ApiKeyRequestGuard;
 use Authkit\Authkit\Auth\JwtClaimsValidator;
@@ -43,6 +44,7 @@ use Authkit\Authkit\Http\Middleware\RefreshWorkosSession;
 use Authkit\Authkit\Http\Middleware\RequireOrganizationContext;
 use Authkit\Authkit\Http\Middleware\VerifyWorkosWebhookSignature;
 use Authkit\Authkit\Http\SessionCookie;
+use Authkit\Authkit\Listeners\UpdateOrganizationDomainVerificationState;
 use Authkit\Authkit\Listeners\UpsertOrganizationAndMembershipFromLogin;
 use Authkit\Authkit\Listeners\Workos\DeleteOrganizationDomainProjection;
 use Authkit\Authkit\Listeners\Workos\DeleteOrganizationMembershipProjection;
@@ -166,6 +168,15 @@ class AuthkitServiceProvider extends ServiceProvider
         // Singleton: request-memoized — repeated $request->organization() /
         // Authkit::currentOrganization() calls cost one query per request.
         $this->app->singleton(CurrentOrganizationResolver::class);
+
+        // Holds the client manager, so bound (not the spec snippet's
+        // singleton) for the same reason as VaultCrypto/VaultManager below: a
+        // singleton would pin the pre-swap manager when the MockHandler test
+        // harness forgets the manager instance mid-test.
+        $this->app->bind(AuditLogManager::class);
+
+        // Stateless — reads the workos guard and request at resolve() time.
+        $this->app->singleton(AuditActorResolver::class);
 
         // bindIf so an app (or a later phase) can override without a container
         // conflict; the concrete class comes from config so swapping resolvers
@@ -380,10 +391,21 @@ class AuthkitServiceProvider extends ServiceProvider
         Event::listen([
             OrganizationDomainCreated::class,
             OrganizationDomainUpdated::class,
-            OrganizationDomainVerified::class,
-            OrganizationDomainVerificationFailed::class,
         ], UpsertOrganizationDomainProjection::class);
         Event::listen(OrganizationDomainDeleted::class, DeleteOrganizationDomainProjection::class);
+
+        // Verification outcomes get a dedicated listener that knows the event
+        // semantics (state stamping, token clearing, warn-and-no-op on unknown
+        // rows) instead of the generic present-keys-only upsert above — the
+        // verification_failed payload carries no top-level state at all.
+        Event::listen(
+            OrganizationDomainVerified::class,
+            [UpdateOrganizationDomainVerificationState::class, 'handleVerified'],
+        );
+        Event::listen(
+            OrganizationDomainVerificationFailed::class,
+            [UpdateOrganizationDomainVerificationState::class, 'handleVerificationFailed'],
+        );
         Event::listen([OrganizationMembershipCreated::class, OrganizationMembershipUpdated::class], UpsertOrganizationMembershipProjection::class);
         Event::listen(OrganizationMembershipDeleted::class, DeleteOrganizationMembershipProjection::class);
     }

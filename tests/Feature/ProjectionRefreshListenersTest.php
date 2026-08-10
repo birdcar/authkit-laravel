@@ -145,7 +145,7 @@ it('no-ops on organization events when the app has not configured an organizatio
     expect(Organization::query()->count())->toBe(0);
 });
 
-it('upserts the domain projection idempotently and flips verification state without touching unrelated columns', function (): void {
+it('upserts the domain projection idempotently; verification flips state and clears the spent token', function (): void {
     event(typed(OrganizationDomainCreated::class, [
         'id' => 'org_domain_01AAA',
         'organization_id' => 'org_01AAA',
@@ -170,13 +170,16 @@ it('upserts the domain projection idempotently and flips verification state with
         'state' => 'verified',
     ], 'event_01CCC'));
 
+    // Phase 6's UpdateOrganizationDomainVerificationState owns verification
+    // outcomes: state flips AND the now-spent token fields are cleared.
     $domain = WorkosOrganizationDomain::query()->firstWhere('workos_id', 'org_domain_01AAA');
     expect($domain?->state)->toBe('verified')
-        ->and($domain?->verification_token)->toBe('token-123')
+        ->and($domain?->verification_token)->toBeNull()
+        ->and($domain?->domain)->toBe('acme.com')
         ->and(WorkosOrganizationDomain::query()->count())->toBe(1);
 });
 
-it('keeps the last-known state when a verification_failed payload carries no top-level state', function (): void {
+it('marks the domain projection failed on verification_failed without touching unrelated columns', function (): void {
     event(typed(OrganizationDomainCreated::class, [
         'id' => 'org_domain_01AAA',
         'organization_id' => 'org_01AAA',
@@ -185,14 +188,15 @@ it('keeps the last-known state when a verification_failed payload carries no top
     ]));
 
     // Real verification_failed payloads carry `reason` + nested state, never a
-    // top-level `state` string — absent keys must not null out columns.
+    // top-level `state` string — the dedicated verification listener stamps
+    // state=failed itself instead of hoping for a payload column.
     event(typed(OrganizationDomainVerificationFailed::class, [
         'id' => 'org_domain_01AAA',
         'reason' => 'DNS record not found',
     ], 'event_01FFF'));
 
     $domain = WorkosOrganizationDomain::query()->firstWhere('workos_id', 'org_domain_01AAA');
-    expect($domain?->state)->toBe('pending')
+    expect($domain?->state)->toBe('failed')
         ->and($domain?->domain)->toBe('acme.com');
 });
 

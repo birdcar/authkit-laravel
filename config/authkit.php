@@ -99,6 +99,15 @@ return [
         'header' => env('AUTHKIT_API_KEYS_HEADER', 'bearer'),
     ],
 
+    'audit_logs' => [
+        // Seconds between PollAuditLogExportJob re-dispatches while a WorkOS
+        // audit-log export is still `pending`.
+        'export_poll_interval_seconds' => (int) env('AUTHKIT_AUDIT_LOGS_EXPORT_POLL_INTERVAL', 10),
+        // Poll attempts before the package gives up on a stuck export and
+        // dispatches AuditLogExportFailed(reason: 'timeout').
+        'export_poll_max_attempts' => (int) env('AUTHKIT_AUDIT_LOGS_EXPORT_POLL_MAX_ATTEMPTS', 30),
+    ],
+
     'authorization' => [
         // Swappable seam: resolves a WorkOS organization_membership_id for a
         // (user, organization) pair from the local workos_memberships

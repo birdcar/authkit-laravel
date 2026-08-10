@@ -6,20 +6,20 @@ namespace Authkit\Authkit\Listeners\Workos;
 
 use Authkit\Authkit\Events\Workos\OrganizationDomainCreated;
 use Authkit\Authkit\Events\Workos\OrganizationDomainUpdated;
-use Authkit\Authkit\Events\Workos\OrganizationDomainVerificationFailed;
-use Authkit\Authkit\Events\Workos\OrganizationDomainVerified;
 use Authkit\Authkit\Models\WorkosOrganizationDomain;
 
 /**
  * Idempotent upsert keyed on workos_id. Only payload keys that are actually
- * present are written: the organization_domain.verification_failed payload
- * carries no top-level `state` at all (only `reason` + nested state), so a
- * blanket column overwrite would null out fields the event never spoke about.
+ * present are written, so a sparse payload never nulls out fields the event
+ * didn't speak about. Verification outcomes (verified/verification_failed)
+ * are owned by UpdateOrganizationDomainVerificationState, which knows their
+ * event semantics (state stamping, token clearing) — this listener owns row
+ * existence for created/updated only.
  */
 final class UpsertOrganizationDomainProjection
 {
     public function handle(
-        OrganizationDomainCreated|OrganizationDomainUpdated|OrganizationDomainVerified|OrganizationDomainVerificationFailed $event,
+        OrganizationDomainCreated|OrganizationDomainUpdated $event,
     ): void {
         $attributes = [];
 

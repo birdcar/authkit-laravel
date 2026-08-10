@@ -96,6 +96,7 @@
                 "Authkit\\Authkit\\AuthkitServiceProvider"
             ],
             "aliases": {
+                "AuditLog": "Authkit\\Authkit\\Facades\\AuditLog",
                 "Authkit": "Authkit\\Authkit\\Facades\\Authkit",
                 "Vault": "Authkit\\Authkit\\Facades\\Vault"
             }

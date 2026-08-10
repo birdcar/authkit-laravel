@@ -9,9 +9,12 @@ use Authkit\Authkit\Authorization\PermissionManager;
 use Authkit\Authkit\Authorization\ResourceManager;
 use Authkit\Authkit\Authorization\RoleManager;
 use Authkit\Authkit\Connect\ConnectManager;
+use Authkit\Authkit\Contracts\WorkosClientManager;
+use Authkit\Authkit\Enums\PortalIntent;
 use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
+use RuntimeException;
 use WorkOS\RequestOptions;
 
 class Authkit
@@ -52,6 +55,52 @@ class Authkit
     public function connect(): ConnectManager
     {
         return app(ConnectManager::class);
+    }
+
+    /**
+     * Mint an Admin Portal link for an organization's admin to visit —
+     * server-side link mint only, no widget or JS token involvement (contract
+     * decision: Widgets are excluded from v1 entirely). Accepts a raw WorkOS
+     * organization id or any Eloquent model exposing a workos_id attribute
+     * (i.e. a model using HasWorkosOrganization).
+     *
+     * @param  array<int, string>|null  $itContactEmails
+     */
+    public function portalLink(
+        Model|string $organization,
+        PortalIntent $intent,
+        ?string $returnUrl = null,
+        ?string $successUrl = null,
+        ?array $itContactEmails = null,
+    ): string {
+        if (is_string($organization)) {
+            $organizationId = $organization;
+        } else {
+            $workosId = $organization->getAttribute('workos_id');
+
+            if (! is_string($workosId) || $workosId === '') {
+                $key = $organization->getKey();
+
+                throw new RuntimeException(sprintf(
+                    'Cannot mint an Admin Portal link for [%s] #%s: its workos_id is empty. '
+                    .'The organization has not synced to WorkOS yet (or the model carries no workos_id column).',
+                    $organization::class,
+                    is_scalar($key) ? (string) $key : '?',
+                ));
+            }
+
+            $organizationId = $workosId;
+        }
+
+        $response = app(WorkosClientManager::class)->client()->adminPortal()->generateLink(
+            organization: $organizationId,
+            returnUrl: $returnUrl,
+            successUrl: $successUrl,
+            intent: $intent->toWorkos(),
+            itContactEmails: $itContactEmails,
+        );
+
+        return $response->link;
     }
 
     /**
