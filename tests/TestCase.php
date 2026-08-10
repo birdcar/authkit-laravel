@@ -6,6 +6,7 @@ namespace Authkit\Authkit\Tests;
 
 use Authkit\Authkit\AuthkitServiceProvider;
 use Authkit\Authkit\Tests\Fixtures\JwtFixture;
+use Laravel\Pennant\PennantServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Workbench\App\Models\Organization;
 use Workbench\App\Models\User;
@@ -14,8 +15,13 @@ abstract class TestCase extends Orchestra
 {
     protected function getPackageProviders($app): array
     {
+        // Authkit deliberately FIRST: its register() runs before Pennant's
+        // top-level `pennant` mergeConfigFrom — the exact ordering that would
+        // drop Pennant's built-in stores if the workos store were injected in
+        // register() instead of boot() (spec-phase-7 Decision D-4).
         return [
             AuthkitServiceProvider::class,
+            PennantServiceProvider::class,
         ];
     }
 

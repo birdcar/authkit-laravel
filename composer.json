@@ -22,6 +22,7 @@
         "illuminate/contracts": "^12.0||^13.0",
         "illuminate/support": "^12.0||^13.0",
         "laravel/framework": "^12.0||^13.0",
+        "laravel/pennant": "^1.22",
         "workos/workos-php": "^9.1"
     },
     "require-dev": {

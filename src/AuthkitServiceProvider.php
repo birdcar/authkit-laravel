@@ -14,6 +14,7 @@ use Authkit\Authkit\Console\Commands\InstallCommand;
 use Authkit\Authkit\Contracts\ResolvesOrganizationMembershipId;
 use Authkit\Authkit\Contracts\WorkosClientManager as WorkosClientManagerContract;
 use Authkit\Authkit\Events\Login;
+use Authkit\Authkit\FeatureFlags\WorkosPennantDriver;
 use Authkit\Authkit\Http\JwksGraceCache;
 use Authkit\Authkit\Http\Middleware\RefreshWorkosSession;
 use Authkit\Authkit\Http\Middleware\RequireOrganizationContext;
@@ -24,6 +25,7 @@ use Authkit\Authkit\Organizations\MembershipProjectionResolver;
 use Authkit\Authkit\Support\AuthkitConfig;
 use Authkit\Authkit\Support\WorkosClientManager;
 use GuzzleHttp\HandlerStack;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\UserProvider;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Config\Repository;
@@ -36,6 +38,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Pennant\Feature;
 use RuntimeException;
 use WorkOS\PKCEHelper;
 use WorkOS\Service\UserManagement;
@@ -174,6 +177,8 @@ class AuthkitServiceProvider extends ServiceProvider
         // measuring the bytes the browser actually receives.
         EncryptCookies::except(SessionCookie::name());
 
+        $this->registerFeatureFlagsDriver();
+
         if (! $this->app->runningInConsole()) {
             return;
         }
@@ -203,6 +208,41 @@ class AuthkitServiceProvider extends ServiceProvider
             InstallCommand::class,
             InspectTokenCommand::class,
         ]);
+    }
+
+    private function registerFeatureFlagsDriver(): void
+    {
+        $config = $this->app->make(Repository::class);
+
+        // Dot-notation nested set — only touches the "workos" leaf, never the
+        // sibling "array"/"database" store entries laravel/pennant's own
+        // mergeConfigFrom adds in ITS register(). Pennant's merge is a shallow
+        // array_merge at the top-level "pennant" key, so seeding our entry in
+        // register() before Pennant's could silently drop the built-in stores;
+        // every register() finishes before any boot() runs, which makes this
+        // ordering-safe regardless of package discovery order (spec-phase-7
+        // Decision D-4).
+        $existing = $config->get('pennant.stores.workos', []);
+
+        $config->set('pennant.stores.workos', array_merge(
+            ['driver' => 'workos'],
+            is_array($existing) ? $existing : [],
+        ));
+
+        Feature::extend('workos', function (Container $container, array $storeConfig): WorkosPennantDriver {
+            return new WorkosPennantDriver(
+                $container->make(WorkosClientManagerContract::class),
+                $container->make(CacheRepository::class),
+                (int) $container->make(Repository::class)->get('authkit.feature_flags.cache_ttl', 30),
+            );
+        });
+
+        // Default scope = the WorkOS-authenticated user, not the app's ambient
+        // default guard — this package must not assume the install rewired
+        // auth.defaults.guard. An app-level provider booting after this one may
+        // call Feature::resolveScopeUsing() again and win (spec-phase-7
+        // Decision D-5).
+        Feature::resolveScopeUsing(fn (): ?Authenticatable => Auth::guard('workos')->user());
     }
 
     private function registerGuard(): void
