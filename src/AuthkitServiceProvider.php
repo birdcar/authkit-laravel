@@ -10,10 +10,16 @@ use Authkit\Authkit\Auth\WorkosGuard;
 use Authkit\Authkit\Console\Commands\AuthkitCommand;
 use Authkit\Authkit\Console\Commands\InspectTokenCommand;
 use Authkit\Authkit\Console\Commands\InstallCommand;
+use Authkit\Authkit\Contracts\ResolvesOrganizationMembershipId;
 use Authkit\Authkit\Contracts\WorkosClientManager as WorkosClientManagerContract;
+use Authkit\Authkit\Events\Login;
 use Authkit\Authkit\Http\JwksGraceCache;
 use Authkit\Authkit\Http\Middleware\RefreshWorkosSession;
+use Authkit\Authkit\Http\Middleware\RequireOrganizationContext;
 use Authkit\Authkit\Http\SessionCookie;
+use Authkit\Authkit\Listeners\UpsertOrganizationAndMembershipFromLogin;
+use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
+use Authkit\Authkit\Organizations\MembershipProjectionResolver;
 use Authkit\Authkit\Support\AuthkitConfig;
 use Authkit\Authkit\Support\WorkosClientManager;
 use GuzzleHttp\HandlerStack;
@@ -22,8 +28,11 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 use WorkOS\PKCEHelper;
@@ -94,6 +103,31 @@ class AuthkitServiceProvider extends ServiceProvider
                 (int) $config->get('authkit.session.lock_wait_seconds', 5),
             );
         });
+
+        // Singleton: request-memoized — repeated $request->organization() /
+        // Authkit::currentOrganization() calls cost one query per request.
+        $this->app->singleton(CurrentOrganizationResolver::class);
+
+        // bindIf so an app (or a later phase) can override without a container
+        // conflict; the concrete class comes from config so swapping resolvers
+        // is a config change, not a provider edit.
+        $this->app->bindIf(ResolvesOrganizationMembershipId::class, function (Container $app): ResolvesOrganizationMembershipId {
+            $resolver = $app->make(Repository::class)->get(
+                'authkit.authorization.membership_resolver',
+                MembershipProjectionResolver::class,
+            );
+
+            $instance = $app->make(is_string($resolver) ? $resolver : MembershipProjectionResolver::class);
+
+            if (! $instance instanceof ResolvesOrganizationMembershipId) {
+                throw new RuntimeException(
+                    'The [authkit.authorization.membership_resolver] config value must name a class implementing '
+                    .ResolvesOrganizationMembershipId::class.'.',
+                );
+            }
+
+            return $instance;
+        });
     }
 
     /**
@@ -114,6 +148,16 @@ class AuthkitServiceProvider extends ServiceProvider
         /** @var Router $router */
         $router = $this->app->make(Router::class);
         $router->aliasMiddleware('authkit.session', RefreshWorkosSession::class);
+        $router->aliasMiddleware('authkit.org', RequireOrganizationContext::class);
+
+        // Deliberately not tied to authkit.org: a route that wants to display
+        // the current org (or its absence) without requiring one must be able
+        // to call this anywhere.
+        Request::macro('organization', function (): ?Model {
+            return app(CurrentOrganizationResolver::class)->resolve();
+        });
+
+        Event::listen(Login::class, UpsertOrganizationAndMembershipFromLogin::class);
 
         // The sealed cookie is already AEAD-sealed by WorkOS, so Laravel's cookie
         // encryption adds nothing — but it does make the guard's behavior depend on

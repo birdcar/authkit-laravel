@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use Authkit\Authkit\Organizations\MembershipProjectionResolver;
 
 return [
 
@@ -49,6 +50,7 @@ return [
             'login' => 'login',
             'logout' => 'logout',
             'callback' => 'callback',
+            'switch_organization' => 'organizations/{organizationId}/switch',
         ],
     ],
 
@@ -64,6 +66,29 @@ return [
     'organization' => [
         'model' => env('AUTHKIT_ORGANIZATION_MODEL'),
         'external_id_column' => 'workos_id',
+
+        // 'queue' keeps a slow or failing WorkOS call from ever blocking the
+        // request that created the local org row; 'sync' is a deliberate
+        // opt-in for CLI seeders and tests that need workos_id immediately.
+        'sync_mode' => env('AUTHKIT_ORGANIZATION_SYNC_MODE', 'queue'),
+        'delete_remote_on_delete' => (bool) env('AUTHKIT_ORGANIZATION_DELETE_REMOTE_ON_DELETE', true),
+
+        'retry' => [
+            'tries' => (int) env('AUTHKIT_ORGANIZATION_SYNC_TRIES', 5),
+            'backoff' => [10, 30, 60, 300, 900], // seconds
+        ],
+
+        'middleware' => [
+            'on_missing' => env('AUTHKIT_ORGANIZATION_MIDDLEWARE_ON_MISSING', 'abort'), // 'abort'|'redirect'
+            'redirect_route' => env('AUTHKIT_ORGANIZATION_MIDDLEWARE_REDIRECT_ROUTE'),
+        ],
+    ],
+
+    'authorization' => [
+        // Swappable seam: resolves a WorkOS organization_membership_id for a
+        // (user, organization) pair from the local workos_memberships
+        // projection — never a live API call per check.
+        'membership_resolver' => MembershipProjectionResolver::class,
     ],
 
     'events' => [

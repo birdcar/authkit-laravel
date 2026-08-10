@@ -7,6 +7,8 @@ namespace Authkit\Authkit\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
+ * @method static ?\Illuminate\Database\Eloquent\Model currentOrganization()
+ *
  * @see \Authkit\Authkit\Authkit
  */
 class Authkit extends Facade

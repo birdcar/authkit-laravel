@@ -3,6 +3,7 @@
 namespace Workbench\App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Workbench\App\Models\Organization;
 use Workbench\App\Models\User;
 
 class WorkbenchServiceProvider extends ServiceProvider
@@ -29,6 +30,10 @@ class WorkbenchServiceProvider extends ServiceProvider
             'driver' => 'eloquent',
             'model' => User::class,
         ]);
+
+        // The minimum wiring for `composer serve` and workbench-touching tests
+        // to have a real org model configured; Phase 13 owns the full build-out.
+        config()->set('authkit.organization.model', Organization::class);
     }
 
     /**

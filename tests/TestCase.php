@@ -7,6 +7,7 @@ namespace Authkit\Authkit\Tests;
 use Authkit\Authkit\AuthkitServiceProvider;
 use Authkit\Authkit\Tests\Fixtures\JwtFixture;
 use Orchestra\Testbench\TestCase as Orchestra;
+use Workbench\App\Models\Organization;
 use Workbench\App\Models\User;
 
 abstract class TestCase extends Orchestra
@@ -35,6 +36,13 @@ abstract class TestCase extends Orchestra
             '--path' => realpath(__DIR__.'/../database/migrations'),
             '--realpath' => true,
         ])->run();
+
+        // The workbench `organizations` fixture table backs every suite that
+        // exercises HasWorkosOrganization against a real Eloquent model.
+        $this->artisan('migrate', [
+            '--path' => realpath(__DIR__.'/../workbench/database/migrations'),
+            '--realpath' => true,
+        ])->run();
     }
 
     /**
@@ -44,6 +52,12 @@ abstract class TestCase extends Orchestra
      */
     protected function getEnvironmentSetUp($app): void
     {
+        // The skeleton's .env (and its APP_KEY) only exists after a workbench
+        // build and is purged on every composer install, so routes running the
+        // `web` group (EncryptCookies needs the encrypter) would fail on a fresh
+        // checkout. Pinned here to keep the suite hermetic.
+        $app['config']->set('app.key', 'AckfSECXIvnK5r28GVIWUAxmbBSjTsmF');
+
         // Non-empty on purpose: SessionManager::refresh() calls
         // HttpClient::requireApiKey(), which throws on an empty key — and refresh()
         // swallows that into a generic failure before any HTTP call is made.
@@ -62,6 +76,14 @@ abstract class TestCase extends Orchestra
             'driver' => 'eloquent',
             'model' => User::class,
         ]);
+
+        // Package suites run without WorkbenchServiceProvider, so the org model
+        // the workbench would configure is set here independently.
+        $app['config']->set('authkit.organization.model', Organization::class);
+
+        // Sync queue keeps observer-dispatched jobs observable in-request; the
+        // suites that need real dequeue mechanics switch to `database` locally.
+        $app['config']->set('queue.default', 'sync');
 
         // ArrayStore implements LockProvider, which is what SessionRefresher's
         // single-flight lock needs; a file-store default would make the lock

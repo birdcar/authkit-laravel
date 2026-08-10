@@ -25,7 +25,7 @@ final class AuthKitLoginRequest extends FormRequest
         return [];
     }
 
-    public function redirect(?string $intendedUrl = null): RedirectResponse
+    public function redirect(?string $intendedUrl = null, ?string $organizationId = null): RedirectResponse
     {
         $pkce = PKCEHelper::generate();
         $state = bin2hex(random_bytes(16));
@@ -35,6 +35,7 @@ final class AuthKitLoginRequest extends FormRequest
             codeChallengeMethod: $pkce['code_challenge_method'],
             codeChallenge: $pkce['code_challenge'],
             state: $state,
+            organizationId: $organizationId,
         );
 
         // The PKCE verifier and state are handshake artifacts, not WorkOS session

@@ -19,6 +19,9 @@ final class WorkosGuard implements Guard
 
     private ?Authenticatable $user = null;
 
+    /** @var array<string, mixed>|null */
+    private ?array $claimsPayload = null;
+
     public function __construct(
         private readonly UserProvider $provider,
         private readonly SessionManager $sessionManager,
@@ -60,7 +63,8 @@ final class WorkosGuard implements Guard
                 return $this->user = null;
             }
 
-            $claims = AccessTokenClaims::fromPayload(JwtPayloadDecoder::decode($accessToken));
+            $payload = JwtPayloadDecoder::decode($accessToken);
+            $claims = AccessTokenClaims::fromPayload($payload);
         } catch (Throwable) {
             return $this->user = null;
         }
@@ -90,7 +94,23 @@ final class WorkosGuard implements Guard
             event(new Impersonating($user, (string) $claims->actorId, is_array($impersonator) ? $impersonator : null));
         }
 
+        $this->claimsPayload = $payload;
+
         return $this->user = $user;
+    }
+
+    /**
+     * The decoded, signature-verified access-token claims for the current
+     * request, or null if there is no authenticated session. Thin accessor
+     * over data user() already produced — no new unsealing, no new HTTP.
+     * Consumers duck-type this method (CurrentOrganizationResolver) until the
+     * HasAccessTokenClaims contract lands with the authorization phase.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function accessTokenClaims(): ?array
+    {
+        return $this->user() !== null ? $this->claimsPayload : null;
     }
 
     public function check(): bool
@@ -144,6 +164,7 @@ final class WorkosGuard implements Guard
         $this->request = $request;
         $this->resolved = false;
         $this->user = null;
+        $this->claimsPayload = null;
 
         return $this;
     }

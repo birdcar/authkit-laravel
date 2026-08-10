@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Authkit\Authkit\Http\Controllers\AuthKitController;
+use Authkit\Authkit\Http\Controllers\SwitchOrganizationController;
 use Illuminate\Support\Facades\Route;
 
 if (! config('authkit.routes.enabled', true)) {
@@ -27,4 +28,11 @@ Route::middleware($middleware)
         // real CSRF surface (`<img src="/authkit/logout">`).
         Route::post((string) config('authkit.routes.paths.logout', 'logout'), [AuthKitController::class, 'logout'])
             ->name('authkit.logout');
+
+        // POST for the same CSRF reason: switching orgs rotates the sealed
+        // session cookie, which no GET should be able to trigger cross-site.
+        Route::post(
+            (string) config('authkit.routes.paths.switch_organization', 'organizations/{organizationId}/switch'),
+            SwitchOrganizationController::class,
+        )->name('authkit.switch-org');
     });
