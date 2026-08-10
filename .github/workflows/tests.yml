@@ -53,7 +53,16 @@ jobs:
           composer run prepare
 
       - name: PHPStan
+        if: runner.os != 'Windows'
         run: composer analyse
+
+      # Single-process on Windows: parallel workers each run the larastan
+      # bootstrap, racing to rename the shared Testbench skeleton's provider
+      # manifest — Windows rename() onto an open destination fails with
+      # "Access is denied" where POSIX rename wins atomically.
+      - name: PHPStan (Windows)
+        if: runner.os == 'Windows'
+        run: vendor/bin/phpstan analyse -c phpstan-windows.neon
 
       - name: Linter
         run: composer lint:check

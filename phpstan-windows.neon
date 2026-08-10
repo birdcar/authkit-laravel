@@ -1,0 +1,13 @@
+# Windows-only override used by the CI matrix. PHPStan parallel workers each
+# execute the larastan bootstrap, and every boot that registers a provider
+# list differing from the manifest recompiles the shared Testbench skeleton's
+# bootstrap/cache/services.php via write-tmp-then-rename. POSIX rename() lets
+# the last writer win atomically; Windows rename() onto a destination another
+# worker holds open fails with "Access is denied" and kills the analysis.
+# One process boots once — identical findings, no race.
+includes:
+    - phpstan.neon.dist
+
+parameters:
+    parallel:
+        maximumNumberOfProcesses: 1
