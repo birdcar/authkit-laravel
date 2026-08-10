@@ -108,9 +108,16 @@ final class ConnectManager
             after: $after,
             limit: $limit,
             order: PaginationOrder::from($order),
+            // Enum VALUES, not the instances the SDK docblock advertises: the
+            // SDK pipes this array straight into http_build_query, which only
+            // serializes backed enums by value on PHP 8.5+ — on 8.3/8.4 each
+            // enum explodes into its public name/value properties and the
+            // filter reaches the API as registration_types[0][name]=… garbage.
+            // from() still rejects unknown types before any HTTP happens.
+            // @phpstan-ignore argument.type (the SDK docblock wants enum instances; honoring it breaks the wire on PHP <8.5)
             registrationTypes: $registrationTypes === null
                 ? null
-                : array_map(static fn (string $type): ApplicationsRegistrationTypes => ApplicationsRegistrationTypes::from($type), $registrationTypes),
+                : array_map(static fn (string $type): string => ApplicationsRegistrationTypes::from($type)->value, $registrationTypes),
             organizationId: $organizationId,
         ));
 
