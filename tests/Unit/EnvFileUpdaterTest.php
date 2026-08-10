@@ -10,6 +10,10 @@ beforeEach(function (): void {
 
 afterEach(function (): void {
     if (is_string($this->envPath) && is_file($this->envPath)) {
+        // The read-only-file case leaves 0444 behind, and Windows refuses to
+        // unlink a file carrying the read-only attribute (POSIX deletion only
+        // consults the directory, so this was invisible on Linux/macOS).
+        chmod($this->envPath, 0644);
         unlink($this->envPath);
     }
 });
