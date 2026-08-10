@@ -7,6 +7,7 @@ namespace Authkit\Authkit;
 use Authkit\Authkit\Auth\JwtClaimsValidator;
 use Authkit\Authkit\Auth\SessionRefresher;
 use Authkit\Authkit\Auth\WorkosGuard;
+use Authkit\Authkit\Authorization\ClaimsGateHook;
 use Authkit\Authkit\Console\Commands\AuthkitCommand;
 use Authkit\Authkit\Console\Commands\InspectTokenCommand;
 use Authkit\Authkit\Console\Commands\InstallCommand;
@@ -33,6 +34,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 use WorkOS\PKCEHelper;
@@ -158,6 +160,11 @@ class AuthkitServiceProvider extends ServiceProvider
         });
 
         Event::listen(Login::class, UpsertOrganizationAndMembershipFromLogin::class);
+
+        // RBAC from JWT claims, zero HTTP per check. The hook returns true or
+        // null only — a non-null before-result short-circuits every policy, so
+        // false here would be a global deny (spec-phase-5 Failure Mode 1).
+        Gate::before($this->app->make(ClaimsGateHook::class));
 
         // The sealed cookie is already AEAD-sealed by WorkOS, so Laravel's cookie
         // encryption adds nothing — but it does make the guard's behavior depend on

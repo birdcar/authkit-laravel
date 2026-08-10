@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Authkit\Authkit\Auth;
 
+use Authkit\Authkit\Contracts\HasAccessTokenClaims;
 use Authkit\Authkit\Contracts\WorkosUser;
 use Authkit\Authkit\Events\Impersonating;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -13,7 +14,7 @@ use Illuminate\Http\Request;
 use Throwable;
 use WorkOS\SessionManager;
 
-final class WorkosGuard implements Guard
+final class WorkosGuard implements Guard, HasAccessTokenClaims
 {
     private bool $resolved = false;
 
@@ -103,8 +104,9 @@ final class WorkosGuard implements Guard
      * The decoded, signature-verified access-token claims for the current
      * request, or null if there is no authenticated session. Thin accessor
      * over data user() already produced — no new unsealing, no new HTTP.
-     * Consumers duck-type this method (CurrentOrganizationResolver) until the
-     * HasAccessTokenClaims contract lands with the authorization phase.
+     * Fulfills the HasAccessTokenClaims contract that ClaimsGateHook and
+     * FgaChecker check via instanceof; CurrentOrganizationResolver's older
+     * method_exists duck-typing keeps working unchanged.
      *
      * @return array<string, mixed>|null
      */
