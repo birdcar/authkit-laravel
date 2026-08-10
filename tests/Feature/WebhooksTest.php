@@ -166,11 +166,15 @@ it('excludes the CSRF middleware from the resolved route pipeline', function ():
     // bypass. Assert directly on the route's excluded-middleware list instead.
     $excluded = $this->webhookRoute->excludedMiddleware();
 
-    // On the vendored Laravel 13 tree both classes exist; what matters is that
-    // PreventRequestForgery — the class the `web` group actually applies — is
-    // among them.
-    expect($excluded)->toContain(PreventRequestForgery::class)
-        ->and($excluded)->toContain(ValidateCsrfToken::class);
+    // The registrar's exclusion list is class_exists-filtered to whatever the
+    // running framework ships: ValidateCsrfToken everywhere, plus its
+    // PreventRequestForgery rename (the class the `web` group actually
+    // applies) on Laravel 13 — which does not exist on the 12.x lanes.
+    expect($excluded)->toContain(ValidateCsrfToken::class);
+
+    if (class_exists(PreventRequestForgery::class)) {
+        expect($excluded)->toContain(PreventRequestForgery::class);
+    }
 });
 
 it('registers the macro route with the authkit.webhook middleware applied', function (): void {

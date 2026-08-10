@@ -6,8 +6,8 @@ namespace Authkit\Authkit\Console\Commands;
 
 use Authkit\Authkit\Events\EventBatchProcessor;
 use Authkit\Authkit\Models\WorkosEventCursor;
-use Illuminate\Cache\Lock;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Facades\Cache;
 use WorkOS\Exception\WorkOSException;
 
@@ -45,16 +45,6 @@ class WorkCommand extends Command
         $ttl = (int) config('authkit.events.lock_ttl', 90);
         $lock = Cache::lock('authkit-events-worker', $ttl);
 
-        if (! $lock instanceof Lock) {
-            // Only the abstract Lock (which every framework driver extends)
-            // carries refresh() — the Cache\Lock CONTRACT does not. A custom
-            // store whose lock cannot renew ownership must fail loudly here,
-            // not silently race a second poller after the TTL lapses.
-            $this->error('The configured cache store returned a lock without refresh() support — authkit:work needs a store whose locks extend '.Lock::class.'.');
-
-            return self::FAILURE;
-        }
-
         if (! $lock->get()) {
             // Loser exits before ANY WorkOS API call — doubled polling would
             // double the duplicate-delivery rate and burn API quota.
@@ -65,14 +55,7 @@ class WorkCommand extends Command
 
         try {
             do {
-                // refresh(), never get(): acquire-style calls succeed only when
-                // the key does not exist — regardless of owner — so re-calling
-                // get() on a lock this process already holds would always fail
-                // and the daemon would exit after its first batch. refresh()
-                // extends ownership, and still detects real TTL loss (another
-                // process's lock, or expired-and-reclaimed) so we fail loudly
-                // instead of racing a second poller.
-                if (! $lock->refresh($ttl)) {
+                if (! $this->renewLock($lock, $ttl)) {
                     $this->error('Lost the authkit-events-worker lock mid-run — exiting to avoid a split-brain poller.');
 
                     return self::FAILURE;
@@ -117,5 +100,30 @@ class WorkCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Extend ownership of the worker lock for another TTL window.
+     *
+     * Renewal, never bare get(): acquire-style calls succeed only when the
+     * key does not exist — regardless of owner — so re-calling get() on a
+     * lock this process already holds would always fail and the daemon would
+     * exit after its first batch. refresh() extends ownership and still
+     * detects real TTL loss (another process's lock, or expired-and-
+     * reclaimed) so the caller fails loudly instead of racing a second
+     * poller. refresh() only exists on Laravel ≥13.x locks — 12.x renews by
+     * release-and-reacquire under the same key, whose microsecond gap is
+     * only exposed to a competing worker's single startup probe; a lost
+     * race there still fails loudly in the caller.
+     */
+    private function renewLock(Lock $lock, int $ttl): bool
+    {
+        if (method_exists($lock, 'refresh')) {
+            return (bool) $lock->refresh($ttl);
+        }
+
+        $lock->release();
+
+        return (bool) $lock->get();
     }
 }
