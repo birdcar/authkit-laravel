@@ -55,7 +55,7 @@ _Carried from the contract; every entry that plausibly touches organizations, pr
 - **Quickstart criterion split into a mechanical ≤5-step doc check plus a recorded human timing trial logged in release notes; projection-boundary arch test added** — rejected: single judgment-only quickstart criterion. Reason: this phase's two new tables (`workos_organization_domains`, `workos_memberships`) are two of the five entries the projection-boundary arch test (Phase 13) will whitelist; getting their names and shapes right here is what makes that test pass instead of needing a post-hoc fixup.
 - **Stay on Pest 4 with PHP ^8.3 floor** — rejected: Pest 5. Reason: PHP 8.3 supported until Dec 2027. Governs this phase's test suite conventions (no Pest 5 APIs).
 - **v1 targets the Full tier: MVP's 16 areas plus the 5 depth extensions** — rejected: MVP-only v1. Reason: stakeholder tier selection. Not directly this phase's scope (Groups API / FGA resource-graph conveniences are Phase 12's), but Phase 12's `HasWorkosOrganization`-adjacent depth work builds on top of this phase's trait and tables without modifying them.
-- **Express run executes directly on main (no isolation branch); recovery anchor recorded: `git reset --hard 4d04d0b`** — rejected: isolation branch. Process note: commit directly to `main`.
+- **Express run executes directly on main (no isolation branch); recovery anchor recorded: `git reset --hard e845a2f`** — rejected: isolation branch. Process note: commit directly to `main`.
 
 ## Interface Reconciliation
 
@@ -1294,7 +1294,7 @@ composer test
 - **Feature flag**: none — the package ships no runtime feature-flag gate for itself; this phase lands green on `composer test` or it doesn't ship.
 - **Monitoring**: `OrganizationSyncFailed` is a Laravel event specifically so a consuming app (or a later phase's audit-log wiring) can observe org-sync failures; this phase adds no bespoke metrics emitter beyond dispatching it.
 - **Alerting**: recommend the app's queue-monitoring (Horizon, `queue:failed`, etc.) alert on entries in the failed-jobs table for `CreateWorkosOrganization`/`DeleteWorkosOrganization` specifically — a failure there means a local org exists with no remote counterpart (or vice versa), which is exactly the "poison" state named in Failure Modes.
-- **Rollback plan**: `git revert` of this phase's commit(s), or the contract's recorded anchor (`git reset --hard 4d04d0b`) for a full express-run unwind. Both new migrations are additive and cleanly reversible (`down()` drops each table); the one Phase 2 file this phase modifies (`AuthKitLoginRequest::redirect()`) changes via an additive optional parameter, so reverting this phase's commit alone does not risk breaking Phase 2's own already-shipped call sites.
+- **Rollback plan**: `git revert` of this phase's commit(s), or the contract's recorded anchor (`git reset --hard e845a2f`) for a full express-run unwind. Both new migrations are additive and cleanly reversible (`down()` drops each table); the one Phase 2 file this phase modifies (`AuthKitLoginRequest::redirect()`) changes via an additive optional parameter, so reverting this phase's commit alone does not risk breaking Phase 2's own already-shipped call sites.
 
 ## Open Items
 

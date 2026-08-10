@@ -3,8 +3,8 @@
 ## Current Objective
 
 - Goal: AuthKit Laravel v1 — 13-phase contract build (Full tier, express, on `main`).
-- Current status: **ALL 13 PHASES COMMITTED.** Phase 13 (Integration, Quickstart & Release Readiness) landed at `f631c87`. The project is release-pending on human-only gates (below) — no agent-executable work remains in the contract.
-- Branch / commit: `main` at `f631c87` (+ the evidence chore commit on top), unpushed.
+- Current status: **ALL 13 PHASES COMMITTED.** Phase 13 (Integration, Quickstart & Release Readiness) landed at `5521e4c`. The project is release-pending on human-only gates (below) — no agent-executable work remains in the contract.
+- Branch / commit: `main` at `5521e4c` (+ the evidence chore commit on top), unpushed.
 
 ## Completed This Session (Phase 13)
 
@@ -28,7 +28,7 @@
 
 ## Files Changed
 
-- Phase commit `f631c87`: 27 files (+1407/−75) — see `git show --stat f631c87`
+- Phase commit `5521e4c`: 27 files (+1407/−75) — see `git show --stat 5521e4c`
 - Evidence commit (this one): `progress.md`, `session-handoff.md`
 
 ## Decisions Made
@@ -37,7 +37,7 @@
 
 ## Blockers / Risks (release gates — human work)
 
-- [ ] **Unsigned commit chain** (Phases 2–13; 1Password signer locked during unattended runs, Nick's 2026-08-07 decision): re-sign before pushing — `git rebase --exec '<amend with -S --no-edit>' ac79efe` with 1Password unlocked
+- [ ] **Unsigned commit chain** (Phases 2–13; 1Password signer locked during unattended runs, Nick's 2026-08-07 decision): re-sign before pushing — `git rebase --exec '<amend with -S --no-edit>' cffd31a` with 1Password unlocked
 - [ ] **Human quickstart trial** — run `docs/quickstart.md` on a fresh `laravel new` app, timed, and fill the log table in `docs/release-checklist.md`. Release-blocking; must not be fabricated
 - [ ] **Phase 1 token audit** — `docs/token-audit.md` findings still TBD against a real WorkOS environment; `WORKOS_JWT_ISSUER` enforcement stays opt-in until confirmed
 - [ ] CI matrix has not yet run on the release commit (unpushed) — `gh run watch --exit-status` after push

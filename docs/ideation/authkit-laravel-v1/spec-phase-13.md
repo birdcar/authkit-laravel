@@ -1064,7 +1064,7 @@ curl -sf http://localhost:4100/health
 - **Feature flag**: none — this phase has no runtime behavior to gate; it is proof and documentation.
 - **Monitoring**: the CI matrix badge in `README.md` (already wired to `tests.yml`) is the ongoing signal; no new monitoring infrastructure.
 - **Alerting**: none needed beyond normal CI failure notifications.
-- **Rollback plan**: per the contract's express-run decision, this work lands directly on `main` with no isolation branch. If any component in this phase needs to be rolled back, `git revert` the specific commit(s); the recorded recovery anchor for the whole project is `git reset --hard 4d04d0b` (pre-Phase-1 state) if a full restart is ever needed — not expected to be used for this phase alone.
+- **Rollback plan**: per the contract's express-run decision, this work lands directly on `main` with no isolation branch. If any component in this phase needs to be rolled back, `git revert` the specific commit(s); the recorded recovery anchor for the whole project is `git reset --hard e845a2f` (pre-Phase-1 state) if a full restart is ever needed — not expected to be used for this phase alone.
 - **Release gate**: `docs/release-checklist.md` (Component 12) is the actual go/no-go artifact — this phase is not "done" until every item on that checklist can be checked honestly, including the human trial.
 
 ## Open Items

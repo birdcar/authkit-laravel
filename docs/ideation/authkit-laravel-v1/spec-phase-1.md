@@ -24,7 +24,7 @@ _Carried from the contract; consult before making gap decisions._
 - **Auth flows exposed both as registered routes and as form-request helpers, with routes as thin wrappers delegating to the form requests** — rejected: Routes-only surface. Apps with custom controllers keep every nicety — parity with the one thing laravel/workos got right; one implementation, two entry points. _(Relevance: shapes the `routes.enabled`/`routes.prefix`/`routes.paths` config keys this phase declares, even though Phase 2 wires the actual routes.)_
 - **Widgets are excluded from v1 entirely — no token-minting facade** — rejected: Widget token minting in MVP, or demoting it to Full tier. Nick's ruling: widgets are UI surface and the starter kit owns UI. _(Named here to preempt adding a `widgets.*` config key or command — out of scope.)_
 - **Phase 1 ends with an empirical AuthKit token audit: decode a real AuthKit-issued token to confirm canonical iss/aud values and default presence of role/permissions/feature_flags claims, recorded in the decision log before Phase 2 starts** — rejected: Assume the SDK's TODO values and default-populated claims. Hidden-dependency blocker: SessionManager's own source defers iss/aud as unconfirmed, and the zero-HTTP RBAC + claim-first flags + quickstart goals all silently depend on claims being present without dashboard setup. _(This is the entire reason the `authkit:inspect-token` component exists.)_
-- **Express run executes directly on main (no isolation branch); recovery anchor recorded: git reset --hard 4d04d0b** — rejected: `ideation/authkit-laravel-v1` isolation branch (express default). Stakeholder choice: nothing auto-pushes, and reset-based recovery is acceptable. _(Operational note for whoever implements this phase: commit directly to `main`, no branch dance; `git reset --hard 4d04d0b` is the documented rollback anchor for the whole express run, not just this phase.)_
+- **Express run executes directly on main (no isolation branch); recovery anchor recorded: git reset --hard e845a2f** — rejected: `ideation/authkit-laravel-v1` isolation branch (express default). Stakeholder choice: nothing auto-pushes, and reset-based recovery is acceptable. _(Operational note for whoever implements this phase: commit directly to `main`, no branch dance; `git reset --hard e845a2f` is the documented rollback anchor for the whole express run, not just this phase.)_
 
 ## Feedback Strategy
 
@@ -850,7 +850,7 @@ vendor/bin/pest tests/ArchTest.php
 - **Feature flag**: none — this is infrastructure with no user-facing behavior to gate.
 - **Monitoring**: none new; nothing in this phase runs in production request paths.
 - **Alerting**: none new.
-- **Rollback plan**: this phase executes directly on `main` per the contract's express-run decision (no isolation branch). Rollback is a normal `git revert` of this phase's commit(s); the documented recovery anchor for the whole express run is `git reset --hard 4d04d0b`.
+- **Rollback plan**: this phase executes directly on `main` per the contract's express-run decision (no isolation branch). Rollback is a normal `git revert` of this phase's commit(s); the documented recovery anchor for the whole express run is `git reset --hard e845a2f`.
 
 ## Open Items
 

@@ -14,7 +14,7 @@
       "description": "WorkOS client container binding, config/authkit.php, authkit:install, emulate/MockHandler test harness, Phase 1 token audit docs",
       "dependencies": ["feat-001"],
       "status": "done",
-      "evidence": "commit 2605b16; composer test green (pest 56/56, 123 assertions, phpstan 0 errors, pint pass, 100% type coverage) — progress.md Phase 1"
+      "evidence": "commit ba8ee8d; composer test green (pest 56/56, 123 assertions, phpstan 0 errors, pint pass, 100% type coverage) — progress.md Phase 1"
     },
     {
       "id": "feat-003",
@@ -22,7 +22,7 @@
       "description": "workos guard, sealed-session iss/aud checks, refresh middleware, user projection, impersonation",
       "dependencies": ["feat-002"],
       "status": "done",
-      "evidence": "commit d6cc2c2; reviewer PASS cycle 3; composer test green (124 tests, 296 assertions) — progress.md Phase 2"
+      "evidence": "commit b6f926e; reviewer PASS cycle 3; composer test green (124 tests, 296 assertions) — progress.md Phase 2"
     },
     {
       "id": "feat-004",
@@ -30,7 +30,7 @@
       "description": "HasWorkosOrganization trait, domains projection, current-org resolution, org-switch route, tenant middleware",
       "dependencies": ["feat-003"],
       "status": "done",
-      "evidence": "commit 952e344; reviewer PASS cycle 1; composer test green (169 tests, 425 assertions) — progress.md Phase 3"
+      "evidence": "commit 18bb267; reviewer PASS cycle 1; composer test green (169 tests, 425 assertions) — progress.md Phase 3"
     },
     {
       "id": "feat-005",
@@ -38,7 +38,7 @@
       "description": "authkit:work poller, typed + generic events, webhook route macro, make:workos-listener, projection listeners",
       "dependencies": ["feat-004"],
       "status": "done",
-      "evidence": "commit 0e7cf97; reviewer PASS cycle 1; composer test green (329 tests, 949 assertions) — progress.md Phase 4"
+      "evidence": "commit 806c5d6; reviewer PASS cycle 1; composer test green (329 tests, 949 assertions) — progress.md Phase 4"
     },
     {
       "id": "feat-006",
@@ -46,7 +46,7 @@
       "description": "Gate::before claims integration, role/permission managers, FGA Check API wrapper, HasWorkosResource trait",
       "dependencies": ["feat-003"],
       "status": "done",
-      "evidence": "commit 6a04967; reviewer PASS cycle 1; composer test green (215 tests, 544 assertions) — progress.md Phase 5"
+      "evidence": "commit 6d919ae; reviewer PASS cycle 1; composer test green (215 tests, 544 assertions) — progress.md Phase 5"
     },
     {
       "id": "feat-007",
@@ -54,7 +54,7 @@
       "description": "HasAuditLogs trait, AuditLog facade, schema/export/retention passthrough, portal-link facade",
       "dependencies": ["feat-005"],
       "status": "done",
-      "evidence": "commit fede47b; reviewer PASS cycle 1; composer test green (449 tests, 1357 assertions) — progress.md Phase 6"
+      "evidence": "commit f99c933; reviewer PASS cycle 1; composer test green (449 tests, 1357 assertions) — progress.md Phase 6"
     },
     {
       "id": "feat-008",
@@ -62,7 +62,7 @@
       "description": "workos Pennant driver: claim-first in HTTP, WorkOS API fallback in queue/console",
       "dependencies": ["feat-003"],
       "status": "done",
-      "evidence": "commit 59c170f; reviewer PASS cycle 1; composer test green (230 tests, 593 assertions) — progress.md Phase 7"
+      "evidence": "commit be80a49; reviewer PASS cycle 1; composer test green (230 tests, 593 assertions) — progress.md Phase 7"
     },
     {
       "id": "feat-009",
@@ -70,7 +70,7 @@
       "description": "authkit-key guard, key permissions into Gate, issue/revoke on user + org models",
       "dependencies": ["feat-006", "feat-004"],
       "status": "done",
-      "evidence": "commit 857065d; reviewer PASS cycle 1; composer test green (362 tests, 1056 assertions) — progress.md Phase 8"
+      "evidence": "commit f5760da; reviewer PASS cycle 1; composer test green (362 tests, 1056 assertions) — progress.md Phase 8"
     },
     {
       "id": "feat-010",
@@ -78,7 +78,7 @@
       "description": "Vaulted cast, vault filesystem driver, Vault KV facade",
       "dependencies": ["feat-002"],
       "status": "done",
-      "evidence": "commit 1b3243a; reviewer PASS cycle 1; composer test green (262 tests, 695 assertions) — progress.md Phase 9"
+      "evidence": "commit b99b80d; reviewer PASS cycle 1; composer test green (262 tests, 695 assertions) — progress.md Phase 9"
     },
     {
       "id": "feat-011",
@@ -86,7 +86,7 @@
       "description": "Connect application registry facade, MCP bearer middleware, /.well-known/oauth-protected-resource route",
       "dependencies": ["feat-003", "feat-004"],
       "status": "done",
-      "evidence": "commit c7fce5a; reviewer PASS cycle 1; composer test green (402 tests, 1173 assertions) — progress.md Phase 10"
+      "evidence": "commit 8ba2f62; reviewer PASS cycle 1; composer test green (402 tests, 1173 assertions) — progress.md Phase 10"
     },
     {
       "id": "feat-012",
@@ -94,7 +94,7 @@
       "description": "connectedAccounts read-throughs, access-token fetch with auto-refresh, org provider-config passthrough",
       "dependencies": ["feat-004"],
       "status": "done",
-      "evidence": "commit e7776b9; reviewer PASS cycle 1; composer test green (514 tests, 1625 assertions) — progress.md Phase 11"
+      "evidence": "commit c9fd893; reviewer PASS cycle 1; composer test green (514 tests, 1625 assertions) — progress.md Phase 11"
     },
     {
       "id": "feat-013",
@@ -102,7 +102,7 @@
       "description": "Invitations, JWT template + CORS passthroughs, Groups API, FGA resource-graph conveniences, opt-in FGA cache",
       "dependencies": ["feat-006", "feat-004", "feat-005"],
       "status": "done",
-      "evidence": "commit d63e6d0; reviewer PASS cycle 2; composer test green (499 tests, 1546 assertions) — progress.md Phase 12"
+      "evidence": "commit 746a3de; reviewer PASS cycle 2; composer test green (499 tests, 1546 assertions) — progress.md Phase 12"
     },
     {
       "id": "feat-014",

@@ -1220,7 +1220,7 @@ composer test
 No feature flags — this phase either lands green on `composer test` or it doesn't ship. Since this is the auth core, there is no partial/gradual rollout within the package itself; the consumer app adopting it is an all-or-nothing switch from whatever guard they used before to `workos`.
 
 - **Monitoring**: `JwksServedStale` and `SessionCookieOversized` are Laravel events specifically so a consuming app (or a later phase's audit-log wiring) can observe them — this phase does not add its own logging/alerting infrastructure beyond dispatching the events.
-- **Rollback plan**: `git revert` of this phase's commit(s), or reset to the contract's recorded anchor (`git reset --hard 4d04d0b`) if the whole express run needs to unwind.
+- **Rollback plan**: `git revert` of this phase's commit(s), or reset to the contract's recorded anchor (`git reset --hard e845a2f`) if the whole express run needs to unwind.
 
 ## Open Items
 

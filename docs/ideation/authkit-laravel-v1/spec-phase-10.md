@@ -545,4 +545,4 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8000/mcp/demo 
 
 ## 14. Rollout
 
-No feature flags — per the template, this phase lands green on `composer test` and is releasable as-is. Rollback = `git revert` of this phase's commit, or reset to the recorded contract anchor (`git reset --hard 4d04d0b`) if reverting individually is impractical.
+No feature flags — per the template, this phase lands green on `composer test` and is releasable as-is. Rollback = `git revert` of this phase's commit, or reset to the recorded contract anchor (`git reset --hard e845a2f`) if reverting individually is impractical.

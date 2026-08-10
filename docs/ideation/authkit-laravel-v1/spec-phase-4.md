@@ -55,7 +55,7 @@ _Carried from the contract in full (relevance to a HIGH RISK, cross-cutting phas
 - **Typed sidecar events are bounded to types feeding the declared projections + audit/domain-verification; everything else dispatches a generic `WorkosEvent`** — rejected: a typed Laravel event class per WorkOS event type. This IS Phase 4's typed-event boundary; the exact 14-type list in this spec is the binding narrowing of this decision (see Phase-Specific Direction below).
 - **Quickstart criterion split... projection-boundary arch test added** — rejected: single judgment-only quickstart criterion. Directly relevant: this phase must not add any table beyond `workos_event_cursor` or the arch test (built in Phase 13) fails against this phase's own migration.
 - **v1 targets the Full tier** — rejected: MVP-only v1. Not directly Phase 4, retained per inclusion rule.
-- **Express run executes directly on main; recovery anchor `git reset --hard 4d04d0b`** — rejected: isolation branch. Process note, not a design constraint on this phase's code.
+- **Express run executes directly on main; recovery anchor `git reset --hard e845a2f`** — rejected: isolation branch. Process note, not a design constraint on this phase's code.
 
 ## Feedback Strategy
 
@@ -921,7 +921,7 @@ composer test
 - **Feature flag**: None — the package ships no runtime feature-flag gate for itself; every phase lands green on `composer test` and is releasable as-is.
 - **Monitoring**: Recommend apps log `authkit:work`'s stdout (batch size, "No new events." lines, and any caught `WorkOSException` messages) through their process supervisor (systemd/Supervisor/Laravel Cloud) so a stalled poller is visible from log volume alone — no bespoke metrics emitter is added in this phase (would be new state/complexity without a stated requirement).
 - **Alerting**: Recommend the app's process supervisor alert on the `authkit:work` process exiting (any exit code) — a clean exit only happens via `--once` or a caught signal, both of which are intentional; an unexpected exit means either a lock loss (`FAILURE`) or an uncaught exception in a listener (a bug to fix, per the idempotency contract, not a condition to swallow).
-- **Rollback plan**: `git revert` of this phase's commit(s), or reset to the contract's recorded anchor (`git reset --hard 4d04d0b`) if reverting mid-development. The one migration this phase adds is additive and reversible (`down()` drops the table cleanly) with no data-migration step, so rollback carries no cursor-position risk beyond re-running the first-run `rangeStart` backfill.
+- **Rollback plan**: `git revert` of this phase's commit(s), or reset to the contract's recorded anchor (`git reset --hard e845a2f`) if reverting mid-development. The one migration this phase adds is additive and reversible (`down()` drops the table cleanly) with no data-migration step, so rollback carries no cursor-position risk beyond re-running the first-run `rangeStart` backfill.
 
 ## Open Items
 
