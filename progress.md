@@ -50,7 +50,7 @@
 ### What's Next (release gates — human, not agent, work)
 
 1. ~~Re-sign the unsigned chain~~ DONE 2026-08-10 — full Birdcar chain (31 commits, 4b1a8db→HEAD) signed via `git rebase --exec 'git commit --amend -S --no-edit' 0bdfa7e`; verified zero unsigned; recorded hashes updated in b18da9f
-2. Push and watch the CI matrix: `gh run watch --exit-status <run-id>` for tests.yml on the release commit — **see the origin/main divergence risk below before pushing**
+2. ~~Push and watch the CI matrix~~ DONE 2026-08-10 — tests.yml run 31396574476 on commit 2850b41: all 24 matrix jobs green (PHP 8.3–8.5 × Laravel 12/13 × prefer-lowest/prefer-stable × ubuntu/windows). Five environment-specific fixes were needed to get there, each with the mechanism in its commit message: ad2d044 (Laravel 12 floor: 13.x-only Eloquent attributes in workbench models, Lock::refresh() runtime fatal in authkit:work, larastan dev floor → ^3.10), 278c004 (PHP 8.3/8.4: Connect registration_types enums exploded by http_build_query pre-8.5), 1a29b9d (Windows: PHPStan parallel workers race the shared Testbench skeleton's provider manifest — single-process via phpstan-windows.neon), 2be03f7 (Windows: read-only env fixture cannot be unlinked in teardown), 2850b41 (CI: pest-plugin-type-coverage Pokio forks corrupt their shared .temp cache — FORK_IO_FACTOR=-1 serializes them on runners)
 3. Run the human quickstart trial on a fresh `laravel new` app and fill `docs/release-checklist.md`'s log table (release-blocking; do not fabricate)
 4. Run the Phase 1 token audit against a real WorkOS environment (docs/token-audit.md findings still TBD; WORKOS_JWT_ISSUER enforcement stays opt-in until then)
 5. Draft CHANGELOG/release notes, then walk docs/release-checklist.md top to bottom before tagging
@@ -58,7 +58,7 @@
 ## Blockers / Risks
 
 - [x] ~~**Commits from Phase 2 onward are unsigned**~~ RESOLVED 2026-08-10: full Birdcar chain re-signed from 0bdfa7e with 1Password unlocked (31 commits, all verified signed); upstream skeleton commits untouched
-- [ ] **origin/main was force-pushed and shares NO common ancestor with local main** (discovered 2026-08-10 on fetch: origin tip b722a08 "refactor(workbench): Use package widgets on settings page", 199 commits local doesn't have; local has 147 origin doesn't). Pushing this branch requires an explicit reconciliation decision — a plain push will be rejected and a force-push would discard the remote's 199 commits. Investigate what the remote history is before choosing.
+- [x] ~~**origin/main was force-pushed and shares NO common ancestor with local main**~~ RESOLVED 2026-08-10: the unrelated remote history was the old repo, and Nick deliberately force-pushed this local history over it ("I intended this one to replace that one"); origin/main now tracks this chain and plain pushes work.
 
 - [ ] Phase 1 must complete the empirical AuthKit token audit (canonical iss/aud values + default claim presence) before Phase 2 starts — encoded in the specs
 - [ ] Execution runs directly on `main` by stakeholder decision; recovery anchor for a bad run is the pre-execution tip (the handoff commit — last commit before Phase 1), which preserves the committed plan
