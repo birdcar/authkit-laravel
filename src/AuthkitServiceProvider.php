@@ -11,17 +11,43 @@ use Authkit\Authkit\Authorization\ClaimsGateHook;
 use Authkit\Authkit\Console\Commands\AuthkitCommand;
 use Authkit\Authkit\Console\Commands\InspectTokenCommand;
 use Authkit\Authkit\Console\Commands\InstallCommand;
+use Authkit\Authkit\Console\Commands\MakeWorkosListenerCommand;
+use Authkit\Authkit\Console\Commands\WorkCommand;
 use Authkit\Authkit\Contracts\ResolvesOrganizationMembershipId;
 use Authkit\Authkit\Contracts\WorkosClientManager as WorkosClientManagerContract;
 use Authkit\Authkit\Events\Login;
+use Authkit\Authkit\Events\Workos\OrganizationCreated;
+use Authkit\Authkit\Events\Workos\OrganizationDeleted;
+use Authkit\Authkit\Events\Workos\OrganizationDomainCreated;
+use Authkit\Authkit\Events\Workos\OrganizationDomainDeleted;
+use Authkit\Authkit\Events\Workos\OrganizationDomainUpdated;
+use Authkit\Authkit\Events\Workos\OrganizationDomainVerificationFailed;
+use Authkit\Authkit\Events\Workos\OrganizationDomainVerified;
+use Authkit\Authkit\Events\Workos\OrganizationMembershipCreated;
+use Authkit\Authkit\Events\Workos\OrganizationMembershipDeleted;
+use Authkit\Authkit\Events\Workos\OrganizationMembershipUpdated;
+use Authkit\Authkit\Events\Workos\OrganizationUpdated;
+use Authkit\Authkit\Events\Workos\UserCreated;
+use Authkit\Authkit\Events\Workos\UserDeleted;
+use Authkit\Authkit\Events\Workos\UserUpdated;
 use Authkit\Authkit\Exceptions\InvalidVaultKeyContextResolverException;
 use Authkit\Authkit\FeatureFlags\WorkosPennantDriver;
 use Authkit\Authkit\Filesystem\VaultFilesystemAdapter;
+use Authkit\Authkit\Http\Controllers\WorkosWebhookController;
 use Authkit\Authkit\Http\JwksGraceCache;
 use Authkit\Authkit\Http\Middleware\RefreshWorkosSession;
 use Authkit\Authkit\Http\Middleware\RequireOrganizationContext;
+use Authkit\Authkit\Http\Middleware\VerifyWorkosWebhookSignature;
 use Authkit\Authkit\Http\SessionCookie;
 use Authkit\Authkit\Listeners\UpsertOrganizationAndMembershipFromLogin;
+use Authkit\Authkit\Listeners\Workos\DeleteOrganizationDomainProjection;
+use Authkit\Authkit\Listeners\Workos\DeleteOrganizationMembershipProjection;
+use Authkit\Authkit\Listeners\Workos\DeleteOrganizationProjection;
+use Authkit\Authkit\Listeners\Workos\DeleteUserProjection;
+use Authkit\Authkit\Listeners\Workos\UpsertOrganizationDomainProjection;
+use Authkit\Authkit\Listeners\Workos\UpsertOrganizationMembershipProjection;
+use Authkit\Authkit\Listeners\Workos\UpsertOrganizationProjection;
+use Authkit\Authkit\Listeners\Workos\UpsertUserProjection;
 use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
 use Authkit\Authkit\Organizations\MembershipProjectionResolver;
 use Authkit\Authkit\Support\AuthkitConfig;
@@ -40,6 +66,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
@@ -197,6 +224,9 @@ class AuthkitServiceProvider extends ServiceProvider
         $router = $this->app->make(Router::class);
         $router->aliasMiddleware('authkit.session', RefreshWorkosSession::class);
         $router->aliasMiddleware('authkit.org', RequireOrganizationContext::class);
+        $router->aliasMiddleware('authkit.webhook', VerifyWorkosWebhookSignature::class);
+
+        $this->registerWebhookRouteMacro($router);
 
         // Deliberately not tied to authkit.org: a route that wants to display
         // the current org (or its absence) without requiring one must be able
@@ -206,6 +236,8 @@ class AuthkitServiceProvider extends ServiceProvider
         });
 
         Event::listen(Login::class, UpsertOrganizationAndMembershipFromLogin::class);
+
+        $this->registerProjectionRefreshListeners();
 
         // RBAC from JWT claims, zero HTTP per check. The hook returns true or
         // null only — a non-null before-result short-circuits every policy, so
@@ -256,7 +288,66 @@ class AuthkitServiceProvider extends ServiceProvider
             AuthkitCommand::class,
             InstallCommand::class,
             InspectTokenCommand::class,
+            MakeWorkosListenerCommand::class,
+            WorkCommand::class,
         ]);
+    }
+
+    /**
+     * Route::workosWebhooks($uri) — one line for an app to receive WorkOS
+     * webhooks behind signature verification. CSRF is excluded in the macro
+     * itself (not left for the app to remember): a webhook POST carries no
+     * browser session or CSRF token, so inside a `web`-grouped routes file it
+     * would otherwise 419 before ever reaching signature verification.
+     */
+    private function registerWebhookRouteMacro(Router $router): void
+    {
+        $router->macro('workosWebhooks', function (string $uri = 'workos/webhooks') use ($router): Route {
+            // String literals filtered by class_exists, not ::class constants:
+            // this package supports Laravel 12 AND 13, whose `web` groups apply
+            // different CSRF middleware classes. Laravel 13 applies
+            // PreventRequestForgery (ValidateCsrfToken is its @deprecated
+            // subclass, and withoutMiddleware() only drops an applied class
+            // that matches exactly or is a SUBCLASS of the excluded one — so
+            // excluding only the deprecated child would silently exclude
+            // nothing). Laravel 12 has no PreventRequestForgery at all and
+            // applies ValidateCsrfToken. Excluding whichever of the two exists
+            // covers both support lanes.
+            $csrfMiddleware = array_values(array_filter([
+                'Illuminate\Foundation\Http\Middleware\PreventRequestForgery',
+                'Illuminate\Foundation\Http\Middleware\ValidateCsrfToken',
+            ], 'class_exists'));
+
+            return $router->post($uri, WorkosWebhookController::class)
+                ->middleware('authkit.webhook')
+                ->withoutMiddleware($csrfMiddleware)
+                ->name('authkit.webhooks');
+        });
+    }
+
+    /**
+     * The events pipeline's fan-out: both transports (the authkit:work poller
+     * and verified webhooks) dispatch the same typed events, and these eight
+     * package-registered listeners keep the declared projections fresh with
+     * zero app code. All eight are idempotent — WorkOS delivery is
+     * at-least-once, so a replayed batch must rewrite the same rows, never
+     * duplicate them.
+     */
+    private function registerProjectionRefreshListeners(): void
+    {
+        Event::listen([UserCreated::class, UserUpdated::class], UpsertUserProjection::class);
+        Event::listen(UserDeleted::class, DeleteUserProjection::class);
+        Event::listen([OrganizationCreated::class, OrganizationUpdated::class], UpsertOrganizationProjection::class);
+        Event::listen(OrganizationDeleted::class, DeleteOrganizationProjection::class);
+        Event::listen([
+            OrganizationDomainCreated::class,
+            OrganizationDomainUpdated::class,
+            OrganizationDomainVerified::class,
+            OrganizationDomainVerificationFailed::class,
+        ], UpsertOrganizationDomainProjection::class);
+        Event::listen(OrganizationDomainDeleted::class, DeleteOrganizationDomainProjection::class);
+        Event::listen([OrganizationMembershipCreated::class, OrganizationMembershipUpdated::class], UpsertOrganizationMembershipProjection::class);
+        Event::listen(OrganizationMembershipDeleted::class, DeleteOrganizationMembershipProjection::class);
     }
 
     private function registerVaultFilesystemDriver(): void

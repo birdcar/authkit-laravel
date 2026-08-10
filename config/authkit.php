@@ -93,9 +93,22 @@ return [
     ],
 
     'events' => [
-        'enabled' => (bool) env('AUTHKIT_EVENTS_ENABLED', true),
+        // Seconds the authkit:work poller sleeps between empty polls.
         'poll_interval' => (int) env('AUTHKIT_EVENTS_POLL_INTERVAL', 5),
-        'cursor_cache_store' => env('AUTHKIT_EVENTS_CURSOR_STORE'),
+        // Events fetched per batch — matches the API's documented 1-100 cap.
+        'batch_limit' => (int) env('AUTHKIT_EVENTS_BATCH_LIMIT', 100),
+        // First-run rangeStart lookback (also the stale-cursor fallback floor).
+        'backfill_minutes' => (int) env('AUTHKIT_EVENTS_BACKFILL_MINUTES', 5),
+        // Seconds; must exceed one batch's worst-case dispatch time — the
+        // poller renews the singleton lock at the top of every loop iteration.
+        'lock_ttl' => (int) env('AUTHKIT_EVENTS_LOCK_TTL', 90),
+    ],
+
+    'webhooks' => [
+        'secret' => env('WORKOS_WEBHOOK_SECRET'),
+        // Seconds a signed timestamp stays valid — matches the SDK
+        // WebhookVerification's own default.
+        'tolerance' => (int) env('AUTHKIT_WEBHOOKS_TOLERANCE', 180),
     ],
 
     'feature_flags' => [

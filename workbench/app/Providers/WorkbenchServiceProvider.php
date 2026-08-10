@@ -44,6 +44,13 @@ class WorkbenchServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // The documented `php artisan dev` recipe for the events worker
+        // (docs/quickstart.md Recipe A) — an app copies this into its own
+        // AppServiceProvider::boot(). Inert here until opted in: the workbench
+        // exercises the worker directly (`php artisan authkit:work`), and the
+        // DevCommands class only exists on Laravel >= 13.16.
         //
+        // \Illuminate\Foundation\DevCommands::artisan('authkit:work', 'authkit-events')->purple();
+        // \Illuminate\Foundation\DevCommands::register('npx @workos/emulate', 'workos-emulate')->orange();
     }
 }

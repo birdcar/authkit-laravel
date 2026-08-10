@@ -1,0 +1,27 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ eventNamespace }};
+
+class {{ class }}
+{
+    /**
+     * Handle the event.
+     *
+     * WorkOS delivers events at-least-once (the sidecar and webhooks can both
+     * redeliver the same event after a crash or retry, each delivery carrying
+     * its own distinct $event->id). Keep this handler idempotent — upsert or
+     * delete-if-exists keyed by the resource's own id ($event->payload['id']
+     * for {{ event }}) — never key on $event->id, which is the Event object's
+     * own id and differs on every delivery, and never assume exactly-once
+     * delivery.
+     */
+    public function handle({{ event }} $event): void
+    {
+        // {{ event }} carries every WorkOS event type outside the bounded
+        // typed set; branch on $event->type for the ones this listener wants:
+        //
+        // if ($event->type === 'dsync.user.created') { ... }
+    }
+}
