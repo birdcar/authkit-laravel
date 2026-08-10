@@ -95,7 +95,8 @@
                 "Authkit\\Authkit\\AuthkitServiceProvider"
             ],
             "aliases": {
-                "Authkit": "Authkit\\Authkit\\Facades\\Authkit"
+                "Authkit": "Authkit\\Authkit\\Facades\\Authkit",
+                "Vault": "Authkit\\Authkit\\Facades\\Vault"
             }
         }
     },

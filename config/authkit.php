@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use Authkit\Authkit\Organizations\MembershipProjectionResolver;
+use Authkit\Authkit\Vault\DefaultVaultKeyContextResolver;
 
 return [
 
@@ -102,7 +103,18 @@ return [
     ],
 
     'vault' => [
-        'key_context' => env('AUTHKIT_VAULT_KEY_CONTEXT'),
+        // Derives the per-attribute encryption key context (the tenant-isolation
+        // boundary for envelope encryption). Any class implementing
+        // Authkit\Authkit\Vault\ResolvesVaultKeyContext.
+        'key_context_resolver' => DefaultVaultKeyContextResolver::class,
+
+        'filesystem' => [
+            // Hard ceiling for a single vault-disk write. There is no streaming
+            // cipher in the SDK — encryption materializes the whole plaintext in
+            // memory at a 3-4x peak, so this guard is what stands between a large
+            // upload and an OOM. Overridable per disk via 'max_encrypt_bytes'.
+            'max_encrypt_bytes' => (int) env('AUTHKIT_VAULT_MAX_ENCRYPT_BYTES', 10 * 1024 * 1024),
+        ],
     ],
 
     'mcp' => [

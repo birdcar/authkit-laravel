@@ -14,7 +14,9 @@ use Authkit\Authkit\Console\Commands\InstallCommand;
 use Authkit\Authkit\Contracts\ResolvesOrganizationMembershipId;
 use Authkit\Authkit\Contracts\WorkosClientManager as WorkosClientManagerContract;
 use Authkit\Authkit\Events\Login;
+use Authkit\Authkit\Exceptions\InvalidVaultKeyContextResolverException;
 use Authkit\Authkit\FeatureFlags\WorkosPennantDriver;
+use Authkit\Authkit\Filesystem\VaultFilesystemAdapter;
 use Authkit\Authkit\Http\JwksGraceCache;
 use Authkit\Authkit\Http\Middleware\RefreshWorkosSession;
 use Authkit\Authkit\Http\Middleware\RequireOrganizationContext;
@@ -24,11 +26,16 @@ use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
 use Authkit\Authkit\Organizations\MembershipProjectionResolver;
 use Authkit\Authkit\Support\AuthkitConfig;
 use Authkit\Authkit\Support\WorkosClientManager;
+use Authkit\Authkit\Vault\DefaultVaultKeyContextResolver;
+use Authkit\Authkit\Vault\ResolvesVaultKeyContext;
+use Authkit\Authkit\Vault\VaultCrypto;
+use Authkit\Authkit\Vault\VaultManager;
 use GuzzleHttp\HandlerStack;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\UserProvider;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Eloquent\Model;
@@ -37,7 +44,9 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 use Laravel\Pennant\Feature;
 use RuntimeException;
 use WorkOS\PKCEHelper;
@@ -133,6 +142,40 @@ class AuthkitServiceProvider extends ServiceProvider
 
             return $instance;
         });
+
+        // Fail fast with an exception naming the config key — a bad class name
+        // would otherwise surface as a raw BindingResolutionException with no
+        // mention of authkit.vault.key_context_resolver, deep inside the first
+        // encrypt call (spec-phase-9 §6/§8 "Config missing" failure mode).
+        $this->app->bind(ResolvesVaultKeyContext::class, function (Container $app): ResolvesVaultKeyContext {
+            $resolverClass = $app->make(Repository::class)->get(
+                'authkit.vault.key_context_resolver',
+                DefaultVaultKeyContextResolver::class,
+            );
+
+            if (! is_string($resolverClass)) {
+                throw InvalidVaultKeyContextResolverException::forConfiguredClass(get_debug_type($resolverClass));
+            }
+
+            try {
+                $resolver = $app->make($resolverClass);
+            } catch (BindingResolutionException $e) {
+                throw InvalidVaultKeyContextResolverException::forConfiguredClass($resolverClass, $e);
+            }
+
+            if (! $resolver instanceof ResolvesVaultKeyContext) {
+                throw InvalidVaultKeyContextResolverException::forConfiguredClass($resolverClass);
+            }
+
+            return $resolver;
+        });
+
+        // Bound (not singleton, despite the spec's snippet) for the same reason
+        // as UserManagement/SessionManager above: both hold the client manager,
+        // and a singleton would pin the pre-swap manager when the MockHandler
+        // test harness forgets the manager instance mid-test.
+        $this->app->bind(VaultCrypto::class);
+        $this->app->bind(VaultManager::class);
     }
 
     /**
@@ -179,6 +222,12 @@ class AuthkitServiceProvider extends ServiceProvider
 
         $this->registerFeatureFlagsDriver();
 
+        // Deliberately BEFORE the console early-return: queue workers and
+        // console commands are exactly where a background job would write to a
+        // vault disk — registering the driver only for HTTP contexts would
+        // silently break console usage.
+        $this->registerVaultFilesystemDriver();
+
         if (! $this->app->runningInConsole()) {
             return;
         }
@@ -208,6 +257,47 @@ class AuthkitServiceProvider extends ServiceProvider
             InstallCommand::class,
             InspectTokenCommand::class,
         ]);
+    }
+
+    private function registerVaultFilesystemDriver(): void
+    {
+        // Storage::extend() rebinds the callback's $this *and its class scope*
+        // to the FilesystemManager (RebindsCallbacksToSelf) — same trap as
+        // Auth::extend() in registerGuard() below, so the closure must not
+        // touch $this or self::.
+        Storage::extend('vault', function (Container $app, array $config): VaultFilesystemAdapter {
+            $diskName = $config['disk'] ?? null;
+
+            if (! is_string($diskName) || $diskName === '') {
+                throw new InvalidArgumentException(
+                    "The 'vault' filesystem driver requires a 'disk' key naming the underlying disk to wrap.",
+                );
+            }
+
+            // The static per-disk key context (the SDK wants
+            // array<string, string>); defaults to ['disk' => name].
+            $context = [];
+
+            if (array_key_exists('context', $config) && is_array($config['context'])) {
+                foreach ($config['context'] as $key => $value) {
+                    if (is_string($key) && is_string($value)) {
+                        $context[$key] = $value;
+                    }
+                }
+            } else {
+                $context = ['disk' => $diskName];
+            }
+
+            $maxEncryptBytes = $config['max_encrypt_bytes']
+                ?? $app->make(Repository::class)->get('authkit.vault.filesystem.max_encrypt_bytes', 10 * 1024 * 1024);
+
+            return new VaultFilesystemAdapter(
+                inner: Storage::disk($diskName),
+                crypto: $app->make(VaultCrypto::class),
+                context: $context,
+                maxEncryptBytes: (int) $maxEncryptBytes,
+            );
+        });
     }
 
     private function registerFeatureFlagsDriver(): void
