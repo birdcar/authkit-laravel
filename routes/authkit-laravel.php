@@ -3,8 +3,17 @@
 declare(strict_types=1);
 
 use Authkit\Authkit\Http\Controllers\AuthKitController;
+use Authkit\Authkit\Http\Controllers\OAuthProtectedResourceMetadataController;
 use Authkit\Authkit\Http\Controllers\SwitchOrganizationController;
 use Illuminate\Support\Facades\Route;
+
+// RFC 9728 fixes this path — registered outside the prefixed group, without
+// the configurable middleware stack, and ABOVE the routes.enabled gate: that
+// toggle exists so apps can own the auth-flow routes, while this document's
+// own feature toggle is the MCP config itself — it soft-404s while
+// authkit_domain/resource_indicator are unconfigured (spec-phase-10 F10).
+Route::get('/.well-known/oauth-protected-resource', OAuthProtectedResourceMetadataController::class)
+    ->name('authkit.oauth-protected-resource');
 
 if (! config('authkit.routes.enabled', true)) {
     return;

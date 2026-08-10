@@ -14,6 +14,12 @@ return [
     'timeout' => (int) env('WORKOS_TIMEOUT', 60),
     'max_retries' => (int) env('WORKOS_MAX_RETRIES', 3),
 
+    // Bare AuthKit auth domain host — e.g. "myapp.authkit.app" or a custom
+    // domain — no scheme. MCP bearer verification derives both the expected
+    // token issuer (https://{authkit_domain}) and the resource-server JWKS URL
+    // (https://{authkit_domain}/oauth2/jwks) from it.
+    'authkit_domain' => env('WORKOS_AUTHKIT_DOMAIN'),
+
     // SessionManager does not verify iss/aud (decodeAccessToken TODO), so the
     // guard layers those checks itself via JwtClaimsValidator.
     //
@@ -139,7 +145,27 @@ return [
     ],
 
     'mcp' => [
-        'resource_indicator' => env('AUTHKIT_MCP_RESOURCE_INDICATOR'),
+        // Must match the Resource Indicator configured under Connect →
+        // Configuration in the WorkOS Dashboard — MCP access tokens carry it
+        // as their `aud` claim, and the authkit.mcp middleware rejects any
+        // token whose `aud` differs.
+        'resource_indicator' => env('WORKOS_MCP_RESOURCE_INDICATOR'),
+
+        // When true, a verified token's `sub` is looked up against the local
+        // user projection (workos_id column) and bound as $request->user().
+        // M2M tokens carry no `sub`; requests proceed with claims only.
+        'resolve_user' => env('WORKOS_MCP_RESOLVE_USER', false),
+
+        // class-string<\Illuminate\Database\Eloquent\Model>|null — overrides
+        // the auth-provider model chain for MCP user resolution only. Set it
+        // directly in the published config file; class-strings are not
+        // single-value env-friendly, so there is no env var.
+        'user_model' => null,
+
+        // array<string>|null — advertised as `scopes_supported` in the
+        // /.well-known/oauth-protected-resource document only when set. Set
+        // directly in the published config file.
+        'scopes' => null,
     ],
 
     'emulate' => [

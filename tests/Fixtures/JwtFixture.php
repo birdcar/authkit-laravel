@@ -42,12 +42,13 @@ final class JwtFixture
 
     /**
      * @param  array<string, mixed>  $claimOverrides
+     * @param  array<string, mixed>  $headerOverrides  e.g. a forged `alg` or an unknown `kid`
      */
-    public static function sign(array $claimOverrides = [], ?string $signingKeyPath = null): string
+    public static function sign(array $claimOverrides = [], ?string $signingKeyPath = null, array $headerOverrides = []): string
     {
         $privateKey = (string) file_get_contents($signingKeyPath ?? self::signingKeyPath());
 
-        $header = ['alg' => 'RS256', 'typ' => 'JWT', 'kid' => self::KEY_ID];
+        $header = array_merge(['alg' => 'RS256', 'typ' => 'JWT', 'kid' => self::KEY_ID], $headerOverrides);
         $payload = array_merge([
             'sub' => 'user_fixture',
             'iss' => self::ISSUER,

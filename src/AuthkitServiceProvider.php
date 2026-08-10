@@ -38,6 +38,7 @@ use Authkit\Authkit\FeatureFlags\WorkosPennantDriver;
 use Authkit\Authkit\Filesystem\VaultFilesystemAdapter;
 use Authkit\Authkit\Http\Controllers\WorkosWebhookController;
 use Authkit\Authkit\Http\JwksGraceCache;
+use Authkit\Authkit\Http\Middleware\AuthenticateMcpToken;
 use Authkit\Authkit\Http\Middleware\RefreshWorkosSession;
 use Authkit\Authkit\Http\Middleware\RequireOrganizationContext;
 use Authkit\Authkit\Http\Middleware\VerifyWorkosWebhookSignature;
@@ -54,6 +55,7 @@ use Authkit\Authkit\Listeners\Workos\UpsertUserProjection;
 use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
 use Authkit\Authkit\Organizations\MembershipProjectionResolver;
 use Authkit\Authkit\Support\AuthkitConfig;
+use Authkit\Authkit\Support\Jwt\JwksVerifier;
 use Authkit\Authkit\Support\WorkosClientManager;
 use Authkit\Authkit\Vault\DefaultVaultKeyContextResolver;
 use Authkit\Authkit\Vault\ResolvesVaultKeyContext;
@@ -219,6 +221,17 @@ class AuthkitServiceProvider extends ServiceProvider
         // test harness forgets the manager instance mid-test.
         $this->app->bind(VaultCrypto::class);
         $this->app->bind(VaultManager::class);
+
+        // Shared URL-parameterized JWKS verification (the MCP resource-server
+        // JWKS lives on a different host/path than the session JWKS). Bound —
+        // not singleton — so the MockHandler harness's mid-test HandlerStack
+        // swap is honored, same rationale as the client bindings above.
+        $this->app->bind(JwksVerifier::class, function (Container $app): JwksVerifier {
+            return new JwksVerifier(
+                $app->make(CacheRepository::class),
+                $app->bound(HandlerStack::class) ? $app->make(HandlerStack::class) : null,
+            );
+        });
     }
 
     /**
@@ -243,6 +256,7 @@ class AuthkitServiceProvider extends ServiceProvider
         $router->aliasMiddleware('authkit.session', RefreshWorkosSession::class);
         $router->aliasMiddleware('authkit.org', RequireOrganizationContext::class);
         $router->aliasMiddleware('authkit.webhook', VerifyWorkosWebhookSignature::class);
+        $router->aliasMiddleware('authkit.mcp', AuthenticateMcpToken::class);
 
         $this->registerWebhookRouteMacro($router);
 

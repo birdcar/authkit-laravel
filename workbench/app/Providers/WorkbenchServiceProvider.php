@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use Workbench\App\Models\Organization;
 use Workbench\App\Models\User;
 
+use function Orchestra\Testbench\workbench_path;
+
 class WorkbenchServiceProvider extends ServiceProvider
 {
     /**
@@ -44,6 +46,13 @@ class WorkbenchServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Testbench's route discovery only recognizes web.php/api.php
+        // (Workbench::discoverRoutes has no 'ai' key), so the laravel/mcp
+        // recipe's routes are loaded explicitly. workbench_path(), not
+        // base_path(): the workbench app boots from a skeleton path where
+        // base_path() does not resolve to this package's workbench/ directory.
+        $this->loadRoutesFrom(workbench_path('routes/ai.php'));
+
         // The documented `php artisan dev` recipe for the events worker
         // (docs/quickstart.md Recipe A) — an app copies this into its own
         // AppServiceProvider::boot(). Inert here until opted in: the workbench

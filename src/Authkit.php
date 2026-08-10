@@ -8,6 +8,7 @@ use Authkit\Authkit\Authorization\FgaChecker;
 use Authkit\Authkit\Authorization\PermissionManager;
 use Authkit\Authkit\Authorization\ResourceManager;
 use Authkit\Authkit\Authorization\RoleManager;
+use Authkit\Authkit\Connect\ConnectManager;
 use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -42,6 +43,15 @@ class Authkit
     public function resources(): ResourceManager
     {
         return app(ResourceManager::class);
+    }
+
+    /**
+     * The Connect OAuth/M2M application registry. Registry data and client
+     * secrets are never persisted locally — WorkOS stays canonical.
+     */
+    public function connect(): ConnectManager
+    {
+        return app(ConnectManager::class);
     }
 
     /**
