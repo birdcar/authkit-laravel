@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 8</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 8</h1>
+      <p class="doc-meta">authkit-laravel-v1 · API Keys Guard · 2026-08-09</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>InteractsWithWorkosApiKeys — <code>expireApiKey()</code> cut (spec §1/§11 scope-expansion flag resolved: not confirmed)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec flagged <code>expireApiKey()</code> / <code>ApiKeys::createApiKeyExpire</code> as scope expansion pending sign-off: the contract's scope row and <code>execution.phases[7].notes</code> both name exactly two write verbs ("issue/revoke"), and the only cited justification was an unquoted "phase direction" source. The spec's directive: confirm against the phase-direction/ideation transcript, and cut if unconfirmable.</dd>
+          <dt>Decision</dt>
+          <dd>Cut. Checked <code>contract-data.json</code> directly: its only two "expire" occurrences are about expired JWTs in the SessionSecurity success criterion — nothing about API keys. No ideation transcript exists in the repo to confirm the phase-direction claim. Per the spec's own instruction, the trait method, its MockHandler test case, and its file-trace rows were all dropped; the shared trait ships <code>revokeApiKey()</code> only.</dd>
+          <dt>Alternative</dt>
+          <dd>Shipping <code>expireApiKey()</code> anyway — rejected because it would be a third WorkOS write verb no canonical artifact approves, exactly what the strict/express-approval contract forbids landing silently.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>ApiKeysTest — emulate 0.6.0 has no org-key CREATE endpoint; create coverage moved to MockHandler, suite gets a dedicated seed file</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §3.6/§6 assumed emulate covers org-scoped create/list/validate ("API-key org endpoints" in the template's coverage list) and assigned <code>createApiKey()</code>'s emulate cases accordingly, plus a tinker playground of <code>Organization::first()->createApiKey('ci-bot')</code>.</dd>
+          <dt>Decision</dt>
+          <dd>Probed <code>@workos/emulate@0.6.0</code>'s route source (<code>dist/workos/routes/api-keys.js</code>): only <code>POST /api_keys/validations</code>, <code>DELETE /api_keys/:id</code>, and <code>GET /organizations/:orgId/api_keys</code> exist — <code>POST /organizations/:orgId/api_keys</code> is unregistered and 404s. Org-scoped <code>createApiKey()</code> is therefore MockHandler-tested (wire-shape assertions), while the emulate suite covers what emulate really implements: seeded-key validation through the guard, Gate integration, listing, revoke-then-revalidate, and the data-shadow case. Additionally, the seed loader (<code>dist/workos/index.js</code>) shows an array-form <code>apiKeys:</code> seed REPLACES the default auth allow-list — <code>sk_test_default</code> stops authenticating — so the suite uses a dedicated <code>workos-emulate-api-keys.config.yaml</code> that re-seeds the SDK admin key, rather than extending the shared fixture and silently 401-ing every other emulate suite.</dd>
+          <dt>Alternative</dt>
+          <dd>Keeping the spec's literal emulate case list (create against emulate can never pass — a permanently red or vacuously skipped test), or seeding <code>apiKeys</code> into the shared fixture (breaks all other emulate-backed suites via the allow-list replacement).</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>ApiKeyAuthenticator / traits — spec §0 assumptions reconciled against the landed Phase 1–3 surface</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The delta was written before Phases 1/3 landed and assumed <code>Authkit::client()</code>, <code>config('auth.providers.users.model')</code>, and <code>config('authkit.organization_model')</code>, instructing the executor to substitute whatever those phases actually shipped.</dd>
+          <dt>Decision</dt>
+          <dd>Guard and traits resolve the SDK through <code>Contracts\WorkosClientManager</code> (constructor-injected in the authenticator, per-call <code>app()</code> in the traits — resolved lazily either way so the MockHandler harness's <code>forgetInstance</code> is honored). User model resolves via <code>config('auth.providers.workos.model', config('auth.providers.users.model'))</code> — the exact chain <code>AuthKitController::userModel()</code> and the projection listeners use — and the org model via <code>authkit.organization.model</code>. <code>MissingModelConfigurationException</code> messages name the real keys. The user model must also be <code>Authenticatable</code> (it becomes the request principal), enforced alongside the Eloquent check.</dd>
+          <dt>Alternative</dt>
+          <dd>Adding an <code>Authkit::client()</code> facade accessor for the spec's literal call shape — a second SDK-access seam Phase 1 deliberately avoided, and one the whole landed codebase already bypasses.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>ApiKeyRequestGuard — RequestGuard subclass whose setRequest() clears the memoized user (Decision 10 kept in substance, not letter)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec Decision 10 registers the guard via <code>Auth::viaRequest()</code>, citing RequestGuard's free per-request memoization. But stock <code>RequestGuard::setRequest()</code> only swaps the request — it keeps <code>$this->user</code> — so in any multi-request process (Octane, embedded kernels, this package's own feature tests) request #2 inherits request #1's principal: a garbage key authenticated as the previous request's actor in the suite, and would in production too.</dd>
+          <dt>Decision</dt>
+          <dd>Registered via <code>Auth::extend('authkit-key', ...)</code> mirroring <code>AuthManager::viaRequest()</code>'s internals line-for-line (same callback shape, same <code>refresh('request', $guard, 'setRequest')</code>), but constructing <code>ApiKeyRequestGuard</code> — a final RequestGuard subclass whose <code>setRequest()</code> nulls the memoized user first. This is the package's established rule: <code>WorkosGuard::setRequest()</code> already resets every per-request conclusion for exactly this reason.</dd>
+          <dt>Alternative</dt>
+          <dd>Literal <code>Auth::viaRequest()</code> plus test-side <code>Auth::forgetGuards()</code> between requests — hides a real cross-request identity leak instead of fixing it, and leaves Octane consumers exposed.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>ApiKeyGateHook — invokable class instead of the spec's provider-inline closure</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §3.4/§5 inline the API-key <code>Gate::before</code> callback directly in <code>AuthkitServiceProvider::boot()</code>.</dd>
+          <dt>Decision</dt>
+          <dd>Shipped as <code>Authorization\ApiKeyGateHook</code>, an invokable final class mirroring Phase 5's landed <code>ClaimsGateHook</code> (same registration shape, same documented true/null-never-false contract, same defensive claim narrowing to <code>list&lt;string&gt;</code>), registered immediately after it in <code>boot()</code>. Identical behavior to the spec's closure; unit-testable directly and consistent with the codebase's one existing Gate-hook pattern.</dd>
+          <dt>Alternative</dt>
+          <dd>The literal inline closure — same semantics, but a second Gate-integration style in one provider and no direct unit-test surface.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 11</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 11</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Pipes · 2026-08-10</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>PipesManager — <code>connect()</code>/<code>disconnect()</code>/<code>import()</code> trimmed per the spec's own scope-traceability directive</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §2 flags these three methods (plus <code>PipesInvalidImportException</code>, Failure Mode 3, and Open Item 3) as "a genuine scope expansion beyond the contract, not a restatement of it": both canonical scope statements — <code>contract-data.json</code> <code>scope.mvp[14]</code> ("$user->connectedAccounts(), access-token fetch with auto-refresh, org provider-config passthrough") and <code>execution.phases[10].notes</code> — name exactly three capabilities. The spec directs that an approver consciously ratify the expansion "or, absent that ratification, trim Component 1 back to the four contract-traceable methods."</dd>
+          <dt>Decision</dt>
+          <dd>Trimmed. This is a headless run with no approver present, so the spec's no-ratification branch governs: shipped <code>connectedAccounts()</code>, <code>accessToken()</code>, <code>providerConfig()</code>, <code>configureProvider()</code>; deferred <code>connect()</code>/<code>disconnect()</code>/<code>import()</code> and the 422 import exception to a future contract amendment. Direct precedent: Phase 8 cut <code>expireApiKey()</code> under the same class of directive. Missing-scope surfacing (Failure Mode 2) is <em>not</em> part of the flagged expansion, so the reauthorization URL is still fetched eagerly on the exceptional branch — via a private <code>authorizeDataIntegration</code> call instead of a public <code>connect()</code>.</dd>
+          <dt>Alternative</dt>
+          <dd>Shipping all seven methods as the spec's Component 1 snippet shows — rejected because the spec itself frames that as requiring conscious ratification no headless run can grant, and the expansion "reading as already-approved" is exactly what §2 warns against.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Registration — no <code>AuthkitServiceProvider</code> change; <code>PipesManager</code> is auto-wired, not a singleton</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §6 says to bind <code>PipesManager</code> as a container singleton in <code>register()</code>. The landed harness contradicts this twice over: every client-holding service is deliberately <em>not</em> a singleton (a singleton pins the pre-<code>fakeWorkosResponses()</code> client manager — the provider's own comments at the <code>AuditLogManager</code>/<code>VaultCrypto</code> bindings), and Phase 12's four managers (Invitation/JwtTemplate/CorsOrigin/Group) ship with no provider binding at all — plain constructor auto-wiring of the <code>Contracts\WorkosClientManager</code> contract.</dd>
+          <dt>Decision</dt>
+          <dd>Follow the landed pattern: <code>PipesManager</code> constructor-injects the contract and resolves by auto-wiring (non-singleton); <code>Authkit::pipes()</code> + the facade <code>@method</code> line are the only registration surface. The MockHandler suite exercises this implicitly — a pinned singleton would make every test in the suite fail on a stale handler stack.</dd>
+          <dt>Alternative</dt>
+          <dd>Spec-literal <code>singleton()</code> — rejected as a known test-harness footgun (Phase 9's recorded rationale); a redundant <code>bind()</code> — rejected because Phase 12 established that auto-wiring needs no explicit binding for concrete managers.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>PipesTest — MockHandler injection via <code>UsesWorkosMockHandler::fakeWorkosResponses()</code> (spec Open Item 2)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's <code>beforeEach</code> assumed a <code>WorkosClientManager::fake(MockHandler)</code> method, flagged as unconfirmed (Open Item 2). No such method exists; the landed mechanism is the <code>tests/Concerns/UsesWorkosMockHandler</code> trait, whose <code>fakeWorkosResponses(array)</code> binds a fresh <code>HandlerStack</code> instance (with history middleware) and forgets the client-manager singleton.</dd>
+          <dt>Decision</dt>
+          <dd>Replaced the spec's setup hook wholesale with <code>uses(UsesWorkosMockHandler::class)</code> + per-test <code>fakeWorkosResponses()</code>, matching every landed MockHandler suite (GroupsTest precedent). Wire assertions ride <code>workosRequestHistory</code>. Spec Open Item 1 resolved the assumed way: <code>Contracts\WorkosClientManager::client(): \WorkOS\WorkOS</code>, constructor-injected.</dd>
+          <dt>Alternative</dt>
+          <dd>Adding a <code>fake()</code> method to the client manager to match the spec snippet — rejected: it would duplicate existing, proven test infrastructure to satisfy an assumption the spec itself marked for confirmation.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>HasWorkosUser — <code>workos_id</code> guard authored locally (no Phase 2 <code>requireWorkosId()</code> exists)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's trait snippet reads <code>$this->workos_id</code> raw and says to prefer a Phase 2 guard method "if Phase 2 lands" one. Phase 2 landed no such guard, and a raw property read is <code>mixed</code> at PHPStan level 7 — every landed trait reads <code>getAttribute('workos_id')</code> with <code>is_string</code> narrowing and throws a descriptive <code>RuntimeException</code> for never-synced models (<code>InteractsWithWorkosApiKeys::workosApiKeyOwnerId()</code> precedent).</dd>
+          <dt>Decision</dt>
+          <dd>Added a private <code>workosPipesUserId(): string</code> to the trait mirroring that precedent; both conveniences call it, so an unlinked user fails loudly before any HTTP request (covered by a test asserting zero requests reach the mock handler).</dd>
+          <dt>Alternative</dt>
+          <dd>Raw <code>$this->workos_id</code> access (spec-literal) — fails static analysis and would send <code>userId: ''</code> to WorkOS for never-linked users, turning a local state error into a confusing remote 4xx.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Workbench demo — controller written by hand; routes reshaped around the trimmed surface</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec Component 6 scaffolds <code>PipesController</code> with <code>php artisan make:controller</code> and registers <code>pipes.index</code>/<code>pipes.connect</code>/<code>pipes.disconnect</code>. No artisan generators run inside <code>workbench/</code> in this harness (Phase 10 precedent — Testbench drives the skeleton), and the connect/disconnect actions wrap methods this phase trimmed. <code>workbench/app</code> is PHPStan-analysed at level 7, so <code>$request->user()</code> needs narrowing before trait-method calls.</dd>
+          <dt>Decision</dt>
+          <dd>Wrote <code>workbench/app/Http/Controllers/PipesController.php</code> directly (first controller in the workbench — new directory) exercising the full shipped surface with zero <code>WorkOS\</code> references: <code>pipes.index</code> (trait <code>connectedAccounts()</code>), <code>pipes.token</code> (trait <code>pipe()</code>, 404 on not-connected, redirect to the exception's <code>reauthorizationUrl</code> on drift — the raw token value deliberately not echoed), and <code>pipes.providers</code>/<code>pipes.providers.update</code> (org passthrough, organization from query/body per the depth-extensions convention). <code>abort_unless($user instanceof User, 401)</code> provides the level-7 narrowing.</dd>
+          <dt>Alternative</dt>
+          <dd>Keeping the spec's three routes with connect/disconnect stubs — rejected: the demo would advertise surface the package no longer ships, defeating its role as the Phase 13 grep-enforcement exemplar.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

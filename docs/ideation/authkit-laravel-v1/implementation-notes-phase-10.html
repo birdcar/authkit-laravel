@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 10</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 10</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Connect &amp; MCP Auth · 2026-08-10</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>JwksVerifier — authored in this phase because Phase 2 shipped no reusable verifier (spec §4.1 / Open Item 1)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec assumed a Phase 2 <code>Authkit\Authkit\Support\Jwt\JwksVerifier</code> generalized by URL, and warned that if Phase 2 shipped something narrower the gap "escalates to a real blocker" to be resolved rather than silently duplicated. Reality is the third branch the spec did not enumerate: Phase 2 shipped <em>no</em> claims-level JWKS verifier at all — session verification delegates to the vendored SDK's private <code>SessionManager::decodeAccessToken()</code>, and the only Phase 2 JWKS component is <code>Http\JwksGraceCache</code>, a Guzzle transport middleware hard-scoped to <code>/sso/jwks/</code> paths.</dd>
+          <dt>Decision</dt>
+          <dd>Author <code>src/Support/Jwt/JwksVerifier.php</code> in this phase to exactly the §4.1 contract (same signature, RS256 allow-list before any fetch, required <code>kid</code>, Laravel-cache-backed TTL fetch, debounced single force-refresh on a <code>kid</code> miss, <code>exp</code> check, no iss/aud), mirroring the SDK's own verification mechanics (openssl_verify + hand-rolled DER SPKI). There is nothing to duplicate — the component simply did not exist — and creating it at the spec's assumed namespace keeps the Phase 13 reconciliation surface zero. Transport uses the container-bound <code>HandlerStack</code> so the MockHandler harness serves JWKS in tests.</dd>
+          <dt>Alternative</dt>
+          <dd>Stopping the phase as blocked (strict-mode HOLD) — rejected because the spec fully specifies the component's contract, making this a well-defined build item, not an underspecified gap; or calling the SDK's private machinery via reflection — rejected as obviously fragile.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Test fixtures — reused Phase 2's <code>JwtFixture</code> instead of creating <code>SelfSignedJwksFixture</code> (spec §7 note / Open Item 2)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's file table lists <code>tests/Fixtures/Jwks/SelfSignedJwksFixture.php</code> but its own note says whichever phase lands first creates the shared fixture and "the other should reuse rather than duplicating." Phase 2 landed first with <code>tests/Fixtures/JwtFixture.php</code>: committed deterministic RSA keys (plus a never-advertised forged key), a <code>jwks()</code> document builder, and a <code>sign()</code> with claim overrides.</dd>
+          <dt>Decision</dt>
+          <dd>Reuse <code>JwtFixture</code>, extending <code>sign()</code> with an additive <code>$headerOverrides</code> parameter (default <code>[]</code>, existing callers unaffected) so the MCP suite can forge <code>alg: none</code>/<code>alg: HS256</code> headers and unknown <code>kid</code>s. The spec's per-run <code>openssl_pkey_new</code> approach was dropped with the fixture — committed keys are the landed convention (SessionSecurity determinism rationale).</dd>
+          <dt>Alternative</dt>
+          <dd>Creating the spec-named fixture anyway — rejected as exactly the duplication the spec's own note forbids.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Config — <code>resource_indicator</code> env var renamed from Phase 1's <code>AUTHKIT_MCP_RESOURCE_INDICATOR</code> to spec-10's <code>WORKOS_MCP_RESOURCE_INDICATOR</code></h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Phase 1 landed a placeholder <code>authkit.mcp.resource_indicator</code> reading <code>AUTHKIT_MCP_RESOURCE_INDICATOR</code> (its spec's config schema). Phase 10's spec §8 names the env vars <code>WORKOS_MCP_RESOURCE_INDICATOR</code>/<code>WORKOS_MCP_RESOLVE_USER</code>/<code>WORKOS_AUTHKIT_DOMAIN</code>, including in the workbench <code>.env.example</code> rows. The two specs conflict.</dd>
+          <dt>Decision</dt>
+          <dd>Follow spec-10 (the phase that actually ships the consumer of the key): grep confirmed zero consumers of the Phase 1 placeholder, and the package is unreleased, so the rename breaks nothing. Flagged here for Phase 13's release review in case the <code>WORKOS_</code>-vs-<code>AUTHKIT_</code> prefix policy gets revisited holistically.</dd>
+          <dt>Alternative</dt>
+          <dd>Keeping the Phase 1 name — rejected because spec-10 is this phase's authority, repeats the name in three places, and the landed name had no consumers to protect.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>ConnectManager — contract injection + auto-wiring instead of the §8 singleton-with-raw-client snippet</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §8 registers <code>ConnectManager</code> as a singleton constructed with <code>WorkosClientManager-&gt;client()</code> (a captured <code>\WorkOS\WorkOS</code> instance). Four landed phases (5/7/8/9) already reconciled this exact snippet shape: a singleton holding a captured client pins the pre-swap client when the MockHandler harness forgets the manager mid-test.</dd>
+          <dt>Decision</dt>
+          <dd><code>ConnectManager</code> constructor-injects the <code>Contracts\WorkosClientManager</code> contract and calls <code>-&gt;client()-&gt;connect()</code> per call (RoleManager precedent, including no explicit container binding — auto-wiring resolves the bound contract). Same reconciliation recorded in the Phase 5/8/9 context maps.</dd>
+          <dt>Alternative</dt>
+          <dd>The literal spec snippet — rejected because it makes every MockHandler test observe a stale handler stack, a bug class this repo has already eliminated twice.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>AuthenticateMcpToken — user-model chain gains the landed <code>auth.providers.workos.model</code> middle link</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §6.3/§8 resolve the MCP user model as <code>authkit.mcp.user_model ?? auth.providers.users.model</code>. The landed convention everywhere else (AuthKitController::userModel(), ResolvesProjectionModels, Phase 4/8 reconciliations) inserts <code>auth.providers.workos.model</code> before the bare users fallback, because that is where this package's own install wiring places the WorkOS-linked model.</dd>
+          <dt>Decision</dt>
+          <dd>Chain is <code>authkit.mcp.user_model ?? auth.providers.workos.model ?? auth.providers.users.model</code>, with level-7 narrowing (is_string / class_exists / is_a Model) and a graceful claims-only no-op when unresolvable — consistent with F15's "no local user is not a failure".</dd>
+          <dt>Alternative</dt>
+          <dd>The spec-literal two-link chain — rejected because a consumer who followed this package's own install docs would then get silent non-resolution on every MCP request.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>JwksUnavailableException — a second exception class beyond the spec's snippet, required by the normative failure table</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §6.3's code snippet catches only <code>InvalidMcpTokenException</code> and <code>JwtVerificationException</code> (both → 401), but failure mode F-jwks-down normatively requires <strong>503, not 401</strong> when the JWKS is unreachable with a cold cache — a case the snippet cannot express if the fetch failure throws the same 401-mapped exception type.</dd>
+          <dt>Decision</dt>
+          <dd><code>Support\Jwt\Exceptions\JwksUnavailableException</code> (deliberately NOT a <code>JwtVerificationException</code> subclass) signals transport failure; the middleware maps it to a 503 JSON response. Covered by two tests (connection failure and cold-cache 5xx).</dd>
+          <dt>Alternative</dt>
+          <dd>Folding fetch failures into <code>JwtVerificationException</code> — rejected because it makes a WorkOS outage indistinguishable from a forged token, exactly what F-jwks-down forbids.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>testbench.yaml — spec's "uncomment WorkbenchServiceProvider" row is a no-op</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §7/§6.5 require uncommenting <code>Workbench\App\Providers\WorkbenchServiceProvider</code> in <code>testbench.yaml</code> ("currently commented out — confirmed by reading the file" at spec-writing time). An earlier landed phase already activated it.</dd>
+          <dt>Decision</dt>
+          <dd>No <code>testbench.yaml</code> change; only the <code>loadRoutesFrom(workbench_path('routes/ai.php'))</code> boot() addition was needed (and the spec's <code>workbench_path()</code>-not-<code>base_path()</code> guidance was followed as written).</dd>
+          <dt>Alternative</dt>
+          <dd>None — the file was already in the target state.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>laravel/mcp recipe — upstream <code>AddWwwAuthenticateHeader</code> rewrites 401 challenges on <code>Mcp::web</code> routes; manual happy-path curl not executable against a fixture domain</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Live workbench check (testbench serve + curl): the well-known document serves the exact F2 shape, and <code>POST /mcp/demo</code> without a token returns 401 — but with <code>WWW-Authenticate: Bearer realm="mcp", error="invalid_token"</code>, because laravel/mcp 0.9.2's own <code>AddWwwAuthenticateHeader</code> route middleware overwrites any 401's challenge header (dropping this package's <code>resource_metadata</code> pointer on that route only). Separately, the spec's second curl (valid fixture token → non-401) cannot run live: the middleware derives the JWKS URL as <code>https://{authkit_domain}/oauth2/jwks</code>, and a fixture domain has no real HTTPS JWKS host to answer.</dd>
+          <dt>Decision</dt>
+          <dd>Recorded as upstream wire behavior, not a package defect: the spec itself scopes the recipe's check to status codes and declares laravel/mcp's wire format out of this package's test contract (§6.5). The 401-without-token composition proof ran live; the token-accepted path is covered by <code>McpAuthenticationTest</code>'s valid-token case (MockHandler-served JWKS through the identical middleware). Consuming apps that need RFC 9728 discovery via the challenge header on laravel/mcp routes should know upstream rewrites it — worth a README/docs callout in Phase 13.</dd>
+          <dt>Alternative</dt>
+          <dd>Wrapping laravel/mcp's route registration to strip its middleware — rejected as fighting the upstream package inside a recipe whose whole point is showing vanilla composition; standing up a local TLS JWKS host for one manual curl — rejected as out of proportion to what it would prove beyond the automated suite.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

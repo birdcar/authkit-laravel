@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 5</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 5</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Authorization (RBAC + FGA) · 2026-08-09</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>Test paths — emulate downgraded to MockHandler for RoleManager CRUD, assignment, and FgaChecker</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §8 puts RoleManager CRUD/assignment and FgaChecker::check() on the emulate path, with two named Open Items requiring empirical verification (check's resource_type handling; membership seedability), each with a sanctioned MockHandler fallback.</dd>
+          <dt>Decision</dt>
+          <dd>Verified empirically against a live @workos/emulate@0.6.0: memberships ARE creatable at runtime (POST user_management/organization_memberships), but the authorization surface has drifted from SDK v9.1 — the check endpoint 422s on the SDK's <code>permission_slug</code> (expects <code>permission</code>), assignRole 422s on <code>role_slug</code> (expects <code>role_id</code>), and role/permission/resource response payloads use a legacy shape missing keys the SDK's fromArray parsers require (<code>resource_type_slug</code>, <code>permissions</code>, <code>system</code>, <code>name</code>). Every non-empty-response case therefore moved to MockHandler per the spec's own fallbacks; one emulate smoke test remains (empty env-role + permission list round-trips, which the SDK parses), matching the one-smoke-test-per-suite precedent from Phases 2–3.</dd>
+          <dt>Alternative</dt>
+          <dd>Keeping role/permission CRUD on emulate as §8's table intended — impossible until emulate catches up to the current Authorization API shapes; the drift details are recorded in the suite's top-of-file comment and context-map.md so a future emulate bump can restore the path.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>WorkosResourcePolicy — instanceof WorkosResource contract instead of class_uses_recursive</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4.6 gates the policy's generic check on <code>in_array(HasWorkosResource::class, class_uses_recursive($resource), true)</code> and then calls trait methods on the model. PHPStan level 7 (enforced by composer analyse) cannot type a "uses trait" narrowing — a <code>Model&amp;HasWorkosResource</code> annotation is an unresolvable type.</dd>
+          <dt>Decision</dt>
+          <dd>Added a <code>Contracts\WorkosResource</code> interface (the four workosResource* methods), satisfied by the trait and declared via <code>@phpstan-require-implements</code>; the policy checks <code>instanceof WorkosResource</code>. This mirrors the package's established WorkosUser/HasWorkosUser pairing (trait satisfies contract, consumers instanceof the contract), so it is the pattern-conformant translation of the spec's intent. Consuming models add <code>implements WorkosResource</code> alongside <code>use HasWorkosResource</code>; the LogicException message names both.</dd>
+          <dt>Alternative</dt>
+          <dd>method_exists() duck-typing with is_string narrowing on every return — PHPStan-clean but unlike anything else in the codebase, and it hides the contract instead of naming it.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>§3a seam — Phase 3 landed first, so the resolver default stays real</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §3a/§7 assume Phase 5 may land before Phase 3 and therefore author ResolvesOrganizationMembershipId, the provider bindIf, and a NullMembershipResolver config default. Phase 3 (commit 952e344) had already shipped the contract, the bindIf, the config key, and a real MembershipProjectionResolver default, plus the guard's accessTokenClaims() accessor.</dd>
+          <dt>Decision</dt>
+          <dd>Did not re-author any of it and kept MembershipProjectionResolver as the shipped default — the seam §3a exists to fill is already filled with the projection-backed resolver the spec says is "Phase 3's job". Phase 5 added only what was still missing: the HasAccessTokenClaims interface (guard now implements it), NullMembershipResolver as an explicit fail-loud opt-out (used by the MembershipNotResolvedException test exactly as §8 prescribes), and MembershipNotResolvedException itself.</dd>
+          <dt>Alternative</dt>
+          <dd>Flipping the config default to NullMembershipResolver to match §6's table literally — strictly worse for consumers (implicit FGA checks would throw until reconfigured) and contrary to the spec's own orchestration note that the real binding is the desired end state.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>ClaimsGateHook — singular role claim checked alongside, not instead of, roles[]</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4.1's snippet uses the singular <code>role</code> claim only when the plural <code>roles</code> key is absent (<code>$claims['roles'] ?? ...</code>), while its prose says the hook "checks both defensively" pending the Phase 1 token audit.</dd>
+          <dt>Decision</dt>
+          <dd>Implemented the prose: permissions[], roles[], and singular role are each checked, and garbage-shaped claims (non-array lists, non-string entries) are filtered rather than fatal — the hook must never error or return false on any token shape. Covered by a dataset test asserting non-false across garbage shapes.</dd>
+          <dt>Alternative</dt>
+          <dd>The snippet's ??-fallback — it would silently skip a valid singular claim whenever a plural key exists but is empty or malformed, and would pass a non-array plural claim straight into in_array().</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>ResourceManager::deleteByExternalId — false cascades to an omitted parameter, not cascade_delete=0</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4.5 gives the wrapper <code>bool $cascadeDelete = false</code>; the SDK's parameter is <code>?bool = null</code> and omits the query parameter entirely when null.</dd>
+          <dt>Decision</dt>
+          <dd>Kept the spec's bool signature but translated false to null at the SDK boundary, so the default delete matches the API's own default wire shape instead of sending cascade_delete=0 on every call.</dd>
+          <dt>Alternative</dt>
+          <dd>Passing the bool straight through — puts a redundant cascade_delete=0 on every default deletion and couples the package's wire shape to http_build_query's bool rendering.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Workbench fixtures — SoftDeletes documented via a subclass, not on Project itself</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §8 suggests giving the workbench fixture SoftDeletes "for this one test" to document Failure Mode 8 (soft delete still deletes the remote FGA resource).</dd>
+          <dt>Decision</dt>
+          <dd>Added a SoftDeletableProject subclass sharing the projects table (which carries deleted_at) instead of putting SoftDeletes on Project — the main fixture keeps hard-delete semantics for the trait's ordinary created/deleted tests, and the divergence test uses the subclass explicitly.</dd>
+          <dt>Alternative</dt>
+          <dd>SoftDeletes directly on Project — every trait test would then exercise soft-delete semantics, leaving the ordinary hard-delete path untested.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

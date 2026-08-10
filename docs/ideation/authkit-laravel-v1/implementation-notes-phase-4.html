@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 4</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 4</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Events Pipeline &amp; Webhooks · 2026-08-09</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>Projection listeners — Phase 1–3 interface names reconciled (spec Open Item 1 resolved)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's Prerequisites table assumed <code>Authkit\Authkit\Models\OrganizationDomain</code>/<code>OrganizationMembership</code>, config key <code>authkit.organizations.model</code> (plural), and user resolution via <code>auth.providers.users.model</code>, flagging all three as the phase's biggest accuracy risk.</dd>
+          <dt>Decision</dt>
+          <dd>Reconciled against landed code: models are <code>WorkosOrganizationDomain</code> (columns workos_id/organization_id/domain/state/verification_prefix/verification_token) and <code>WorkosMembership</code> (workos_id/organization_id/user_id/role/status); the org config key is singular <code>authkit.organization.model</code> and may be null (org listeners no-op then, mirroring <code>UpsertOrganizationAndMembershipFromLogin</code>); the user model resolves through <code>auth.providers.workos.model</code> falling back to <code>auth.providers.users.model</code> (the <code>AuthKitController::userModel()</code> chain), so the projection always refreshes the row the guard retrieves.</dd>
+          <dt>Alternative</dt>
+          <dd>Implementing the spec's literal names — every domain/membership listener would target nonexistent classes and the user projection could refresh a different table than the guard reads.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>UpsertUserProjection — column mapping and collision semantics for the landed users table</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's listener body writes <code>['external_id' => ...]</code> but flags it "illustrative — verify column names before implementing". The landed users table has no external_id column: it is the skeleton (name NOT NULL, email unique, password nullable) plus Phase 2's nullable-unique workos_id.</dd>
+          <dt>Decision</dt>
+          <dd>Upsert keyed on workos_id writes email + display name (name ?? trim(first last) — the HasWorkosUser derivation). Link-by-email only when the payload says email_verified, mirroring the trait's account-takeover gate. An UNVERIFIED collision with an existing local email logs a warning and skips instead of throwing: a throwing poller listener would replay the same batch forever (poison event), unlike the login flow where the same collision throws to a human. A brand-new row floors name at '' to satisfy NOT NULL name columns for name-less WorkOS users (the trait does the same at creation); an existing row's name is never clobbered by a name-less payload.</dd>
+          <dt>Alternative</dt>
+          <dd>Blind updateOrCreate on workos_id — first unverified-email collision would crash the batch with a unique-constraint violation and stall the cursor permanently.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Webhook macro — CSRF exclusion covers both supported Laravel majors, via class_exists-filtered strings</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec excludes only <code>PreventRequestForgery</code>, correct for the vendored Laravel 13.24 where it is what the web group applies. But composer supports <code>^12.0||^13.0</code> and CI runs PHPStan + the suite on Laravel 12, where PreventRequestForgery does not exist and the web group applies <code>ValidateCsrfToken</code> — excluding only the L13 class would 419 every webhook POST on L12, and referencing it as a ::class import would fail PHPStan on the L12 lanes.</dd>
+          <dt>Decision</dt>
+          <dd>The macro excludes <code>array_filter(['...PreventRequestForgery', '...ValidateCsrfToken'], 'class_exists')</code> as string literals: on L13 the applied parent matches exactly (the deprecated-child entry is harmless), on L12 ValidateCsrfToken matches exactly. A dedicated test asserts both are in the route's excludedMiddleware() — postJson cases alone cannot prove it because PreventRequestForgery bypasses itself under runningUnitTests(), exactly as the spec warned.</dd>
+          <dt>Alternative</dt>
+          <dd>Excluding only the spec's single class (breaks the entire webhook surface on Laravel 12), or dropping L12 support (out of this phase's authority).</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Daemon-loop regression test — sentinel listener exception instead of the spec's OS signal</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's component-5 experiment stops the no-<code>--once</code> daemon with a signal after two empty batches to prove lock renewal (refresh vs get). But Command::trap() is a framework-enforced no-op in tests: ArtisanServiceProvider's Signals availability resolver requires <code>! runningUnitTests()</code>, so a real SIGINT kills the whole pest process (observed: exit 130).</dd>
+          <dt>Decision</dt>
+          <dd>The daemon is stopped by a listener that throws a sentinel RuntimeException on the third batch. Reaching batch 3 proves two full loop iterations — two successful in-loop <code>refresh()</code> calls on the held lock — completed without the lock-loss FAILURE branch, which is the regression the experiment targets; a <code>get()</code> regression fails this test immediately. Real signal handling remains covered by the spec's manual-testing checklist (SIGTERM on a Unix dev machine).</dd>
+          <dt>Alternative</dt>
+          <dd>Force-overriding Signals::resolveAvailabilityUsing() mid-test to allow posix_kill on the pest process — mutates internal framework statics and leaves the test runner's signal disposition altered on failure paths.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>WorkCommand — processor is method-injected into handle(), not constructor-injected</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's snippet constructor-injects EventBatchProcessor. Artisan instantiates registered commands once per console process, so a constructor-held processor pins whichever client manager existed at console boot.</dd>
+          <dt>Decision</dt>
+          <dd>handle(EventBatchProcessor $processor) resolves at execution time, picking up the current container state — required for the MockHandler harness (fakeWorkosResponses() forgets the manager instance after commands are already instantiated) and consistent with the provider's bind-not-singleton policy for SDK-derived services.</dd>
+          <dt>Alternative</dt>
+          <dd>Constructor injection per the spec's literal snippet — every worker test would silently hit the real HandlerStack instead of the queued MockHandler responses.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Events suites — MockHandler-primary with one emulate smoke test (sanctioned downgrade, evidence recorded)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's Feedback Strategy runs the whole events suite against emulate. Live probing of @workos/emulate@0.6.0 found: GET /events parses via EventSchema::fromArray and seeded users/orgs/domains emit *.created events (wire fidelity works), but an unresolvable <code>after</code> cursor returns 200 with the full list — never the 400/404 the stale-cursor fallback catches — and <code>range_start</code> format is not validated (date-only accepted), so neither spec-critical path is exercisable against emulate.</dd>
+          <dt>Decision</dt>
+          <dd>Per the contract's truth bar ("MockHandler fakes only where emulate lacks coverage") and the Phase 2/3/5/7/9 one-smoke-test precedent: EventsWorkerTest keeps one emulate smoke test (seeded events walked over the real wire, cursor advance + second-poll-empty), everything else — cursor-commit timing, stale-cursor fallback, exact range_start format regex, crash/resume determinism — is MockHandler-backed and therefore also runs on the Windows CI lane, where the named success-criterion suites must pass and emulate is unavailable.</dd>
+          <dt>Alternative</dt>
+          <dd>Seeding 10-event batches into emulate at runtime for the resume suite — portable only to POSIX CI, and still unable to produce the 400-stale-cursor or format-rejection behaviors the spec's experiments demand.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>config/authkit.php — events subtree placeholders replaced, not appended around</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Phase 1 shipped an <code>events</code> subtree with <code>enabled</code> and <code>cursor_cache_store</code> placeholder keys no code reads (grep-verified); the spec's Data Model defines the subtree as poll_interval/batch_limit/backfill_minutes/lock_ttl.</dd>
+          <dt>Decision</dt>
+          <dd>This phase owns the subtree (Phase 9 precedent with the vault placeholder): dead keys removed, spec keys added, existing poll_interval kept. The cursor is DB-backed by contract decision, so cursor_cache_store could never have a consumer; an unread enabled flag would imply a gate the worker doesn't implement.</dd>
+          <dt>Alternative</dt>
+          <dd>Keeping the dead keys alongside the real ones — config that promises behavior nothing implements.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>php artisan dev integration — vendored 13.24 deprioritizes vendor registrations instead of refusing them; docs-only stance kept (spec Open Item 2)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's Component 10 (researched against 13.16) states DevCommands "explicitly refuses" vendor-sourced registration, and ships two documented recipes instead of package code, instructing re-verification at implementation time and to "ship both documented recipes regardless of which one turns out current".</dd>
+          <dt>Decision</dt>
+          <dd>Vendored 13.24 reality: resolvePriority() assigns vendor-sourced calls PRIORITY_VENDOR (1) vs userland (2) — registrations from vendor/ DO register and appear in `dev`, but any same-name userland registration overrides them. Both recipes shipped in docs/quickstart.md plus the inert commented example in WorkbenchServiceProvider::boot(), per the Open Item's explicit instruction. Package self-registration would be new cross-version runtime surface (DevCommands does not exist on Laravel 12) beyond this phase's scope — left for a later phase to promote deliberately.</dd>
+          <dt>Alternative</dt>
+          <dd>Self-registering authkit:work from AuthkitServiceProvider behind class_exists(DevCommands::class) — now technically possible, but unspecced behavior the contract's decision log never re-approved after the 13.16 finding.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>workbench/routes/web.php — macro call guarded with Route::hasMacro (codebase surprise: Larastan boots workbench routes)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's workbench example is a bare <code>Route::workosWebhooks('workos/webhooks');</code>. Larastan's application bootstrap loads workbench routes without the package provider's boot() having registered the macro — PHPStan then died with exit 1 and literally zero output (a uniquely silent failure worth recording: bisected by stashing the routes file).</dd>
+          <dt>Decision</dt>
+          <dd>Wrapped the call in <code>if (Route::hasMacro('workosWebhooks'))</code>. The Phase 13 grep target (<code>Route::workosWebhooks(</code>, zero SDK references) is intact, <code>composer serve</code> still registers the route, and every analysis/bootstrap path that loads routes before package boot degrades gracefully.</dd>
+          <dt>Alternative</dt>
+          <dd>Moving the example into a workbench provider boot callback — hides the one-line-in-routes-file usage the docs promise apps.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>WorkCommand — refresh() lives on the abstract Illuminate\Cache\Lock, not the Lock contract; instanceof guard added</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's lock-renewal rationale cites ArrayLock::refresh(). Cache::lock() is typed to the <code>Illuminate\Contracts\Cache\Lock</code> CONTRACT, which has no refresh() — the method exists on the abstract <code>Illuminate\Cache\Lock</code> every framework driver extends (and the base implementation throws for drivers that don't override it, e.g. CacheLock-based stores).</dd>
+          <dt>Decision</dt>
+          <dd>The command narrows with <code>instanceof Illuminate\Cache\Lock</code> and exits FAILURE with a store-naming error when a custom store returns a bare contract implementation — renewal-incapable locks must fail loudly before the loop, not silently race a second poller after TTL lapse.</dd>
+          <dt>Alternative</dt>
+          <dd>Calling refresh() unchecked — passes at runtime for every framework driver but is a PHPStan level 7 error and an undefined-method fatal for contract-only custom locks.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>docs/quickstart.md — created fresh; the "earlier phase" that was to create it never did</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's Modified Files row says "docs/quickstart.md (created by an earlier phase; append here)". No landed phase created it — docs/ holds only the token-audit files.</dd>
+          <dt>Decision</dt>
+          <dd>Created the file seeded with exactly this phase's content (WORKOS_WEBHOOK_SECRET, running authkit:work, webhook route macro, both dev recipes) and a header noting the acceptance phase assembles the full quickstart.</dd>
+          <dt>Alternative</dt>
+          <dd>Appending the sections to README.md — would scatter quickstart content across two homes and break the spec's file-path promise for later phases that append to docs/quickstart.md.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

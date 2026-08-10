@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 9</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 9</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Vault · 2026-08-09</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>VaultCrypto / VaultManager — constructor-inject the WorkosClientManager contract, not \WorkOS\WorkOS (spec Open Item 1 resolved)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4's class bodies constructor-inject <code>\WorkOS\WorkOS $client</code> and Open Item 1 flags this as an assumption: "If Phase 1 instead exposes it only through an intermediary method ... every constructor-injected \WorkOS\WorkOS $client needs updating."</dd>
+          <dt>Decision</dt>
+          <dd>Phase 1 binds only <code>Contracts\WorkosClientManager</code> (singleton with a <code>client(): WorkOS</code> accessor); no <code>\WorkOS\WorkOS</code> container binding exists. Both classes inject the contract and call <code>->client()->vault()</code> per call — the Phase 5/7 precedent — so the memoized client (and any swapped Guzzle handler stack) is picked up lazily.</dd>
+          <dt>Alternative</dt>
+          <dd>Adding a <code>\WorkOS\WorkOS</code> container binding for the spec's literal signature — a second SDK-access seam the Phase 1 design deliberately avoids, and one the MockHandler harness (which forgets the manager instance) would not refresh.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Service provider — VaultCrypto/VaultManager registered as bind(), not the spec's singleton()</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §6 registers both as <code>$this->app->singleton(...)</code>.</dd>
+          <dt>Decision</dt>
+          <dd>Registered with <code>bind()</code> (transient), mirroring the provider's own comment on <code>UserManagement</code>/<code>SessionManager</code>/<code>PKCEHelper</code>: "Bound (not singleton) so swapping the handler stack mid-test is picked up." <code>UsesWorkosMockHandler::fakeWorkosResponses()</code> works by forgetting the client-manager instance; a singleton VaultCrypto resolved before the fake would pin the pre-swap manager and every crypto call would hit the stale handler. Both classes are stateless, so nothing is lost.</dd>
+          <dt>Alternative</dt>
+          <dd>Spec-literal singletons — correct in production but silently incompatible with the landed test harness's swap mechanism, failing exactly the way the harness comment warns about.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Storage::extend('vault') — the creator closure must not touch $this (RebindsCallbacksToSelf)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's boot() snippet is a plain closure, and a first implementation pass factored the key-context narrowing into a private provider method called via <code>$this->vaultDiskContext(...)</code> inside the closure.</dd>
+          <dt>Decision</dt>
+          <dd>Laravel 12's <code>FilesystemManager::extend()</code> rebinds the callback's <code>$this</code> <em>and its class scope</em> to the FilesystemManager (<code>RebindsCallbacksToSelf</code>) — the identical trap <code>registerGuard()</code> already documents for <code>Auth::extend()</code>. PHPStan caught the miswire ("Call to an undefined method ...::vaultDiskContext()"); the narrowing is inlined into the closure and a comment mirrors the registerGuard warning.</dd>
+          <dt>Alternative</dt>
+          <dd>A static helper called via <code>self::</code> — also rebound (class scope moves too), same fatal at first disk resolution.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>config/authkit.php — Phase 1's dead vault.key_context placeholder replaced by the phase's real schema</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §5 says the phase "only adds its own subtree" (<code>key_context_resolver</code>, <code>filesystem.max_encrypt_bytes</code>). The file already carried a <code>vault</code> subtree holding a single <code>'key_context' => env('AUTHKIT_VAULT_KEY_CONTEXT')</code> entry that no code in any landed phase reads, and which no component of this phase's design (context comes from the resolver, not a static env string) can consume.</dd>
+          <dt>Decision</dt>
+          <dd>Replaced the placeholder with the two real keys. Leaving it would be an active silent-failure surface: a user setting <code>AUTHKIT_VAULT_KEY_CONTEXT</code> expecting it to steer encryption would get no effect at all — the exact class of silent key-context failure §8 warns about. <code>max_encrypt_bytes</code> gained an <code>AUTHKIT_VAULT_MAX_ENCRYPT_BYTES</code> env knob per the file's every-scalar-is-env-backed convention.</dd>
+          <dt>Alternative</dt>
+          <dd>Keeping both keys side by side — no consumer, misleading name adjacency (<code>key_context</code> vs <code>key_context_resolver</code>), and the config schema test would happily bless the dead entry forever.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>ResolvesVaultKeyContext binding — guards beyond the spec's BindingResolutionException catch</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §6's binding only catches <code>BindingResolutionException</code>. A config value naming a resolvable class that does <em>not</em> implement the interface (e.g. <code>stdClass</code>), or a non-string value, would escape as a TypeError deep inside VaultCrypto's constructor with no mention of the config key.</dd>
+          <dt>Decision</dt>
+          <dd>Mirrored the landed <code>membership_resolver</code> binding precedent: <code>is_string</code> narrowing plus an <code>instanceof</code> check, both throwing the same <code>InvalidVaultKeyContextResolverException</code>; the factory's <code>$previous</code> parameter is optional to serve the instanceof path. All failure shapes now name <code>authkit.vault.key_context_resolver</code>.</dd>
+          <dt>Alternative</dt>
+          <dd>Spec-literal try/catch only — leaves two misconfiguration shapes failing with raw container/type errors, contradicting the failure-mode row the binding exists to fix.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>DefaultVaultKeyContextResolver — override merge narrows to array&lt;string, string&gt;, stringifying scalars</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4.1 merges a model's <code>vaultKeyContext()</code> override with a bare <code>array_merge()</code>; the SDK's <code>createDataKey(array $context)</code> is typed <code>array&lt;string, string&gt;</code> and PHPStan level 7 rejects merging an unvalidated array into that shape.</dd>
+          <dt>Decision</dt>
+          <dd>The merge keeps string keys only and casts scalar values (int tenant ids, bools) to string rather than dropping them — dropping a context key would be a silent key-context drift, the phase's own headline failure mode. Non-scalar values are ignored. Same-key semantics match array_merge (override wins, base keys survive unless redefined); the override hook still short-circuits ahead of the org duck-type hook exactly as specced.</dd>
+          <dt>Alternative</dt>
+          <dd>Strict is_string-only filtering (drops an int tenant id → two tenants silently share a KEK) or throwing on non-strings (turns a recoverable representation issue into a runtime crash mid-save).</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Tests — UsesWorkosMockHandler instead of the spec's raw fakeVaultRoundTrip(); interface-vs-class toThrow nuance</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec Open Item 2 says to prefer a Phase 1 shared MockHandler helper over the spec's self-sufficient <code>fakeVaultRoundTrip()</code> (which constructs <code>new WorkOS(...)</code> directly) if one exists.</dd>
+          <dt>Decision</dt>
+          <dd>The landed <code>UsesWorkosMockHandler::fakeWorkosResponses()</code> is that helper; every Vault test routes through it (queue assertions via <code>$this->workosMockHandler->count()</code>, wire assertions via <code>$this->workosRequestHistory</code>). The same-key round-trip pattern is kept per file as a small response builder. One nuance: <code>WorkOSException</code> is an interface, and Pest's <code>toThrow()</code> treats non-<code>class_exists</code> strings as message substrings — the outage test catches the concrete <code>ServerException</code> and asserts <code>instanceof WorkOSException</code> instead.</dd>
+          <dt>Alternative</dt>
+          <dd>Spec-literal <code>app()->instance(WorkOS::class, ...)</code> — bypasses the client-manager seam the whole package resolves through, so the code under test would exercise a client the production path never constructs.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>VaultFilesystemAdapter::readStream() — native mixed return for the 100% type-coverage gate</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>PHP has no <code>resource</code> return type; the contract method is untyped and pest's type-coverage plugin does not count the <code>@return resource|null</code> docblock (suite gate is <code>--min=100</code>).</dd>
+          <dt>Decision</dt>
+          <dd>Declared <code>: mixed</code> natively (legal covariance against the untyped interface method) and kept the docblock as the real contract.</dd>
+          <dt>Alternative</dt>
+          <dd>Lowering the type-coverage floor or excluding the file — both weaken a repo-wide gate for one unrepresentable type.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Pre-existing parallel flake observed once: InstallIdempotentTest's config republish raced a sibling worker's app boot</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>One <code>composer test</code> run failed in <code>AuthenticationFlowTest</code> with <code>array_merge(): Argument #2 must be of type array, int given</code> inside <code>mergeConfigFrom()</code> — <code>require</code> of a mid-rewrite skeleton <code>config/authkit.php</code> returns int 1, so <code>config('authkit')</code> was momentarily an int. InstallIdempotentTest documents this exact "config-file race" (it republishes with <code>--force</code> into the skeleton config dir shared across parallel workers); this phase's config edit changed the file hash, making the rewrite non-trivial for the first time since Phase 2.</dd>
+          <dt>Decision</dt>
+          <dd>Not fixed here — out of this phase's scope (no Vault file is involved; the race predates the phase and is owned by the install-test design). Recorded so Phase 13's CI recipe work (which already owns the config:cache smoke-check follow-up) can pick it up. Validation was re-run and is green.</dd>
+          <dt>Alternative</dt>
+          <dd>Reworking InstallIdempotentTest's publish lifecycle in this commit — touches an unrelated Phase 1 test file, against the one-feature-at-a-time working rule.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

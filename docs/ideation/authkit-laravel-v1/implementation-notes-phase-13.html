@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 13</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 13</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Depth Extensions (Full Tier) · 2026-08-10</p>
+    </header>
+    <main class="doc-content">
+      <h1>Implementation Notes — Phase 13</h1>
+      <p class="meta">Integration, Quickstart &amp; Release Readiness — decisions not covered by the spec, for human review.</p>
+
+      <section class="note-entry">
+        <h3>AuthkitConfig — found bug: baseUrl() ignored the emulate override (the phase's one src/ change)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec allows src/ changes only for a real gap found by this phase's audits. The Acceptance suite's first full emulate login found one: <code>AuthkitConfig::baseUrl()</code> read <code>authkit.base_url</code> directly, so the workos guard's JWKS verification (and logout URLs) talked to production WorkOS even with <code>authkit.emulate.enabled</code> on — an emulate-backed login minted sessions the guard then rejected. No landed test had ever authenticated the guard against emulate (all guard tests are MockHandler-backed), so the gap was invisible until now.</dd>
+          <dt>Decision</dt>
+          <dd>Made <code>AuthkitConfig::baseUrl()</code> emulate-aware, mirroring <code>WorkosClientManager::fromConfig()</code>'s exact branch. Cites Phase 1's emulate promise: the whole package follows the override, not just the SDK client. Two call sites benefit (guard registration, logout request).</dd>
+          <dt>Alternative</dt>
+          <dd>Passing the client manager's base URL into the guard instead — rejected as a wider refactor; the config accessor is the single shared source both call sites already use.</dd>
+        </dl>
+      </section>
+
+
+      <section class="note-entry">
+        <h3>Service provider — found gap: no default workos guard entry (second pre-authorized src/ fix)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>progress.md's "Known Gaps To Fold In Later" recorded: authkit:install does not write config/auth.php guard/provider entries, so "a consumer running only the installer gets 'Auth guard [workos] is not defined'" — explicitly assigned to be fixed "before/within Phase 13 acceptance". The spec's Assumed Interfaces table names the Phase 1 promise as "registers routes + guard"; routes and the guard DRIVER were wired, the guard ENTRY never was — exactly the spec's found-bug clause ("a mechanism named in the contract that never got wired into AuthkitServiceProvider").</dd>
+          <dt>Decision</dt>
+          <dd>register() now seeds <code>auth.guards.workos =&gt; ['driver' =&gt; 'workos', 'provider' =&gt; 'users']</code> with the consumer's own entry winning the merge — byte-for-byte the landed authkit-key default-entry pattern sitting directly above it. Two IdiomCoverage tests prove the seed and the consumer-wins merge. Quickstart step 3 and the Boost skill drop the config/auth.php edit (the model trait/contract wiring remains — the callback requires WorkosUser).</dd>
+          <dt>Alternative</dt>
+          <dd>Teaching authkit:install to edit config/auth.php — rejected: config file mutation is fragile across app styles, and the provider-seeded default (consumer wins) is the pattern this repo already established for authkit-key.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Component 1 — dedicated acceptance emulate seed instead of expanding the shared fixture</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec expands the root emulate seed with roles/permissions/memberships. Landed reality: seeds live per-suite under tests/Fixtures/, and AuthorizationTest's emulate smoke asserts EMPTY environment role/permission lists against the shared fixture (emulate 0.6.0's non-empty payloads are unparseable by SDK v9.1 — Phase 5's recorded finding). Seeding roles there would break a landed suite.</dd>
+          <dt>Decision</dt>
+          <dd>New <code>tests/Fixtures/workos-emulate-acceptance.config.yaml</code> (pinned user/org ids, membership with admin role carrying posts.manage, invitation, connect application, jwtTemplate) — the established dedicated-seed pattern (api-keys, depth fixtures). The workbench seeder's primary user matches its identity so <code>composer serve</code> against this seed links the same row. Also: emulate 0.6.0's seed schema DOES support memberships (organizations[].memberships by email) — Phase 3's "cannot seed memberships" note is outdated.</dd>
+          <dt>Alternative</dt>
+          <dd>Expanding the shared fixture as written — rejected: breaks AuthorizationTest's empty-list wire smoke.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Component 5 — Vault cast demo reuses VaultDemoRecord; Post secret_note changes dropped</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec adds a Vaulted-cast <code>secret_note</code> column to Post (+ migration + factory value) "to reuse the existing demo model instead of introducing a new one". Phase 9 already shipped exactly such a model: <code>VaultDemoRecord</code> with a Vaulted <code>secret</code> column.</dd>
+          <dt>Decision</dt>
+          <dd>VaultDemoController round-trips through VaultDemoRecord; the Post migration/factory/model changes are dropped (three fewer files, same proof, honoring the spec's own reuse rationale). Vault facade calls reconciled to the landed API: <code>Vault::set($keyContext, $name, $value)</code> / <code>Vault::get($name)-&gt;value</code>, and the filesystem driver's config shape is <code>['driver' =&gt; 'vault', 'disk' =&gt; 'local']</code> (not 'wraps'). Emulate has zero Vault routes, so the route documents that it needs live credentials — Vault's CI proof stays in its MockHandler suite.</dd>
+          <dt>Alternative</dt>
+          <dd>Adding secret_note to Post anyway — rejected as duplicate demo surface.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Component 6 — Acceptance mechanics reconciled to landed code</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec placeholders: <code>Authkit::users()-&gt;getUserByExternalId()</code> (no such accessor exists), <code>$this-&gt;actingAs($user, 'workos')</code> before <code>$user-&gt;can()</code> (the claims Gate hook reads the guard's sealed-session claims — actingAs carries none, so it would prove nothing), and a route middleware alias 'workos' (none exists).</dd>
+          <dt>Decision</dt>
+          <dd>External-id linkage asserted through the container-bound <code>WorkOS\Service\UserManagement</code> (the landed test-side accessor pattern); can() assertions made through real HTTP requests with the sealed cookie against the workbench /dashboard and /demo/rbac routes (positive AND negative permission), matching AuthorizationMockTest's precedent and proving the demo surface at the same time; routes use <code>auth:workos</code>. The suite boots the actual workbench app via Testbench's WithWorkbench. Issuer config cleared in-test (enforcement is opt-in pending the token audit; emulate mints its own base URL as iss). JSON requests carry test cookies only with <code>withCredentials()</code> — a Laravel test-harness quirk worth knowing.</dd>
+          <dt>Alternative</dt>
+          <dd>Faking claims via actingAs or MockHandler — rejected: the contract requires the emulate-backed wire journey.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Component 8 — IdiomCoverage: both Open-Item gaps closed, without fabricating a Blade directive</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec left two named gaps: the route-macro assertion (no confirmed name at authoring time) and the Gate/Blade-directive assertion, with instructions to close both once real names were known and never to ship a tautology.</dd>
+          <dt>Decision</dt>
+          <dd>Route macro confirmed and asserted: <code>Route::hasMacro('workosWebhooks')</code>, plus <code>Request::hasMacro('organization')</code>. For Gate/Blade: no phase shipped (or promised, in any spec) a custom Blade directive — the landed mechanism behind the contract's "Gate/Blade directives" idiom is the pair of Gate::before hooks, which Laravel's built-in @can rides. Asserted behaviorally: an undefined ability allowed solely via a WorkosApiKeyActor's key permissions proves the hook is registered; the claims-side hook is proven end-to-end by the Acceptance suite.</dd>
+          <dt>Alternative</dt>
+          <dd>Inventing and registering a new Blade directive to satisfy the idiom's letter — rejected: that would be new public API this release phase must not add.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Component 9 — zero-SDK grep test skipped on Windows</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The test shells out to real grep (the spec's drift-free choice); Windows CI cells run <code>vendor/bin/pest</code> but have no grep.</dd>
+          <dt>Decision</dt>
+          <dd>Skip on <code>PHP_OS_FAMILY === 'Windows'</code> with an explanatory reason; the ubuntu matrix cells carry the gate. Also: the path resolves from the test file (<code>dirname(__DIR__, 2)</code>) because <code>base_path()</code> in package tests is the Testbench skeleton, not this repo — the spec snippet's base_path('workbench') would grep an empty directory and pass vacuously.</dd>
+          <dt>Alternative</dt>
+          <dd>A PHP reimplementation of the regex (runs everywhere) — rejected per the spec's own drift argument.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>CI workflow — priming step instead of an external emulate boot</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's CI component assumed an externally-booted emulate at a fixed port with WORKOS_BASE_URL/WORKOS_API_KEY exported. Landed reality (spec Open Item 6's anticipated branch): every emulate-backed suite boots its own EmulateServer per suite with its own port and seed; nothing reads those env vars, and TestCase pins all config hermetically.</dd>
+          <dt>Decision</dt>
+          <dd>The ubuntu-only CI step warms the npx cache and runs <code>--validate-config</code> across all four seed fixtures — de-flaking in-suite cold boots (60s health budget) and failing loudly on a malformed seed. Windows exclusion is by EmulateServer design, not a CI gap. The spec's Windows Start-Process failure mode is moot under this architecture.</dd>
+          <dt>Alternative</dt>
+          <dd>A bespoke background boot + health poll + env export — rejected as dead configuration nothing consumes.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Component 10 — quickstart has 5 numbered steps, not the spec's 4</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's draft omitted auth wiring because it assumed <code>authkit:install</code> "registers routes + guard". The landed installer publishes config/migrations and writes env keys but deliberately does not edit config/auth.php or the User model — so a 4-step doc would leave the human trial without a working guard, failing the very criterion the doc exists to meet.</dd>
+          <dt>Decision</dt>
+          <dd>An honest step 3 ("wire your user model and guard") was added: 5 numbered top-level steps, within the contract's mechanical ≤5 ceiling (grep check prints 5). Phase 4's events/webhooks/dev-wiring content is retained below the steps as unnumbered reference sections.</dd>
+          <dt>Alternative</dt>
+          <dd>Folding the wiring into step 2's sub-details to keep the 4-step margin — rejected: two file edits hidden in prose is how a timed trial stalls.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Component 4 — listener hand-written; trigger command uses the org trait</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec generates LogWorkosEvents via <code>make:workos-listener</code> from the workbench context and leaves demo:trigger-event's write unspecified ("whichever package-level call actually exposes a mutating write").</dd>
+          <dt>Decision</dt>
+          <dd>LogWorkosEvents is hand-written under workbench/app/Listeners (the recorded Phase 10/11 convention: no artisan generators inside workbench; the generator itself is covered by MakeWorkosListenerTest), registered via Event::listen in WorkbenchServiceProvider::boot(). demo:trigger-event creates a local Organization — HasWorkosOrganization's observer registers it with WorkOS, producing organization.created with zero SDK references.</dd>
+          <dt>Alternative</dt>
+          <dd>Running the generator against the Testbench skeleton and relocating the file — rejected: produces churn in a shared skeleton other parallel suites read.</dd>
+        </dl>
+      </section>
+</main>
+  </body>
+</html>

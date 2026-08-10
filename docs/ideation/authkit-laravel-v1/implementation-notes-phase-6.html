@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 6</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 6</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Audit Logs &amp; Admin Portal · 2026-08-10</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>Domain-verification listener — ownership transferred from Phase 4's generic upsert (spec Open Items 2/3, cross-phase seam)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4.8 designs a dedicated verification listener (state stamping, token clearing, warn-and-no-op on unknown rows), but landed Phase 4 already routed <code>OrganizationDomainVerified</code>/<code>OrganizationDomainVerificationFailed</code> into <code>UpsertOrganizationDomainProjection</code> with contradictory, explicitly-tested semantics: tokens kept on verify, no state change on failure (the payload carries no top-level <code>state</code>), and rows created for unknown ids. Running both listeners would make §4.8's "warn + no row created" semantics unreachable and its token clearing fight the upsert.</dd>
+          <dt>Decision</dt>
+          <dd>The verification pair now belongs exclusively to the new <code>UpdateOrganizationDomainVerificationState</code>; <code>UpsertOrganizationDomainProjection</code> narrowed to Created|Updated; the two Phase 4 test expectations updated to the spec'd semantics. This matches spec §8 failure mode 8's own wording ("reconciled later by Phase 4's created/updated listeners"), which is only coherent under this split. Payload access uses the landed flat-array convention (<code>$event-&gt;resourceId()</code>), not the spec's nested <code>organizationDomain</code> object.</dd>
+          <dt>Alternative</dt>
+          <dd>Registering §4.8's listener alongside the Phase 4 upsert — rejected because the upsert's <code>updateOrCreate</code> would create rows before the new listener ran, breaking the unknown-row no-op, and two Phase 4 tests would fail as written either way.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>AuditActorResolver — org id read from guard claims; <code>Authkit::currentOrganizationId()</code> never landed (spec Open Item 1)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4.2 calls <code>Authkit::currentOrganizationId(): ?string</code>. Phase 3 landed <code>Authkit::currentOrganization(): ?Model</code> (local projection row, null when no org model is configured) and keeps the claims read private inside <code>CurrentOrganizationResolver</code>.</dd>
+          <dt>Decision</dt>
+          <dd>Per the Open Item's sanctioned adjustment, <code>AuditActorResolver</code> reads the <code>org_id</code> claim directly off <code>Auth::guard('workos')</code> via the landed <code>HasAccessTokenClaims</code> contract — audit events need the raw WorkOS org id whether or not the app configured a local org model, so routing through the projection-backed accessor would wrongly throw for claim-carrying sessions in model-less apps.</dd>
+          <dt>Alternative</dt>
+          <dd>Adding <code>currentOrganizationId()</code> to the <code>Authkit</code> manager + a public claims accessor on <code>CurrentOrganizationResolver</code> — a nicer public API, but it modifies a Phase 3 file outside this spec's File Changes table for no behavior the resolver-side read doesn't already provide.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>AuditLogManager — bound, not the spec snippet's singleton</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §6 registers <code>AuditLogManager</code> as a singleton. The landed provider deliberately <code>bind()</code>s every service that holds the WorkOS client manager (UserManagement/SessionManager/VaultCrypto/VaultManager precedent): the MockHandler test harness forgets the manager instance mid-test, and a singleton would pin the pre-swap client.</dd>
+          <dt>Decision</dt>
+          <dd><code>bind(AuditLogManager::class)</code>, with the provider comment naming the deviation. <code>AuditActorResolver</code> stays a singleton as spec'd (stateless, holds no client).</dd>
+          <dt>Alternative</dt>
+          <dd>Singleton per the spec snippet — breaks every MockHandler-backed test that fakes responses after first resolution (the exact failure Phase 9 recorded).</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Test-path selection — emulate coverage empirically narrower than the spec's §7 table assumed</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §7 routes createEvent/schema/retention through emulate. Probing @workos/emulate 0.6.0's dist source: <code>POST /audit_logs/events</code> reads a top-level <code>action</code> while SDK v9.1 nests the payload under <code>event</code> (always 422); action/schema responses lack the <code>schema</code> key <code>AuditLogAction::fromArray</code> requires (SDK parse fatal); <code>listActionSchemas</code> and PUT-retention routes don't exist (404). Conversely the spec's stated emulate export gap is outdated — the routes exist but auto-transition to <code>ready</code>, which still can't exercise the poll state machine.</dd>
+          <dt>Decision</dt>
+          <dd>MockHandler-primary for create-event/schema/retention/export suites with one emulate wire-fidelity smoke (empty <code>listActions</code> + GET retention, both parseable); AdminPortalTest stays emulate-backed as spec'd (portal mint fully works). Same sanctioned downgrade pattern Phase 5 recorded for legacy authorization shapes.</dd>
+          <dt>Alternative</dt>
+          <dd>Following §7's table literally — every emulate-backed audit case except the smoke would fail on wire-shape drift, not on package behavior.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>HasAuditLogs — <code>registerModelEvent('restored', …)</code> instead of <code>static::restored()</code></h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's trait boot calls <code>static::restored(...)</code>, but that registrar only exists on models using <code>SoftDeletes</code> — on a plain model it falls through <code>__callStatic</code> into the query builder and fatals during boot.</dd>
+          <dt>Decision</dt>
+          <dd>Register via the protected <code>static::registerModelEvent('restored', …)</code> (available on every Model): the listener is inert on non-SoftDeletes models because the event never fires, and the trait boots cleanly everywhere. Archive/delete discrimination uses <code>class_uses_recursive</code> rather than <code>method_exists</code>, which PHPStan level 7 flags as always-true in the analyzed workbench context.</dd>
+          <dt>Alternative</dt>
+          <dd>Guarding <code>static::restored()</code> with <code>method_exists</code> — same runtime behavior but an undefined-static-method error at PHPStan level 7 for non-SoftDeletes trait consumers.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 3</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --color-success: #2d6a4f;
+        --color-success-bg: #d8f3dc;
+        --color-danger: #9b2226;
+        --color-danger-bg: #fde8e8;
+        --color-warning: #b45309;
+        --color-warning-bg: #fef3c7;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --space-5: 32px;
+        --space-6: 48px;
+        --radius-sm: 4px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --max-width: 900px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+          --color-success: #4ade80;
+          --color-success-bg: #14352a;
+          --color-danger: #f87171;
+          --color-danger-bg: #3a1818;
+          --color-warning: #fbbf24;
+          --color-warning-bg: #3a2a08;
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--color-text);
+        background: var(--color-bg);
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-5) var(--space-4);
+      }
+
+      .doc-header {
+        border-bottom: 1px solid var(--color-border);
+        padding-bottom: var(--space-3);
+        margin-bottom: var(--space-5);
+      }
+
+      .doc-header h1 {
+        margin: 0 0 var(--space-1) 0;
+        font-size: 28px;
+        line-height: 1.25;
+      }
+
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        padding: 0 var(--space-1);
+      }
+
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 3</h1>
+      <p class="doc-meta">AuthKit Laravel v1 · Organizations &amp; Org Context · 2026-08-09</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>Baseline — pinned <code>app.key</code> in tests/TestCase.php (repair before scope)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Session-start baseline was RED: 10 AuthenticationFlowTest errors, "No application encryption key has been specified." The Testbench skeleton's <code>.env</code> (which carried APP_KEY) is purged on every <code>composer install</code>, so any suite passing through the <code>web</code> group's EncryptCookies failed on a fresh checkout. Phase 2's green run had leaned on leftover skeleton state.</dd>
+          <dt>Decision</dt>
+          <dd>Pin <code>app.key</code> in <code>TestCase::getEnvironmentSetUp()</code> (the well-known Testbench literal), making the suite hermetic. Verified: 124/124 pass afterwards, matching Phase 2's recorded evidence exactly.</dd>
+          <dt>Alternative</dt>
+          <dd>Requiring <code>composer build</code> before <code>composer test</code> in init.sh — rejected: the repo's own Definition of Done says <code>./init.sh</code> alone must restart the project.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>HasWorkosOrganization — <code>static::observe()</code> is illegal in a boot hook</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec Component 3 registers the observer via <code>static::observe(WorkosOrganizationObserver::class)</code> inside <code>bootHasWorkosOrganization()</code>. Empirically fatal: <code>Model::observe()</code> constructs <code>new static</code> to enumerate observable events, which throws "bootIfNotBooted may not be called ... while it is being booted" for every model using the trait.</dd>
+          <dt>Decision</dt>
+          <dd>Register the observer's two hooks directly: <code>static::created([WorkosOrganizationObserver::class, 'created'])</code> / <code>static::deleted(...)</code>. Identical container-resolved listener wiring to what <code>registerObserver()</code> produces, no instance construction, and the dedicated Observer class the spec wants is preserved.</dd>
+          <dt>Alternative</dt>
+          <dd>Requiring apps to add <code>#[ObservedBy]</code> on their model — rejected: turns "add a trait" into two steps and breaks the spec's one-trait ergonomic contract.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Jobs — <code>public bool $afterCommit = true</code> fatally collides with Queueable</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec Component 4 declares <code>public bool $afterCommit = true;</code> on both jobs alongside <code>use Queueable</code>. <code>Illuminate\Bus\Queueable</code> already defines untyped <code>public $afterCommit</code>; a typed redeclaration with a different default is a fatal trait-composition conflict ("definition differs and is considered incompatible") the moment the class loads. The fatal was swallowed by Pest's output buffering, presenting as a zero-output exit-1 run.</dd>
+          <dt>Decision</dt>
+          <dd>Assign <code>$this->afterCommit = true;</code> in each job's constructor — same unconditional after-commit guarantee, no property redeclaration.</dd>
+          <dt>Alternative</dt>
+          <dd>Calling <code>->afterCommit()</code> at every dispatch site — rejected by the spec itself (guarantee must not depend on call sites remembering).</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Jobs — <code>$tries</code> reads <code>authkit.organization.retry.tries</code></h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's config diff declares <code>retry.tries</code> (env <code>AUTHKIT_ORGANIZATION_SYNC_TRIES</code>) but its job code hardcodes <code>public int $tries = 5;</code> — the config key would have been dead on arrival.</dd>
+          <dt>Decision</dt>
+          <dd>Constructor assigns <code>$this->tries</code> from the config key (default 5, so behavior matches the spec's literal). <code>backoff()</code> already read its config key in the spec; now both halves of <code>retry.*</code> are honored, covered by a test.</dd>
+          <dt>Alternative</dt>
+          <dd>Hardcoding 5 and shipping an unused config key — rejected; this project already declined one dead config key (<code>external_id_column</code>) knowingly rather than minting another.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>WorkosGuard — added the thin <code>accessTokenClaims(): ?array</code> accessor</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Component 9's resolver duck-types <code>method_exists($guard, 'accessTokenClaims')</code>, but the landed Phase 2 guard has no such method and Phase 5 (which owns the <code>HasAccessTokenClaims</code> interface) has not executed. As specced, the entire org-context layer (resolver, macro, facade accessor, <code>authkit.org</code> middleware) would be dead code returning null until Phase 5 — and this phase's own canonical test cases ("authenticated request with an org_id claim ... returns the model") could not pass against the real guard.</dd>
+          <dt>Decision</dt>
+          <dd>Added the plain public method to <code>WorkosGuard</code> (no interface, so no compile-time Phase 5 dependency), returning the decoded payload <code>user()</code> already produced — exactly the "thin accessor over data the guard's authenticate call already produced" spec-phase-5.md §4.1 instructs whichever phase needs it first to add. The resolver still duck-types precisely as specced; Phase 5 later only adds <code>implements HasAccessTokenClaims</code>.</dd>
+          <dt>Alternative</dt>
+          <dd>Testing against a stub guard and shipping the feature dormant — rejected: tests would pass against a fake while the real package behavior stayed broken for every consumer until Phase 5 lands.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Component 7 step 0 — Phase 5 has not landed; interface authored here</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's order-dependent check: <code>src/Contracts/ResolvesOrganizationMembershipId.php</code> did not exist (no <code>src/Authorization/</code> at all), confirming this phase runs before Phase 5.</dd>
+          <dt>Decision</dt>
+          <dd>Took the "no" branch verbatim: authored the interface per spec-phase-5.md §4.4's shape, added the <code>bindIf()</code> registration, and set the config default straight to <code>MembershipProjectionResolver::class</code>. One refinement: the binding is a closure reading config at <em>resolve</em> time (validating the class implements the interface, failing loudly naming the config key) rather than the spec snippet's register-time <code>config()</code> read, which would freeze the value before providers finish booting and silently accept a wrong class.</dd>
+          <dt>Alternative</dt>
+          <dd>Literal <code>bindIf(iface, config(...))</code> string-concrete — rejected: register-time config snapshot plus no interface validation.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>MembershipProjectionResolverTest — <code>Authkit::check()</code> integration case dropped</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's second resolver test binds into "a real <code>Authkit::check()</code> call (reusing Phase 5's AuthorizationTest fixtures)" — but Phase 5 has not run: no <code>Authkit::check()</code>, no <code>MembershipNotResolvedException</code>, no fixtures exist.</dd>
+          <dt>Decision</dt>
+          <dd>Covered <code>resolve()</code> directly plus the container binding (default and config-override paths). The FGA integration assertion belongs to Phase 5's suite when it lands against this real resolver.</dd>
+          <dt>Alternative</dt>
+          <dd>Pre-building a slice of Phase 5's checker to integration-test against — rejected: out of scope and would force Phase 5 to reconcile against speculative code.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>SwitchOrganizationController — <code>SessionCookie::issue()</code> and relative-only <code>return_to</code></h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's controller hand-rolls <code>new Cookie(...)</code> (omitting path/domain) and redirects to raw <code>return_to</code> input. Phase 2's <code>SessionCookie</code> docblock mandates every issuer agree on name/path/domain — a hand-rolled cookie at default path <code>/</code> would not replace a cookie issued at a configured <code>session.path</code>, and raw <code>return_to</code> is an open-redirect primitive on request input.</dd>
+          <dt>Decision</dt>
+          <dd>Issue via <code>SessionCookie::issue($sealed)</code> (the repo's single sanctioned constructor) and constrain <code>return_to</code> to app-relative paths (must start with <code>/</code>, not <code>//</code>), falling back to <code>/</code>. Both covered by tests.</dd>
+          <dt>Alternative</dt>
+          <dd>Spec-literal cookie construction and unvalidated redirect — rejected: contradicts the codebase's own documented invariant and standard redirect hygiene.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Test paths — emulate downgraded to MockHandler for membership-dependent suites</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec Open Item 4 pre-authorized this: emulate 0.6.0's seed schema (users, organizations/domains) offers no way to seed a pre-existing organization membership, and a wire-true org-switch refresh would need a sealed cookie whose refresh token emulate itself minted (requiring a full browser OAuth round trip no suite in this package drives — Phase 2 set the same precedent for its refresh tests).</dd>
+          <dt>Decision</dt>
+          <dd><code>LoginProjectionUpsertTest</code> and <code>OrganizationSwitchTest</code> are MockHandler-backed end-to-end (full callback flow, real signed fixture tokens); <code>HasWorkosOrganizationTest</code> keeps a true emulate round trip (create → remote verify → delete → remote 404) since organizations are fully emulate-covered. Each affected file carries a test-path note.</dd>
+          <dt>Alternative</dt>
+          <dd>Driving emulate's hosted auth UI headlessly to mint a real session — rejected: new infrastructure the contract's truth bar doesn't require, for fixture fidelity the MockHandler cases already pin byte-for-byte.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

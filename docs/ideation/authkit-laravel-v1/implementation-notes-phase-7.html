@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 7</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 7</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Feature Flags (Pennant Driver) · 2026-08-09</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>WorkosPennantDriver — guardClaims() reads the landed HasAccessTokenClaims contract, not the spec's claims()/workosClaims() conventions</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4.1's authoritative class body probes <code>method_exists($guard, 'claims')</code> and falls back to a <code>workosClaims()</code> method on the resolved user; Open Item 2 explicitly flags both as assumptions to confirm against Phase 2's real implementation.</dd>
+          <dt>Decision</dt>
+          <dd>Phase 2/5 landed <code>WorkosGuard::accessTokenClaims(): ?array</code> behind the <code>Contracts\HasAccessTokenClaims</code> interface — the same seam ClaimsGateHook and FgaChecker consume. <code>guardClaims()</code> therefore checks <code>$guard instanceof HasAccessTokenClaims</code> and calls <code>accessTokenClaims()</code>, which returns the raw decoded payload (carrying <code>feature_flags</code> when present). The test suite's stub guard pins this exact contract.</dd>
+          <dt>Alternative</dt>
+          <dd>Keeping the spec's literal <code>method_exists</code> probes — both would always miss (the guard has no <code>claims()</code>; the user trait's <code>claims()</code> returns the AccessTokenClaims DTO, not the raw payload), silently disabling the zero-HTTP path in production, which is precisely the degradation Open Item 2 warns about.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>config/authkit.php — feature_flags block already present; spec's Modified row a no-op</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §5 lists <code>config/authkit.php</code> as Modified ("Add feature_flags => ['cache_ttl' => 30] block").</dd>
+          <dt>Decision</dt>
+          <dd>Phase 1 already shipped the block, including the <code>AUTHKIT_FEATURE_FLAGS_CACHE_TTL</code> env knob and int cast. No config change made; the provider reads <code>authkit.feature_flags.cache_ttl</code> with a 30-second default exactly as specced.</dd>
+          <dt>Alternative</dt>
+          <dd>Re-writing the block redundantly — pure churn on a file this phase doesn't otherwise own.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>tests/TestCase.php — PennantServiceProvider added to getPackageProviders (file outside spec's File Changes tables)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Package suites register providers explicitly via Testbench's <code>getPackageProviders()</code>; the spec's File Changes tables never mention tests/TestCase.php, but without Pennant's provider the <code>pennant.default</code>/<code>pennant.stores</code> config and FeatureManager singleton the suite exercises would depend on skeleton package-discovery state, which composer install purges.</dd>
+          <dt>Decision</dt>
+          <dd>Added <code>PennantServiceProvider::class</code> after <code>AuthkitServiceProvider::class</code> — deliberately the dangerous D-4 ordering (our register() first, Pennant's top-level mergeConfigFrom second), which makes the "built-in stores intact" test case a real regression guard for the boot()-vs-register() decision.</dd>
+          <dt>Alternative</dt>
+          <dd>Relying on Testbench skeleton auto-discovery of vendor packages — works when the skeleton cache is fresh but is exactly the class of hidden-state dependency Phase 3's baseline repair (skeleton .env drift) already burned this repo on once.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>WorkosPennantDriver — cache-key hash is sha256, not the spec's md5</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec §4.1 namespaces cache keys with <code>substr(md5(config('authkit.client_id')), 0, 8)</code> (Decision D-8). The repo's arch security preset (<code>arch()->preset()->security()</code>, predating this phase) fails the build on any md5 use.</dd>
+          <dt>Decision</dt>
+          <dd><code>substr(hash('sha256', ...), 0, 8)</code> — same shape, same D-8 intent (a stable namespace discriminator, not a security boundary). Existing project convention overrides the spec's illustrative hash choice.</dd>
+          <dt>Alternative</dt>
+          <dd>Excluding the driver from the security preset — weakens a repo-wide guarantee to preserve a cosmetic detail of the spec.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>WorkosPennantDriver — PHPStan level 7 narrowing applied to the spec's authoritative class body</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec calls its §4.1 code "the authoritative implementation, not illustrative pseudocode", but three constructs fail this repo's PHPStan level 7 gate: <code>$scope->workos_id ?? null</code> on Authenticatable/Model interface types, arithmetic on the untyped cache payload (<code>$cached['cachedAt']</code>), and <code>$flag->slug</code> on the untyped generator autoPagingIterator() yields.</dd>
+          <dt>Decision</dt>
+          <dd>Behavior-preserving narrowing: <code>data_get($scope, 'workos_id')</code> + <code>is_string</code> (routes through Eloquent __get exactly like property access); a <code>cachedEntry()</code> helper returning <code>array{slugs: list&lt;string&gt;, cachedAt: int}|null</code>; <code>instanceof Flag</code> inside the pagination loop; <code>'user'|'organization'</code> docblock union on WorkosFeatureScope::$type so fetchFromApi's match is exhaustive. Also hardened <code>resolveFromClaims</code> with an <code>is_array($claims['feature_flags'])</code> guard — a malformed claim now falls to the API path instead of fataling in in_array.</dd>
+          <dt>Alternative</dt>
+          <dd>Transcribing the spec body verbatim — fails composer analyse (the phase's own validation command), which the context map's build notes anticipated.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Implementation Notes — Phase 12</title>
+    <style>
+      :root {
+        --color-bg: #ffffff;
+        --color-surface: #f8f9fa;
+        --color-border: #dee2e6;
+        --color-text: #212529;
+        --color-text-muted: #6c757d;
+        --color-accent: #4361ee;
+        --color-accent-bg: #eef0ff;
+        --font-sans:
+          system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --font-mono:
+          'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo,
+          Consolas, monospace;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 16px;
+        --space-4: 24px;
+        --radius-md: 8px;
+        --max-width: 900px;
+      }
+      @media (prefers-color-scheme: dark) {
+        [data-theme='auto'] {
+          --color-bg: #1a1a2e;
+          --color-surface: #16213e;
+          --color-border: #2a2a4a;
+          --color-text: #e0e0e0;
+          --color-text-muted: #a0a0b0;
+          --color-accent: #6c83f7;
+          --color-accent-bg: #1e2a4a;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
+      }
+      .doc-header,
+      .doc-content {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: var(--space-4);
+      }
+      .doc-meta {
+        color: var(--color-text-muted);
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        background: var(--color-surface);
+        padding: 0 var(--space-1);
+        border-radius: 4px;
+      }
+      .note-entry {
+        padding: var(--space-3);
+        margin: var(--space-3) 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius-md);
+      }
+      .note-entry h3 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 1em;
+      }
+      .note-entry dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-3);
+        margin: 0;
+        font-size: 0.9em;
+      }
+      .note-entry dt {
+        font-weight: 600;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+      }
+      .note-entry dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="doc-header">
+      <h1>Implementation Notes — Phase 12</h1>
+      <p class="doc-meta">authkit-laravel-v1 · Depth Extensions (Full Tier) · 2026-08-10</p>
+    </header>
+    <main class="doc-content">
+      <section class="note-entry">
+        <h3>InvalidateFgaCache — listeners registered unconditionally, not gated on <code>authkit.fga.cache.enabled</code></h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's provider diff wraps <code>Event::listen(...)</code> in <code>if (config('authkit.fga.cache.enabled'))</code>, reasoning "no reason to attach listeners for a cache that's disabled."</dd>
+          <dt>Decision</dt>
+          <dd>Register both listeners unconditionally in <code>boot()</code>. <code>FgaChecker::forgetCache()</code> is already a config-guarded no-op, so behavior is identical when disabled (verified by a test asserting no generation key is written on a membership event while off). Gating at boot would pin the flag's boot-time value: any runtime <code>config()->set</code> (every Pest test, tinker sessions) would silently detach invalidation from an enabled cache — exactly the stale-decision failure the opt-in design exists to prevent — and would make the events-driven invalidation matrix untestable in the landed Testbench harness, where the flag defaults off when providers boot.</dd>
+          <dt>Alternative</dt>
+          <dd>Spec-literal conditional registration plus per-test application rebuilds (Testbench <code>defineEnvironment</code> machinery) to flip the flag before boot — rejected as heavier for zero behavioral gain and a real production footgun for anyone toggling config after boot.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>JwtTemplateManager::update() — catches NotFoundException on the before-read</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's <code>update()</code> unconditionally calls <code>$this->get()</code> to capture the before-content for <code>JwtTemplateUpdated</code>. WorkOS (and emulate, whose route comment cites the spec) 404s <code>GET /user_management/jwt_template</code> until an environment has ever set a template — so the spec-literal body would make the <em>first-ever</em> template write throw <code>NotFoundException</code>, and setting up a template initially is the primary use of this API.</dd>
+          <dt>Decision</dt>
+          <dd>Catch <code>NotFoundException</code> around the before-read and treat the previous content as <code>''</code>; the event's <code>$previousContent</code> docblock documents the empty-string meaning. Covered by a MockHandler test (404 then 200) asserting the event carries <code>previousContent === ''</code>.</dd>
+          <dt>Alternative</dt>
+          <dd>Letting the exception surface (spec-literal) — rejected because it breaks the component's own purpose on fresh environments and the spec's failure-mode table never lists it as intended behavior.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>HasWorkosResource — parent guard uses <code>instanceof WorkosResource</code>; parent target is the package <code>ResourceTarget</code>, not the SDK class</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec snippet guards with <code>in_array(self::class, class_uses_recursive($parent))</code> — but inside a trait, <code>self::class</code> resolves to the <em>using class</em>, so the check would ask whether the parent uses e.g. <code>Project</code> as a trait and always fail. The snippet also has the trait build <code>\WorkOS\Service\ParentResourceByExternalId</code> directly, and assumed a <code>syncAsWorkosResource()</code> method that Phase 5 never shipped (sync is <code>created</code>/<code>deleted</code> boot hooks calling <code>Authkit::resources()</code>).</dd>
+          <dt>Decision</dt>
+          <dd>Guard with <code>$parent instanceof Contracts\WorkosResource</code> — the landed interface every <code>HasWorkosResource</code> model must implement (<code>@phpstan-require-implements</code>) — and have <code>workosParentResourceTarget()</code> return the package's <code>?ResourceTarget</code>, converted to the SDK pair inside <code>ResourceManager::create()</code> via the new <code>toParentTarget()</code>. This honors the landed boundary doctrine (ResourceTarget exists precisely so consumers and package seams never name SDK service classes) and wires the parent through the real sync path: the <code>created</code> hook gains <code>parentResource:</code> and both hooks gain the post-sync <code>forgetCache()</code>.</dd>
+          <dt>Alternative</dt>
+          <dd>Correcting the trait-name check to <code>in_array(HasWorkosResource::class, class_uses_recursive($parent))</code> — behaviorally equivalent but weaker than the contract check the codebase already types against; passing SDK parent objects through the trait — rejected per the boundary doctrine.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>FgaChecker — cache branch reads once with type narrowing instead of the spec's has()+get() pair</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec snippet does <code>if ($store->has($key)) { return (bool) $store->get($key); }</code> — two store round-trips with a TOCTOU gap (an entry evicted between the calls silently becomes <code>(bool) null === false</code>, turning a cache race into a deny).</dd>
+          <dt>Decision</dt>
+          <dd>Single <code>$store->get($key)</code> narrowed with <code>is_bool()</code> — only values this cache wrote are servable; a miss, an eviction race, or a corrupted entry all fall through to the live check. The generation-key read inside <code>cacheKey()</code> sits inside the same try/catch so a store fault at either read fails open identically.</dd>
+          <dt>Alternative</dt>
+          <dd>Spec-literal has()+get() — rejected for the race and the double round-trip on network-backed stores.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>InvalidateFgaCache — hand-authored instead of the <code>testbench make:listener</code> scaffold-then-relocate step</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Spec step 1 for Component 7 scaffolds the listener with <code>vendor/bin/testbench make:listener InvalidateFgaCache --invokable</code>, then moves the file, renames its namespace, and replaces the invokable stub with two named handlers — i.e. zero generated content survives.</dd>
+          <dt>Decision</dt>
+          <dd>Hand-author <code>src/Authorization/Listeners/InvalidateFgaCache.php</code> directly, matching the landed listener shape (every one of the ten Phase 4/6 listeners in <code>src/Listeners/</code> is hand-authored; none came from the generator, which also writes into the shared Testbench skeleton other parallel suites read).</dd>
+          <dt>Alternative</dt>
+          <dd>Running the generator as ritual — rejected as pure churn with a workbench-pollution risk and no retained output.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>Workbench demo routes — organization id from the query string; <code>workbench.demo_organization_id</code> does not exist</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>The spec's routes read <code>config('workbench.demo_organization_id')</code>, flagged in Open Item 5 as "assumed to exist by Phase 3; confirm the real key." No such key (nor any workbench config file) landed in any phase.</dd>
+          <dt>Decision</dt>
+          <dd>The three routes take <code>organization_id</code> from the request (query/body), falling back to the spec's config key so it starts working if a later phase introduces it. The groups route 422s with a usage hint when neither is present (its SDK call requires a non-null org id); the invitations routes pass <code>null</code> through, which the list/send APIs accept.</dd>
+          <dt>Alternative</dt>
+          <dd>Introducing a <code>workbench/config/workbench.php</code> just for a demo id — rejected as out of phase scope (no other phase created workbench config; request input is the established playground pattern, cf. the API-key whoami route).</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>GroupManager — <code>roleAssignment()</code> single-fetch added; spec snippet omitted a method its own wrapped-methods list names</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Component 4's "SDK methods wrapped" list includes <code>Authorization::getGroupRoleAssignment</code>, but the class design snippet has no corresponding method.</dd>
+          <dt>Decision</dt>
+          <dd>Ship <code>roleAssignment(string $groupId, string $roleAssignmentId): GroupRoleAssignment</code> so the wrapped-surface table is honored; read-only, no cache interaction.</dd>
+          <dt>Alternative</dt>
+          <dd>Following the snippet only — rejected; the enumerated SDK surface is the scope statement, the snippet its illustration.</dd>
+        </dl>
+      </section>
+
+      <section class="note-entry">
+        <h3>CORS origins — emulate 0.6.0 partially covers the area; suite stays MockHandler (Open Item 2 resolved)</h3>
+        <dl>
+          <dt>Context</dt>
+          <dd>Open Item 2 asked to confirm emulate's CORS coverage. Probing the 0.6.0 dist routes: <code>POST /user_management/cors_origins</code> exists, but there is <em>no list route</em> — half the component's surface.</dd>
+          <dt>Decision</dt>
+          <dd>Keep <code>CorsOriginsTest</code> on MockHandler as the spec defaulted, which also lets it assert exact request shapes. The suite additionally pins the no-<code>delete()</code> scope boundary (Deviations 1 / Failure Mode 8) with a <code>method_exists</code> assertion.</dd>
+          <dt>Alternative</dt>
+          <dd>Splitting create onto emulate and list onto MockHandler — rejected; two transports for a two-method passthrough is complexity without added fidelity.</dd>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>
