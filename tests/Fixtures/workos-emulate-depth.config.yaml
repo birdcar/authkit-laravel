@@ -1,0 +1,22 @@
+# Dedicated seed for the Phase 12 depth-extension emulate suites
+# (InvitationsTest port 4194, JwtTemplateTest port 4190). Separate from the
+# shared fixture so the seeded jwtTemplate cannot leak extra claims into any
+# other suite's minted tokens.
+users:
+  - email: devon@depth.example.com
+    first_name: Devon
+    last_name: Depth
+    password: test123
+    email_verified: true
+
+organizations:
+  - id: org_01DEPTH
+    name: Depth Corp
+    domains:
+      - domain: depth.example.com
+        state: verified
+
+# GET /user_management/jwt_template 404s until a template exists (matching
+# real WorkOS), so the JwtTemplate suite seeds one.
+jwtTemplate:
+  content: '{"plan": "{{ organization.name }}"}'

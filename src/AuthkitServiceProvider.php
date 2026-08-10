@@ -12,6 +12,7 @@ use Authkit\Authkit\Auth\SessionRefresher;
 use Authkit\Authkit\Auth\WorkosGuard;
 use Authkit\Authkit\Authorization\ApiKeyGateHook;
 use Authkit\Authkit\Authorization\ClaimsGateHook;
+use Authkit\Authkit\Authorization\Listeners\InvalidateFgaCache;
 use Authkit\Authkit\Console\Commands\AuthkitCommand;
 use Authkit\Authkit\Console\Commands\InspectTokenCommand;
 use Authkit\Authkit\Console\Commands\InstallCommand;
@@ -19,6 +20,7 @@ use Authkit\Authkit\Console\Commands\MakeWorkosListenerCommand;
 use Authkit\Authkit\Console\Commands\WorkCommand;
 use Authkit\Authkit\Contracts\ResolvesOrganizationMembershipId;
 use Authkit\Authkit\Contracts\WorkosClientManager as WorkosClientManagerContract;
+use Authkit\Authkit\Events\GenericWorkosEvent;
 use Authkit\Authkit\Events\Login;
 use Authkit\Authkit\Events\Workos\OrganizationCreated;
 use Authkit\Authkit\Events\Workos\OrganizationDeleted;
@@ -282,6 +284,8 @@ class AuthkitServiceProvider extends ServiceProvider
 
         $this->registerProjectionRefreshListeners();
 
+        $this->registerFgaCacheInvalidationListeners();
+
         // RBAC from JWT claims, zero HTTP per check. The hook returns true or
         // null only — a non-null before-result short-circuits every policy, so
         // false here would be a global deny (spec-phase-5 Failure Mode 1).
@@ -408,6 +412,27 @@ class AuthkitServiceProvider extends ServiceProvider
         );
         Event::listen([OrganizationMembershipCreated::class, OrganizationMembershipUpdated::class], UpsertOrganizationMembershipProjection::class);
         Event::listen(OrganizationMembershipDeleted::class, DeleteOrganizationMembershipProjection::class);
+    }
+
+    /**
+     * The FGA check cache's events-driven invalidation: both sidecar channels
+     * (typed membership events, plus the generic fallback carrying the
+     * role/permission/group types outside the bounded typed set) bump the
+     * cache generation counter. Registered unconditionally rather than behind
+     * the authkit.fga.cache.enabled flag: FgaChecker::forgetCache() is itself
+     * a config-guarded no-op while the cache is disabled, and gating the
+     * registration at boot would pin the flag's boot-time value — a runtime
+     * config()->set (tests, tinker) would silently detach invalidation from
+     * an enabled cache, which is exactly the stale-decision failure the
+     * opt-in design exists to prevent.
+     */
+    private function registerFgaCacheInvalidationListeners(): void
+    {
+        Event::listen(
+            [OrganizationMembershipCreated::class, OrganizationMembershipUpdated::class, OrganizationMembershipDeleted::class],
+            [InvalidateFgaCache::class, 'handleMembershipEvent'],
+        );
+        Event::listen(GenericWorkosEvent::class, [InvalidateFgaCache::class, 'handleGenericEvent']);
     }
 
     private function registerVaultFilesystemDriver(): void

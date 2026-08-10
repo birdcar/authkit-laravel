@@ -10,7 +10,11 @@ use Authkit\Authkit\Authorization\ResourceManager;
 use Authkit\Authkit\Authorization\RoleManager;
 use Authkit\Authkit\Connect\ConnectManager;
 use Authkit\Authkit\Contracts\WorkosClientManager;
+use Authkit\Authkit\CorsOrigins\CorsOriginManager;
 use Authkit\Authkit\Enums\PortalIntent;
+use Authkit\Authkit\Groups\GroupManager;
+use Authkit\Authkit\Invitations\InvitationManager;
+use Authkit\Authkit\JwtTemplates\JwtTemplateManager;
 use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -49,12 +53,60 @@ class Authkit
     }
 
     /**
+     * The FGA surface behind check(): resource-graph discovery helpers
+     * (listResourcesForMembership, listMembershipsForResource[ByExternalId])
+     * and the opt-in check cache's forgetCache().
+     */
+    public function fga(): FgaChecker
+    {
+        return app(FgaChecker::class);
+    }
+
+    /**
      * The Connect OAuth/M2M application registry. Registry data and client
      * secrets are never persisted locally — WorkOS stays canonical.
      */
     public function connect(): ConnectManager
     {
         return app(ConnectManager::class);
+    }
+
+    /**
+     * Invitations management: send/list/get/resend/revoke/accept plus the
+     * accept-URL helper. Pure passthroughs — WorkOS stays canonical.
+     */
+    public function invitations(): InvitationManager
+    {
+        return app(InvitationManager::class);
+    }
+
+    /**
+     * Environment JWT template get/update. update() is deliberately loud —
+     * it logs a warning and dispatches JwtTemplateUpdated on every write,
+     * because template edits change what rides in the 4KB-bounded sealed
+     * session cookie.
+     */
+    public function jwtTemplate(): JwtTemplateManager
+    {
+        return app(JwtTemplateManager::class);
+    }
+
+    /**
+     * CORS origin management: list and create only — the SDK exposes no
+     * delete endpoint.
+     */
+    public function corsOrigins(): CorsOriginManager
+    {
+        return app(CorsOriginManager::class);
+    }
+
+    /**
+     * Organization groups: CRUD, membership, and group role assignments
+     * (whose mutations bust the FGA check cache).
+     */
+    public function groups(): GroupManager
+    {
+        return app(GroupManager::class);
     }
 
     /**

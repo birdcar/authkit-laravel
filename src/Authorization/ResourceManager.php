@@ -26,6 +26,11 @@ final class ResourceManager
 {
     public function __construct(private readonly WorkosClientManager $clients) {}
 
+    /**
+     * $parentResource nests the new resource under an existing one in the
+     * FGA hierarchy (single parent, five-level cap — both WorkOS-enforced,
+     * the cap Dashboard-configured per resource type).
+     */
     public function create(
         string $externalId,
         string $name,
@@ -33,6 +38,7 @@ final class ResourceManager
         string $organizationId,
         ?string $description = null,
         ?RequestOptions $options = null,
+        ?ResourceTarget $parentResource = null,
     ): AuthorizationResource {
         return $this->clients->client()->authorization()->createResource(
             externalId: $externalId,
@@ -40,6 +46,7 @@ final class ResourceManager
             resourceTypeSlug: $resourceTypeSlug,
             organizationId: $organizationId,
             description: $description,
+            parentResource: $parentResource?->toParentTarget(),
             options: $options,
         );
     }

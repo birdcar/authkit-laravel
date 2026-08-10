@@ -115,6 +115,23 @@ return [
         'membership_resolver' => MembershipProjectionResolver::class,
     ],
 
+    'fga' => [
+        // Opt-in FGA check caching, disabled by default: a stale cache entry
+        // is a stale permission decision, so the cache only ships alongside
+        // its events-driven invalidation wiring (contract decision). Role
+        // ASSIGNMENT and resource-hierarchy edits made in the WorkOS Dashboard
+        // emit no event at all — for those, TTL is the only invalidation
+        // bound, so keep the cache off (or the TTL short) when doing
+        // revocation-critical work through the Dashboard.
+        'cache' => [
+            'enabled' => (bool) env('AUTHKIT_FGA_CACHE_ENABLED', false),
+            // Seconds a cached check decision stays servable.
+            'ttl' => (int) env('AUTHKIT_FGA_CACHE_TTL', 300),
+            // Cache store name; null uses the app's default cache store.
+            'store' => env('AUTHKIT_FGA_CACHE_STORE'),
+        ],
+    ],
+
     'events' => [
         // Seconds the authkit:work poller sleeps between empty polls.
         'poll_interval' => (int) env('AUTHKIT_EVENTS_POLL_INTERVAL', 5),

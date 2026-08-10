@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Authkit\Authkit\Concerns;
 
+use Authkit\Authkit\Authorization\FgaChecker;
+use Authkit\Authkit\Authorization\ResourceTarget;
 use Authkit\Authkit\Contracts\WorkosResource;
 use Authkit\Authkit\Facades\Authkit;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 use LogicException;
 
 /**
@@ -81,6 +84,42 @@ trait HasWorkosResource
         return is_scalar($key) ? (string) $key : '';
     }
 
+    /**
+     * Override to nest this model's FGA resource under another
+     * WorkosResource model's resource, e.g. `return $this->folder;`. WorkOS
+     * enforces a single parent per resource and a five-level hierarchy cap
+     * (configured per resource type in the Dashboard — there is no API/DSL
+     * for it), which is why this is one overridable hook rather than a
+     * composable set of traits.
+     */
+    public function workosParentResource(): ?Model
+    {
+        return null;
+    }
+
+    private function workosParentResourceTarget(): ?ResourceTarget
+    {
+        $parent = $this->workosParentResource();
+
+        if ($parent === null) {
+            return null;
+        }
+
+        if (! $parent instanceof WorkosResource) {
+            throw new InvalidArgumentException(sprintf(
+                '%s::workosParentResource() must return a model implementing %s (use HasWorkosResource), got %s.',
+                static::class,
+                WorkosResource::class,
+                $parent::class,
+            ));
+        }
+
+        return ResourceTarget::byExternalId(
+            $parent->workosResourceExternalId(),
+            $parent->workosResourceType(),
+        );
+    }
+
     protected static function bootHasWorkosResource(): void
     {
         static::created(function (self $model): void {
@@ -89,7 +128,13 @@ trait HasWorkosResource
                 name: $model->workosResourceName(),
                 resourceTypeSlug: $model->workosResourceType(),
                 organizationId: $model->workosResourceOrganizationId(),
+                parentResource: $model->workosParentResourceTarget(),
             );
+
+            // A resource appearing in (or moving within) the hierarchy shifts
+            // effective-permission inheritance; a config-guarded no-op while
+            // the opt-in FGA cache is disabled.
+            app(FgaChecker::class)->forgetCache();
         });
 
         static::deleted(function (self $model): void {
@@ -98,6 +143,8 @@ trait HasWorkosResource
                 resourceTypeSlug: $model->workosResourceType(),
                 externalId: $model->workosResourceExternalId(),
             );
+
+            app(FgaChecker::class)->forgetCache();
         });
     }
 }

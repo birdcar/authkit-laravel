@@ -74,6 +74,38 @@ php artisan vendor:publish --tag="authkit-laravel-assets"
 
 <!-- Add a basic usage example here. -->
 
+### JWT Templates
+
+`Authkit::jwtTemplate()` wraps the environment's JWT template:
+
+```php
+use Authkit\Authkit\Facades\Authkit;
+
+$template = Authkit::jwtTemplate()->get();
+
+Authkit::jwtTemplate()->update('{"plan": "{{ organization.name }}"}');
+```
+
+> [!WARNING]
+> **Editing the JWT template changes every access token your environment mints
+> from that moment on — and the AuthKit sealed session cookie that carries
+> those tokens has a hard 4KB browser ceiling.**
+>
+> A template that grows the claim set (for example by embedding large
+> role/permission arrays) can push the sealed cookie past 4KB, at which point
+> browsers silently truncate or drop it: the `workos` guard can no longer
+> unseal the session and users are locked out of login entirely. Claims are
+> also what back this package's zero-HTTP RBAC checks and the Pennant
+> `feature_flags` claim, so template edits shift authorization behavior, not
+> just token cosmetics.
+>
+> Every `update()` call logs a warning and dispatches the
+> `Authkit\Authkit\Events\JwtTemplateUpdated` event (carrying the before/after
+> content) — listen for it to wire your own alerting. **Always verify a real
+> login end-to-end in staging after a template change before deploying it.**
+> If you need bulky data available at runtime, keep it out of the template and
+> use the runtime APIs instead of growing the token.
+
 ## Changelog
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
