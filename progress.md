@@ -49,15 +49,16 @@
 
 ### What's Next (release gates — human, not agent, work)
 
-1. Re-sign the unsigned chain with 1Password unlocked (rebase --exec amend -S from cffd31a, per the standing blocker note below)
-2. Push and watch the CI matrix: `gh run watch --exit-status <run-id>` for tests.yml on the release commit
+1. ~~Re-sign the unsigned chain~~ DONE 2026-08-10 — full Birdcar chain (31 commits, 4b1a8db→HEAD) signed via `git rebase --exec 'git commit --amend -S --no-edit' 0bdfa7e`; verified zero unsigned; recorded hashes updated in b18da9f
+2. Push and watch the CI matrix: `gh run watch --exit-status <run-id>` for tests.yml on the release commit — **see the origin/main divergence risk below before pushing**
 3. Run the human quickstart trial on a fresh `laravel new` app and fill `docs/release-checklist.md`'s log table (release-blocking; do not fabricate)
 4. Run the Phase 1 token audit against a real WorkOS environment (docs/token-audit.md findings still TBD; WORKOS_JWT_ISSUER enforcement stays opt-in until then)
 5. Draft CHANGELOG/release notes, then walk docs/release-checklist.md top to bottom before tagging
 
 ## Blockers / Risks
 
-- [ ] **Commits from Phase 2 onward are unsigned** (Nick's decision 2026-08-07: 1Password SSH signing agent locks during the unattended run). Before pushing/releasing, re-sign the chain with 1Password unlocked: `git rebase --exec 'git commit --amend -S --no-edit' cffd31a`
+- [x] ~~**Commits from Phase 2 onward are unsigned**~~ RESOLVED 2026-08-10: full Birdcar chain re-signed from 0bdfa7e with 1Password unlocked (31 commits, all verified signed); upstream skeleton commits untouched
+- [ ] **origin/main was force-pushed and shares NO common ancestor with local main** (discovered 2026-08-10 on fetch: origin tip b722a08 "refactor(workbench): Use package widgets on settings page", 199 commits local doesn't have; local has 147 origin doesn't). Pushing this branch requires an explicit reconciliation decision — a plain push will be rejected and a force-push would discard the remote's 199 commits. Investigate what the remote history is before choosing.
 
 - [ ] Phase 1 must complete the empirical AuthKit token audit (canonical iss/aud values + default claim presence) before Phase 2 starts — encoded in the specs
 - [ ] Execution runs directly on `main` by stakeholder decision; recovery anchor for a bad run is the pre-execution tip (the handoff commit — last commit before Phase 1), which preserves the committed plan
