@@ -16,6 +16,7 @@ use Authkit\Authkit\Groups\GroupManager;
 use Authkit\Authkit\Invitations\InvitationManager;
 use Authkit\Authkit\JwtTemplates\JwtTemplateManager;
 use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
+use Authkit\Authkit\Pipes\PipesManager;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
@@ -107,6 +108,18 @@ class Authkit
     public function groups(): GroupManager
     {
         return app(GroupManager::class);
+    }
+
+    /**
+     * Pipes connected accounts: live read-throughs for a user's connected
+     * providers and auto-refreshed access tokens, plus the org-level
+     * provider-config passthrough. No local projection exists by contract
+     * decision — every call is an uncached WorkOS read, so there is no
+     * cache to go stale and no disconnect/accessToken race to lose.
+     */
+    public function pipes(): PipesManager
+    {
+        return app(PipesManager::class);
     }
 
     /**

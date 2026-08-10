@@ -5,6 +5,7 @@ use Authkit\Authkit\Facades\Authkit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
+use Workbench\App\Http\Controllers\PipesController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -56,6 +57,20 @@ Route::post('/depth-extensions/invitations', function (Request $request) {
         organizationId: is_string($organizationId) ? $organizationId : null,
     );
 });
+
+// Pipes playground: live read-throughs to WorkOS (no local projection).
+// GET /pipes lists the session user's connected accounts via the trait;
+// GET /pipes/{provider}/token fetches an auto-refreshed access token,
+// redirecting to the reauthorization URL when the grant has drifted. The
+// provider-config passthrough takes its organization from the query/body,
+// matching the depth-extensions convention above.
+Route::middleware('auth:workos')->group(function (): void {
+    Route::get('/pipes', [PipesController::class, 'index'])->name('pipes.index');
+    Route::get('/pipes/{provider}/token', [PipesController::class, 'token'])->name('pipes.token');
+});
+
+Route::get('/pipes-providers', [PipesController::class, 'providers'])->name('pipes.providers');
+Route::post('/pipes-providers/{provider}', [PipesController::class, 'configureProvider'])->name('pipes.providers.update');
 
 Route::get('/depth-extensions/groups', function (Request $request) {
     $organizationId = $request->query('organization_id', config('workbench.demo_organization_id'));

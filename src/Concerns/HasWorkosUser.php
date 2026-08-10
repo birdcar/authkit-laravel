@@ -7,7 +7,12 @@ namespace Authkit\Authkit\Concerns;
 use Authkit\Authkit\Auth\AccessTokenClaims;
 use Authkit\Authkit\Contracts\WorkosUser;
 use Authkit\Authkit\Exceptions\UnverifiedEmailCollisionException;
+use Authkit\Authkit\Facades\Authkit;
+use Authkit\Authkit\Pipes\Data\ConnectedAccountData;
+use Authkit\Authkit\Pipes\Data\PipeAccessTokenData;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use RuntimeException;
 use WorkOS\Resource\User as WorkosUserResource;
 use WorkOS\Service\UserManagement;
 
@@ -49,6 +54,51 @@ trait HasWorkosUser
     public function setWorkosImpersonator(?array $impersonator): void
     {
         $this->workosImpersonator = $impersonator;
+    }
+
+    /**
+     * This user's Pipes connected accounts — a pure delegation to
+     * Authkit::pipes()->connectedAccounts(), never a second implementation.
+     * Live read-through to WorkOS on every call (no local projection by
+     * contract decision), optionally scoped to one organization.
+     *
+     * @return Collection<int, ConnectedAccountData>
+     */
+    public function connectedAccounts(?string $organizationId = null): Collection
+    {
+        return Authkit::pipes()->connectedAccounts($this->workosPipesUserId(), $organizationId);
+    }
+
+    /**
+     * A valid (WorkOS auto-refreshed) access token for one connected
+     * provider — a pure delegation to Authkit::pipes()->accessToken(), and
+     * it throws the same named exceptions.
+     */
+    public function pipe(string $providerSlug, ?string $organizationId = null): PipeAccessTokenData
+    {
+        return Authkit::pipes()->accessToken($this->workosPipesUserId(), $providerSlug, $organizationId);
+    }
+
+    /**
+     * This user's WorkOS ID, required before any Pipes call can be
+     * attributed to them.
+     */
+    private function workosPipesUserId(): string
+    {
+        $workosId = $this->getAttribute('workos_id');
+
+        if (! is_string($workosId) || $workosId === '') {
+            $key = $this->getKey();
+
+            throw new RuntimeException(sprintf(
+                'Cannot access Pipes connected accounts for %s [%s]: it has no workos_id yet. '
+                .'The user must complete a WorkOS login (first-login linking) before using Pipes.',
+                static::class,
+                is_scalar($key) ? (string) $key : '',
+            ));
+        }
+
+        return $workosId;
     }
 
     public static function findOrCreateForWorkosUser(WorkosUserResource $workosUser): static
