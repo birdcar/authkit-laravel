@@ -10,35 +10,107 @@
     },
     {
       "id": "feat-002",
-      "name": "First User-Facing Feature",
-      "description": "Replace this placeholder with the first concrete behavior the agent should implement",
+      "name": "Foundation & Client Binding",
+      "description": "WorkOS client container binding, config/authkit.php, authkit:install, emulate/MockHandler test harness, Phase 1 token audit docs",
       "dependencies": ["feat-001"],
-      "status": "not-started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "commit 2605b16; composer test green (pest 56/56, 123 assertions, phpstan 0 errors, pint pass, 100% type coverage) — progress.md Phase 1"
     },
     {
       "id": "feat-003",
-      "name": "Verification Coverage",
-      "description": "Add or confirm tests, type checks, linting, or manual verification for the active feature",
+      "name": "Auth Core & Sealed Sessions",
+      "description": "workos guard, sealed-session iss/aud checks, refresh middleware, user projection, impersonation",
       "dependencies": ["feat-002"],
-      "status": "not-started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "commit d6cc2c2; reviewer PASS cycle 3; composer test green (124 tests, 296 assertions) — progress.md Phase 2"
     },
     {
       "id": "feat-004",
-      "name": "Documentation Update",
-      "description": "Update README, architecture notes, or product docs affected by the implemented feature",
+      "name": "Organizations & Org Context",
+      "description": "HasWorkosOrganization trait, domains projection, current-org resolution, org-switch route, tenant middleware",
       "dependencies": ["feat-003"],
-      "status": "not-started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "commit 952e344; reviewer PASS cycle 1; composer test green (169 tests, 425 assertions) — progress.md Phase 3"
     },
     {
       "id": "feat-005",
-      "name": "Cleanup and Handoff",
-      "description": "Record verification evidence, update progress.md, and leave a clear next-session path",
+      "name": "Events Pipeline & Webhooks",
+      "description": "authkit:work poller, typed + generic events, webhook route macro, make:workos-listener, projection listeners",
       "dependencies": ["feat-004"],
-      "status": "not-started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "commit 0e7cf97; reviewer PASS cycle 1; composer test green (329 tests, 949 assertions) — progress.md Phase 4"
+    },
+    {
+      "id": "feat-006",
+      "name": "Authorization (RBAC + FGA)",
+      "description": "Gate::before claims integration, role/permission managers, FGA Check API wrapper, HasWorkosResource trait",
+      "dependencies": ["feat-003"],
+      "status": "done",
+      "evidence": "commit 6a04967; reviewer PASS cycle 1; composer test green (215 tests, 544 assertions) — progress.md Phase 5"
+    },
+    {
+      "id": "feat-007",
+      "name": "Audit Logs & Admin Portal",
+      "description": "HasAuditLogs trait, AuditLog facade, schema/export/retention passthrough, portal-link facade",
+      "dependencies": ["feat-005"],
+      "status": "done",
+      "evidence": "commit fede47b; reviewer PASS cycle 1; composer test green (449 tests, 1357 assertions) — progress.md Phase 6"
+    },
+    {
+      "id": "feat-008",
+      "name": "Feature Flags (Pennant Driver)",
+      "description": "workos Pennant driver: claim-first in HTTP, WorkOS API fallback in queue/console",
+      "dependencies": ["feat-003"],
+      "status": "done",
+      "evidence": "commit 59c170f; reviewer PASS cycle 1; composer test green (230 tests, 593 assertions) — progress.md Phase 7"
+    },
+    {
+      "id": "feat-009",
+      "name": "API Keys Guard",
+      "description": "authkit-key guard, key permissions into Gate, issue/revoke on user + org models",
+      "dependencies": ["feat-006", "feat-004"],
+      "status": "done",
+      "evidence": "commit 857065d; reviewer PASS cycle 1; composer test green (362 tests, 1056 assertions) — progress.md Phase 8"
+    },
+    {
+      "id": "feat-010",
+      "name": "Vault",
+      "description": "Vaulted cast, vault filesystem driver, Vault KV facade",
+      "dependencies": ["feat-002"],
+      "status": "done",
+      "evidence": "commit 1b3243a; reviewer PASS cycle 1; composer test green (262 tests, 695 assertions) — progress.md Phase 9"
+    },
+    {
+      "id": "feat-011",
+      "name": "Connect & MCP Auth",
+      "description": "Connect application registry facade, MCP bearer middleware, /.well-known/oauth-protected-resource route",
+      "dependencies": ["feat-003", "feat-004"],
+      "status": "done",
+      "evidence": "commit c7fce5a; reviewer PASS cycle 1; composer test green (402 tests, 1173 assertions) — progress.md Phase 10"
+    },
+    {
+      "id": "feat-012",
+      "name": "Pipes",
+      "description": "connectedAccounts read-throughs, access-token fetch with auto-refresh, org provider-config passthrough",
+      "dependencies": ["feat-004"],
+      "status": "done",
+      "evidence": "commit e7776b9; reviewer PASS cycle 1; composer test green (514 tests, 1625 assertions) — progress.md Phase 11"
+    },
+    {
+      "id": "feat-013",
+      "name": "Depth Extensions (Full Tier)",
+      "description": "Invitations, JWT template + CORS passthroughs, Groups API, FGA resource-graph conveniences, opt-in FGA cache",
+      "dependencies": ["feat-006", "feat-004", "feat-005"],
+      "status": "done",
+      "evidence": "commit d63e6d0; reviewer PASS cycle 2; composer test green (499 tests, 1546 assertions) — progress.md Phase 12"
+    },
+    {
+      "id": "feat-014",
+      "name": "Integration, Quickstart & Release Readiness",
+      "description": "Workbench build-out, Acceptance/ProjectionBoundary/IdiomCoverage/WorkbenchZeroSdkReference suites, quickstart doc, CI emulate priming, README, Boost skill, release checklist",
+      "dependencies": ["feat-005", "feat-006", "feat-007", "feat-008", "feat-009", "feat-010", "feat-011", "feat-012", "feat-013"],
+      "status": "done",
+      "evidence": "2026-08-10 composer test green (528 tests, 1691 assertions, PHPStan level 7 clean, Pint clean, 100% type coverage); Acceptance/ProjectionBoundary/IdiomCoverage/WorkbenchZeroSdkReference all green; quickstart grep prints 5 (<=5); workbench SDK grep exits 1; env-grep on src/ exits 1 — progress.md Phase 13"
     }
   ]
 }

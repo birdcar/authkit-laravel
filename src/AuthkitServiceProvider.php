@@ -113,6 +113,20 @@ class AuthkitServiceProvider extends ServiceProvider
             is_array($existingGuard) ? $existingGuard : [],
         ));
 
+        // Same treatment for the workos session guard: `authkit:install`
+        // deliberately does not edit config/auth.php, and Phase 1's contract
+        // promise is "registers routes + guard" — without this default entry
+        // a consumer running only the installer hits "Auth guard [workos] is
+        // not defined." on their first `auth:workos` route (the gap progress.md
+        // tracked into the acceptance phase). Defaults to the stock `users`
+        // provider; a consumer's own config/auth.php entry wins the merge.
+        $existingWorkosGuard = $config->get('auth.guards.workos', []);
+
+        $config->set('auth.guards.workos', array_merge(
+            ['driver' => 'workos', 'provider' => 'users'],
+            is_array($existingWorkosGuard) ? $existingWorkosGuard : [],
+        ));
+
         // The SDK's HttpClient hands this straight to Guzzle and then keeps the
         // client private, so binding the stack here is the only way to get the
         // JWKS grace middleware in front of the SDK's own requests. bindIf keeps

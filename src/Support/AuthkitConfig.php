@@ -29,6 +29,16 @@ final class AuthkitConfig
 
     public static function baseUrl(): string
     {
+        // Honors the emulate override exactly like WorkosClientManager::fromConfig
+        // — the guard's JWKS verification and the logout URL must talk to the
+        // same host the client manager does, or an emulate-backed login mints
+        // sessions the guard then rejects against production WorkOS (found by
+        // the Phase 13 acceptance suite; Phase 1's emulate promise is that the
+        // whole package follows the override, not just the SDK client).
+        if ((bool) config('authkit.emulate.enabled', false)) {
+            return (string) config('authkit.emulate.base_url', 'http://localhost:4100');
+        }
+
         return (string) config('authkit.base_url', 'https://api.workos.com');
     }
 

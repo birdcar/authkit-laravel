@@ -62,6 +62,21 @@ jobs:
         if: runner.os != 'Windows'
         run: composer test:types
 
+      # The emulate-backed suites boot @workos/emulate themselves, per suite,
+      # via tests/Support/EmulateServer (npx, per-suite ports and seed files) —
+      # no external server or WORKOS_* env is involved. This step warms the
+      # npx cache once so those in-suite boots are sub-second instead of each
+      # risking a cold-download against the 60s health budget, and validates
+      # every seed fixture so a malformed seed fails loudly here rather than
+      # as an opaque emulate boot timeout mid-suite. Windows is excluded by
+      # design: EmulateServer::isAvailable() skips emulate tests there.
+      - name: Prime workos/emulate (warm npx cache, validate seeds)
+        if: runner.os != 'Windows'
+        run: |
+          for seed in tests/Fixtures/workos-emulate*.config.yaml; do
+            npx --yes @workos/emulate@0.6.0 --seed "$seed" --validate-config
+          done
+
       - name: Test Suite
         if: runner.os != 'Windows'
         run: composer test:unit

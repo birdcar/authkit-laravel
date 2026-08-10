@@ -5,7 +5,15 @@ use Authkit\Authkit\Facades\Authkit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
+use Workbench\App\Http\Controllers\AdminPortalDemoController;
+use Workbench\App\Http\Controllers\ApiKeyDemoController;
+use Workbench\App\Http\Controllers\AuditLogDemoController;
+use Workbench\App\Http\Controllers\AuthorizationDemoController;
+use Workbench\App\Http\Controllers\ConnectMcpDemoController;
+use Workbench\App\Http\Controllers\DashboardController;
+use Workbench\App\Http\Controllers\FeatureFlagDemoController;
 use Workbench\App\Http\Controllers\PipesController;
+use Workbench\App\Http\Controllers\VaultDemoController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -71,6 +79,23 @@ Route::middleware('auth:workos')->group(function (): void {
 
 Route::get('/pipes-providers', [PipesController::class, 'providers'])->name('pipes.providers');
 Route::post('/pipes-providers/{provider}', [PipesController::class, 'configureProvider'])->name('pipes.providers.update');
+
+// Phase 13 demo surface: every scope-table area gets at least one route,
+// all calling package APIs only (the WorkbenchZeroSdkReference test keeps
+// this file — and every other workbench file — free of direct SDK use).
+// The dashboard is the post-login hub a human quickstart trial checks.
+Route::middleware('auth:workos')->group(function (): void {
+    Route::get('/dashboard', DashboardController::class)->name('demo.dashboard');
+    Route::post('/demo/audit-log', [AuditLogDemoController::class, 'log'])->name('demo.audit.log');
+    Route::get('/demo/portal/{intent}', [AdminPortalDemoController::class, 'link'])->name('demo.portal.link');
+    Route::get('/demo/rbac', [AuthorizationDemoController::class, 'rbac'])->name('demo.rbac.check');
+    Route::get('/demo/fga/{resourceExternalId}', [AuthorizationDemoController::class, 'fga'])->name('demo.fga.check');
+    Route::get('/demo/flags', [FeatureFlagDemoController::class, 'check'])->name('demo.flags.check');
+    Route::post('/demo/api-keys', [ApiKeyDemoController::class, 'issue'])->name('demo.api-keys.issue');
+    Route::delete('/demo/api-keys/{apiKeyId}', [ApiKeyDemoController::class, 'revoke'])->name('demo.api-keys.revoke');
+    Route::get('/demo/vault', [VaultDemoController::class, 'roundTrip'])->name('demo.vault.round-trip');
+    Route::get('/demo/connect', [ConnectMcpDemoController::class, 'applications'])->name('demo.connect.applications');
+});
 
 Route::get('/depth-extensions/groups', function (Request $request) {
     $organizationId = $request->query('organization_id', config('workbench.demo_organization_id'));

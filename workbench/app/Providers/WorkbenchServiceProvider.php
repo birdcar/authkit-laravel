@@ -2,7 +2,13 @@
 
 namespace Workbench\App\Providers;
 
+use Authkit\Authkit\Events\GenericWorkosEvent;
+use Authkit\Authkit\Events\Workos\OrganizationMembershipCreated;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Workbench\App\Console\Commands\CheckFeatureFlagsForUser;
+use Workbench\App\Console\Commands\TriggerWorkosEvent;
+use Workbench\App\Listeners\LogWorkosEvents;
 use Workbench\App\Models\Organization;
 use Workbench\App\Models\User;
 
@@ -33,9 +39,16 @@ class WorkbenchServiceProvider extends ServiceProvider
             'model' => User::class,
         ]);
 
-        // The minimum wiring for `composer serve` and workbench-touching tests
-        // to have a real org model configured; Phase 13 owns the full build-out.
+        // The real org model the workbench demos exercise.
         config()->set('authkit.organization.model', Organization::class);
+
+        // The vault filesystem-driver demo disk: wraps the skeleton's local
+        // disk with BYOK envelope encryption. The 'disk' key names the inner
+        // disk to wrap (the driver's landed config shape).
+        config()->set('filesystems.disks.vault-demo', [
+            'driver' => 'vault',
+            'disk' => 'local',
+        ]);
     }
 
     /**
@@ -61,5 +74,19 @@ class WorkbenchServiceProvider extends ServiceProvider
         //
         // \Illuminate\Foundation\DevCommands::artisan('authkit:work', 'authkit-events')->purple();
         // \Illuminate\Foundation\DevCommands::register('npx @workos/emulate', 'workos-emulate')->orange();
+
+        // The listener-recipe worked example: the typed handler covers the
+        // bounded projection-feeding set's membership.created, the generic
+        // handler covers everything outside it — one listener, both branches,
+        // both transports (poller and webhooks).
+        Event::listen(OrganizationMembershipCreated::class, [LogWorkosEvents::class, 'handleMembershipCreated']);
+        Event::listen(GenericWorkosEvent::class, [LogWorkosEvents::class, 'handleGeneric']);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                CheckFeatureFlagsForUser::class,
+                TriggerWorkosEvent::class,
+            ]);
+        }
     }
 }

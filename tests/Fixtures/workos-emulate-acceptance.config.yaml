@@ -1,0 +1,70 @@
+# Dedicated seed for the Acceptance suite (tests/Feature/AcceptanceTest.php)
+# and for manually exercising the workbench demo routes against a local
+# emulator (`npx @workos/emulate@0.6.0 --seed tests/Fixtures/workos-emulate-acceptance.config.yaml`).
+#
+# Deliberately NOT merged into the shared workos-emulate.config.yaml: the
+# Authorization suite's emulate smoke test asserts EMPTY environment role and
+# permission lists against the shared fixture (emulate 0.6.0's non-empty
+# role/permission payloads use a legacy shape SDK v9.1 cannot parse), so
+# seeding roles/permissions there would break it. Dedicated per-suite seeds
+# are the established pattern (workos-emulate-api-keys / -depth fixtures).
+#
+# IDs are pinned so the Acceptance suite can assert on durable identifiers
+# (the one thing emulate keeps stable across token refreshes — refresh tokens
+# themselves always rotate).
+
+users:
+  # Exactly one user, on purpose: the package's login route sends no
+  # login_hint, and emulate's non-interactive authorize resolves the first
+  # seeded user. One active membership also makes every fresh login
+  # auto-scope to Acceptance Org, so the access token carries org_id, role,
+  # and permissions claims — the raw material for the RBAC-from-claims proof.
+  - id: user_01ACCEPTANCETRIAL000000000
+    email: acceptance-trial@example.test
+    first_name: Ada
+    last_name: Acceptance
+    password: test123
+    email_verified: true
+
+organizations:
+  - id: org_01ACCEPTANCEDEMO0000000000
+    name: Acceptance Org
+    domains:
+      - domain: example.test
+        state: verified
+    memberships:
+      - email: acceptance-trial@example.test
+        role: admin
+        status: active
+
+roles:
+  - slug: admin
+    name: Admin
+    type: EnvironmentRole
+    permissions:
+      - posts.manage
+
+permissions:
+  - slug: posts.manage
+    name: Manage posts
+
+# One pending invitation so the depth-extensions invitations demo route has
+# real backing data when this seed backs a `composer serve` session.
+invitations:
+  - email: invited@example.test
+    organization_id: org_01ACCEPTANCEDEMO0000000000
+    role_slug: admin
+
+# One Connect application so /demo/connect lists something real.
+connectApplications:
+  - name: Acceptance M2M App
+    type: m2m
+    organization: Acceptance Org
+    scopes:
+      - read
+
+# A minimal JWT template, proving default-claim presence survives a
+# configured template (the template merges INTO the default claim set —
+# role/permissions still ride the token alongside it).
+jwtTemplate:
+  content: '{"urn:authkit-laravel:seed": "acceptance"}'
