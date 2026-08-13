@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Authkit\Authkit\Facades;
 
 use Authkit\Authkit\AuditLogManager;
+use Authkit\Authkit\Testing\Fakes\AuditLogFake;
 use Illuminate\Support\Facades\Facade;
 
 /**
@@ -16,8 +17,14 @@ use Illuminate\Support\Facades\Facade;
  * @method static \WorkOS\Resource\AuditLogExport getExport(string $auditLogExportId, ?\WorkOS\RequestOptions $options = null)
  * @method static \WorkOS\Resource\AuditLogsRetention getRetention(string $organizationId)
  * @method static \WorkOS\Resource\AuditLogsRetention setRetention(string $organizationId, int $days)
+ * @method static void assertLogged(string $action, callable|null $callback = null)
+ * @method static void assertNotLogged(string $action)
+ * @method static void assertNothingLogged()
+ * @method static void assertExportRequested(callable|null $callback = null)
+ * @method static \WorkOS\Resource\AuditLogExport markExportReady(string $auditLogExportId, ?string $url = null)
  *
  * @see AuditLogManager
+ * @see AuditLogFake for the assert* / markExportReady testing surface (bound by Authkit::fake(['audit-log']))
  */
 class AuditLog extends Facade
 {

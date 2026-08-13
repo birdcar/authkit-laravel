@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * Fail-closed by construction: an encrypt failure throws before any ciphertext
  * exists — never add a catch here that falls back to storing plaintext.
  */
-final class VaultCrypto
+class VaultCrypto
 {
     public function __construct(
         private readonly WorkosClientManager $clients,

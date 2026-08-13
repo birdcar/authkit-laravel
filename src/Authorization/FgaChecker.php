@@ -37,7 +37,7 @@ use WorkOS\Resource\AuthorizationAssignment;
  * exhaust, WorkOSException propagates uncaught rather than being masked as a
  * deny (spec-phase-5 Failure Mode 11).
  */
-final class FgaChecker
+class FgaChecker
 {
     private const string GENERATION_KEY = 'authkit:fga:cache:generation';
 

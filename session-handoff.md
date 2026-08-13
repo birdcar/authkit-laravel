@@ -2,6 +2,13 @@
 
 ## Current Objective
 
+- Goal: post-v2.0.0 — the enterprise-ready-laravel starter kit is the live quickstart trial; ergonomic gaps come back as package features. First one shipped: **feat-015 Consumer Testing Fakes** (2026-08-13).
+- Current status: feat-015 done and committed on `main` (see progress.md "Post-v2.0.0" entry for the full inventory + seam decisions). The starter kit consumes `dev-main` from Packagist during development; **before its deploy phase, tag v2.1.0** (Unreleased section in CHANGELOG.md is already written) so the app can re-pin to a release.
+- Verification: composer test green — PHPStan 0 errors, Pint clean, Pest 622/622 (2018 assertions), 100% type coverage; `tests/Testing` suite 92 tests.
+- Prior context (v2.0.0 release session) below remains for history.
+
+## Current Objective (v2.0.0 release session — superseded)
+
 - Goal: AuthKit Laravel v1 contract — build complete; **v2.0.0 PUBLISHED 2026-08-13**: https://github.com/birdcar/authkit-laravel/releases/tag/v2.0.0
 - Current status: released. Version is v2.0.0 (not v1.0.0) because the v1.x line on Packagist carries the old pre-rebuild codebase; a confused agent tagged v1.0.1 from that old history on 2026-08-13 as a workos-php v5 hotfix. That tag stays as the v1-line capstone; its `release/v1.0.1` branch and the stale `release-please--branches--main` branch were deleted from origin.
 - Branch / commit: `main`, pushed; tag `v2.0.0` (SSH-signed) on `bd865dc`'s successor history; changelog-updater action committed the release notes into CHANGELOG.md.

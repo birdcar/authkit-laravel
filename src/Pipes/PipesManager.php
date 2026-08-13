@@ -28,7 +28,7 @@ use WorkOS\Resource\DataIntegrationsListResponseData;
  * unmodified — an outage must never be conflated with the named business
  * state PipesAccountNotConnectedException carries.
  */
-final class PipesManager
+class PipesManager
 {
     public function __construct(
         private readonly WorkosClientManager $clients,

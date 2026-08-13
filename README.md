@@ -32,6 +32,14 @@ second source of truth.
 Five steps from `composer require` to a working login with organizations and
 role-based authorization live: **[docs/quickstart.md](docs/quickstart.md)**.
 
+## Testing Your App
+
+`Authkit::actingAs($user, [...])` fakes a full WorkOS session (guard, claims,
+Gate, current org, feature flags) and `Authkit::fake()` swaps every manager
+for an in-memory fake with Laravel-style assertions — no network, no API key,
+no emulator. The guide with a worked example per fake:
+**[docs/testing.md](docs/testing.md)**.
+
 ## What's Included
 
 | Area | Surface |
@@ -52,6 +60,7 @@ role-based authorization live: **[docs/quickstart.md](docs/quickstart.md)**.
 | Connect & MCP | `Authkit::connect()` application registry, `authkit.mcp` bearer middleware (RFC 6750), `/.well-known/oauth-protected-resource` (RFC 9728) |
 | Pipes | `$user->connectedAccounts()` / `$user->pipe('slug')` with WorkOS-managed token refresh, org provider-config passthrough |
 | Depth extensions | Invitations, JWT template + CORS origin passthroughs, Groups API |
+| Testing | `Authkit::actingAs()` synthetic sessions + `Authkit::fake()` manager fakes with recorded-call assertions — fast, offline feature tests for every surface above |
 
 Directory Sync ships no dedicated module by design — WorkOS-managed
 provisioning plus events-pipeline listeners cover it. Widgets are excluded

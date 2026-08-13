@@ -22,7 +22,7 @@ use WorkOS\Resource\ReplaceGroupRoleAssignmentEntry;
  * are free when the cache feature is off (FgaChecker::forgetCache() is a
  * config-guarded no-op), which is the default.
  */
-final class GroupManager
+class GroupManager
 {
     public function __construct(
         private readonly WorkosClientManager $clients,

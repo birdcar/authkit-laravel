@@ -2,6 +2,15 @@
 
 ## [Unreleased](https://github.com/birdcar/authkit-laravel/compare/v2.0.0...HEAD)
 
+### Added
+
+- First-party testing layer ([docs/testing.md](docs/testing.md)): `Authkit::actingAs()` / `Authkit::actingAsGuest()` synthetic `workos` sessions (claims flow through the real guard contracts — Gate, current organization, and Pennant flags all work offline), and `Authkit::fake()` with in-memory fakes for FGA, Invitations, Audit Logs, organization sync, API keys (user- and org-scoped, incl. the `authkit-key` guard's validate path), Vault (the `Vaulted` cast and `vault` disk run their real code paths over marker-prefixed fake crypto), Pipes, and Groups — each recording calls and exposing Laravel-style `assert*` helpers
+- `tests/Testing` suite (92 tests) covering the new layer end to end
+
+### Changed
+
+- Manager classes that gained fakes (`FgaChecker`, `InvitationManager`, `AuditLogManager`, `VaultManager`, `VaultCrypto`, `PipesManager`, `GroupManager`) are no longer `final` — each now has a deliberately designed testing subclass, and `tests/Testing/ManagerSwappabilityTest.php` guards the seam
+
 ## [v2.0.0](https://github.com/birdcar/authkit-laravel/compare/v1.0.1...v2.0.0) - 2026-08-13
 
 ### v2.0.0

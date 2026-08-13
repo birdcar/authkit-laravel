@@ -2,9 +2,23 @@
 
 ## Current State
 
-**Last Updated:** 2026-08-10
-**Session ID:** authkit-laravel-v1 execution (/goal-driven, direct build authorized by Nick)
-**Active Feature:** Phase 11 (Pipes) committed; Phase 13 (Acceptance) is the only phase remaining
+**Last Updated:** 2026-08-13 (post-v2.0.0)
+**Session ID:** enterprise-ready-laravel starter kit, Phase 1 (Package Testing Fakes) — the post-publish trial driving package patches
+**Active Feature:** feat-015 (Consumer Testing Fakes) DONE — first post-v2.0.0 feature, shipped on main for Packagist dev-main consumption
+
+## Post-v2.0.0: feat-015 Consumer Testing Fakes (2026-08-13)
+
+Driven by the starter kit's spec (`enterprise-ready-laravel` repo,
+`docs/ideation/v0001-authkit-laravel-demo-release/spec-phase-1.md`) — the
+"Human Quickstart Trial" waiver working as intended: the first ergonomic gap
+the app build hit (zero consumer testing helpers) came back as a package
+feature.
+
+- `src/Testing/`: `FakesWorkosSession` + `FakeWorkosGuard` (`Authkit::actingAs()` / `actingAsGuest()` — synthetic sessions whose claims flow through the real `AccessTokenClaims`/`WorkosUser` contracts; ClaimsGateHook, CurrentOrganizationResolver, and the Pennant `workos` store work unmodified and offline), `AuthkitFake` (`Authkit::fake()` root handle), `src/Testing/Fakes/` (FGA, Invitations, AuditLog, OrganizationSync, ApiKeys, Vault, Pipes, Groups + Support internals)
+- Provider audit (the spec's "any `new` construction bypassing the container is the fake seam" check) concluded: NOTHING bypasses the container — every manager resolves via `app()` in `src/Authkit.php` and the provider's bindings; the seam work was therefore un-finaling, not rebinding.
+- Seam decision: manager classes gaining fakes un-final'd (fakes extend them so every concrete type hint keeps working; `ManagerSwappabilityTest` guards re-finalization). `Authkit::fake()` deliberately does NOT swap the facade root — bindings only — which is what makes partial fakes sound (unfaked managers stay real on every path)
+- Non-obvious seams: ApiKeysFake IS a client manager (the key surface lives on traits + the guard resolving `WorkosClientManager` per call — its fake client serves registry-backed apiKeys/userManagement services, everything else real); OrganizationSyncFake scopes `Bus::fake` to exactly the two observer-dispatched jobs + `completeSync()` applies the job's local effect; VaultFake pairs the KV map with `FakeVaultCrypto` (marker-prefixed, visibly-not-ciphertext) so the `Vaulted` cast and `vault` disk run their REAL code paths
+- Evidence: composer test green — PHPStan 0 errors, Pint clean, Pest 622/622 (2018 assertions), 100% type coverage; new `tests/Testing` suite 92 tests / 325 assertions; docs/testing.md + README section shipped; CHANGELOG Unreleased updated
 
 **Execution mode note:** The ideation plugin gates all execution skills (`execute-spec`, `autopilot`) behind human invocation (`disable-model-invocation`), so autopilot could not dispatch phases. Nick explicitly authorized direct spec implementation instead: sequential fresh-context subagents, one per phase in numeric order, each with an `ideation:scout` readiness gate, `composer test` green, an `ideation:reviewer` cycle (strict fail-closed, max 3), and a commit referencing the slug-qualified spec path.
 

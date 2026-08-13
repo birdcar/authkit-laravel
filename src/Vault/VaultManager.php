@@ -24,7 +24,7 @@ use WorkOS\Service\Vault;
  * versionCheck let the last write silently win — WorkOS raises a
  * ConflictException only when a supplied versionCheck no longer matches.
  */
-final class VaultManager
+class VaultManager
 {
     public function __construct(private readonly WorkosClientManager $clients) {}
 

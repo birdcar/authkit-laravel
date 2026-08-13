@@ -19,7 +19,7 @@ use WorkOS\Resource\UserInvite;
  * accept() exists for apps building a custom acceptance UI ahead of the
  * redirect.
  */
-final class InvitationManager
+class InvitationManager
 {
     public function __construct(private readonly WorkosClientManager $clients) {}
 

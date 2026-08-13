@@ -10,9 +10,11 @@ use Authkit\Authkit\AuditLogs\Jobs\PollAuditLogExportJob;
 use Authkit\Authkit\AuditLogs\Support\AuditActorResolver;
 use Authkit\Authkit\AuditLogs\Support\MetadataSanitizer;
 use Authkit\Authkit\Contracts\WorkosClientManager;
+use BadMethodCallException;
 use DateTimeImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use LogicException;
 use WorkOS\PaginatedResponse;
 use WorkOS\RequestOptions;
 use WorkOS\Resource\AuditLogExport;
@@ -188,5 +190,26 @@ class AuditLogManager
         }
 
         return $this->clients->client()->auditLogs()->updateOrganizationAuditLogsRetention($organizationId, $days);
+    }
+
+    /**
+     * The testing surface (assertLogged and friends) lives on AuditLogFake
+     * and is reached through this facade once the fake is bound. Calling it
+     * against the REAL manager means the test forgot to fake — turn the
+     * would-be "undefined method" fatal into the guidance the testing guide
+     * promises.
+     *
+     * @param  array<int, mixed>  $arguments
+     */
+    public function __call(string $method, array $arguments): mixed
+    {
+        if (str_starts_with($method, 'assert') || $method === 'markExportReady') {
+            throw new LogicException(
+                "Call Authkit::fake(['audit-log']) before asserting — [{$method}] exists on the audit-log fake, "
+                .'and the real manager records nothing to assert against.',
+            );
+        }
+
+        throw new BadMethodCallException(sprintf('Method %s::%s does not exist.', static::class, $method));
     }
 }
