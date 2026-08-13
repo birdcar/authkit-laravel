@@ -2,53 +2,37 @@
 
 ## Current Objective
 
-- Goal: AuthKit Laravel v1 — 13-phase contract build (Full tier, express, on `main`).
-- Current status: **ALL 13 PHASES COMMITTED.** Phase 13 (Integration, Quickstart & Release Readiness) landed at `5521e4c`. The project is release-pending on human-only gates (below) — no agent-executable work remains in the contract.
-- Branch / commit: `main` at `5521e4c` (+ the evidence chore commit on top), unpushed.
+- Goal: AuthKit Laravel v1 contract — build complete; **v2.0.0 PUBLISHED 2026-08-13**: https://github.com/birdcar/authkit-laravel/releases/tag/v2.0.0
+- Current status: released. Version is v2.0.0 (not v1.0.0) because the v1.x line on Packagist carries the old pre-rebuild codebase; a confused agent tagged v1.0.1 from that old history on 2026-08-13 as a workos-php v5 hotfix. That tag stays as the v1-line capstone; its `release/v1.0.1` branch and the stale `release-please--branches--main` branch were deleted from origin.
+- Branch / commit: `main`, pushed; tag `v2.0.0` (SSH-signed) on `bd865dc`'s successor history; changelog-updater action committed the release notes into CHANGELOG.md.
 
-## Completed This Session (Phase 13)
+## Completed This Session (release session, 2026-08-13)
 
-- [x] Workbench build-out: all 16 scope-table areas have demo routes/commands calling package APIs only (Dashboard hub, AuditLog, AdminPortal ×7 intents, RBAC+FGA, Feature Flags HTTP+console, API keys, Vault triple round-trip, Connect/MCP, events listener recipe + trigger command)
-- [x] Four release-readiness suites: `--filter=Acceptance` (full emulate-backed login→link→org→can() journey, cold+warm), `--filter=ProjectionBoundary` (bidirectional 5-table whitelist), `--filter=IdiomCoverage` (13 mechanism-registration proofs), `--filter=WorkbenchZeroSdkReference` (contract grep as Pest)
-- [x] Two pre-authorized found-bug fixes in src/: `AuthkitConfig::baseUrl()` now honors the emulate override (guard JWKS/logout URLs); provider seeds a default `auth.guards.workos` entry (progress.md's tracked install gap — resolved)
-- [x] `docs/quickstart.md` (5 numbered steps, ≤5 ceiling), `docs/release-checklist.md` (with blank human-trial log — intentionally unfilled), README rewrite, Boost skill regeneration, `feature_list.json` real roadmap (all 14 entries evidence-backed), CI emulate priming step
-- [x] Reviewer: independent `claude -p` runs of the plugin reviewer definition — PASS cycle 1 and PASS cycle 2 (zero findings both)
+- [x] Diagnosed why installs pulled workos-php v5: latest Packagist release (v1.0.1) was cut from the old history; main (rebuild, workos-php ^9.1) had never been tagged
+- [x] Deleted `origin/release/v1.0.1` (020d5cb) and `origin/release-please--branches--main` (01ef8dc) — both old-history; SHAs recorded here for recovery
+- [x] `composer test` timeout: **not reproducible** — warm 7.4s, cold (PHPStan tmpDir wiped) 12.8s, 530 tests/1693 assertions green. EmulateServer boot is deadline-bounded (60s) with orphan-chain pkill, so no unbounded hang exists in the suite. Likely causes of the observed timeout: cold run under a 120s agent tool-timeout, or concurrent test runs contending on the shared Testbench skeleton/emulate ports
+- [x] Fixed the "dealerdirect/phpcodesniffer-composer-installer plugin was not loaded" warning: orphaned `nunomaduro/phpinsights` chain (29 packages) pruned from the local composer.lock via `composer update nunomaduro/phpinsights`. Local-only (composer.lock is gitignored); fresh installs never saw it
+- [x] Walked docs/release-checklist.md mechanically — all green (4 release Pest filters, quickstart ≤5 steps, 51 feature test files, no env() in src, no SDK refs in workbench, CI matrix green)
+- [x] CHANGELOG.md skeleton fixed (real dates, v1.0.1 old-line entry); v2.0.0 release notes hand-written and published; changelog action copied them into CHANGELOG.md
+- [x] Quickstart trial gate **explicitly waived by Nick** for v2.0.0: his starter kit build is the live post-publish trial, patches to follow if it snags. Waiver disclosed in the release notes; checklist table left blank (never fabricate)
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 | ----- | ------- | ------ | ----- |
-| Full validation | `composer test` | PASS | 530 tests, 1693 assertions; PHPStan level 7 clean; Pint clean; 100% type coverage |
-| Acceptance | `vendor/bin/pest --filter=Acceptance` | PASS | live emulate, port 4189, dedicated seed |
-| Projection boundary | `vendor/bin/pest --filter=ProjectionBoundary` | PASS | negative case proven then removed |
-| Idiom coverage | `vendor/bin/pest --filter=IdiomCoverage` | PASS | 13 tests |
-| Workbench SDK-free | `vendor/bin/pest --filter=WorkbenchZeroSdkReference` | PASS | negative case proven then removed |
-| Quickstart bound | `grep -cE '^[0-9]+\.' docs/quickstart.md` | 5 | contract ceiling ≤5 |
-| env() ban | `grep -rn 'env(' src/ --include='*.php'` | exit 1 | also arch-tested |
+| Full validation | `composer test` | PASS (12.8s cold) | 530 tests, 1693 assertions; PHPStan clean; Pint clean; 100% type coverage |
+| Release filters | `pest --filter=` Acceptance / ProjectionBoundary / IdiomCoverage / WorkbenchZeroSdkReference | all PASS | run 2026-08-13 |
+| CI matrix | tests.yml run 31396574476 | 24/24 green | on 2850b41; later pushes also green |
+| Packagist | `repo.packagist.org/p2/birdcar/authkit-laravel.json` | v2.0.0 sync pending verification at session end | confirm latest = v2.0.0 with workos-php ^9.1 |
 
-## Files Changed
+## Blockers / Risks
 
-- Phase commit `5521e4c`: 27 files (+1407/−75) — see `git show --stat 5521e4c`
-- Evidence commit (this one): `progress.md`, `session-handoff.md`
-
-## Decisions Made
-
-- 10 deviation/decision entries in `docs/ideation/authkit-laravel-v1/implementation-notes-phase-13.html` — headline items: dedicated acceptance emulate seed (shared fixture must stay role-free for AuthorizationTest's empty-list smoke), VaultDemoRecord reused instead of Post.secret_note, CI priming step instead of the spec's external emulate boot, 5-step quickstart (installer doesn't wire auth), no fabricated Blade-directive assertion (Gate::before probed behaviorally), both found-bug fixes.
-
-## Blockers / Risks (release gates — human work)
-
-- [ ] **Unsigned commit chain** (Phases 2–13; 1Password signer locked during unattended runs, Nick's 2026-08-07 decision): re-sign before pushing — `git rebase --exec '<amend with -S --no-edit>' cffd31a` with 1Password unlocked
-- [ ] **Human quickstart trial** — run `docs/quickstart.md` on a fresh `laravel new` app, timed, and fill the log table in `docs/release-checklist.md`. Release-blocking; must not be fabricated
-- [ ] **Phase 1 token audit** — `docs/token-audit.md` findings still TBD against a real WorkOS environment; `WORKOS_JWT_ISSUER` enforcement stays opt-in until confirmed
-- [ ] CI matrix has not yet run on the release commit (unpushed) — `gh run watch --exit-status` after push
-- [ ] Known pre-existing parallel-worker flakes (unchanged this phase): InstallIdempotentTest `--force` republish race; rare `mergeConfigFrom array_merge` worker race — both documented in prior phase entries, both green this session
+- [ ] **Phase 1 token audit** — `docs/token-audit.md` findings still TBD against a real WorkOS environment; `WORKOS_JWT_ISSUER` enforcement stays opt-in until confirmed (unchanged; not release-blocking by decision)
+- [ ] Starter-kit trial replaces the quickstart trial — treat any snag found there as release-blocking for a v2.0.1 patch
+- [ ] Known pre-existing parallel-worker flakes (unchanged): InstallIdempotentTest `--force` republish race; rare `mergeConfigFrom array_merge` worker race — both green this session
 
 ## Next Session Startup
 
 1. `./init.sh` (baseline: 530 tests green from a clean checkout).
-2. Read `docs/release-checklist.md` — the remaining work is that list, top to bottom.
+2. If working the starter kit: install `birdcar/authkit-laravel:^2.0` and follow docs/quickstart.md; file every snag against this repo.
 3. `feature_list.json` is fully evidence-backed; do not edit statuses without new evidence.
-
-## Recommended Next Step
-
-- Human: re-sign the chain, push, watch CI, then run the quickstart trial and fill the release checklist.
