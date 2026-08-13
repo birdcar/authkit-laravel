@@ -2,6 +2,25 @@
 
 ## [Unreleased](https://github.com/birdcar/authkit-laravel/compare/v2.1.0...HEAD)
 
+## [v2.1.0](https://github.com/birdcar/authkit-laravel/compare/v2.0.0...v2.1.0) - 2026-08-13
+
+v2.1.0 brings the missing chapter: first-party testing support, so consuming apps can write fast, fully offline Pest tests against every WorkOS surface this package wraps. The full guide lives at [docs/testing.md](https://github.com/birdcar/authkit-laravel/blob/main/docs/testing.md).
+
+### Added
+
+- **`Authkit::actingAs($user, [...])` / `Authkit::actingAsGuest()`** — synthetic `workos` sessions with no cookie, JWKS fetch, or SDK call. Claims flow through the exact contracts the real guard uses, so `Gate` checks, `Authkit::currentOrganization()`, `$request->organization()`, and the Pennant `workos` store behave as they would against a genuine login. Supports organizations (model or `org_...` string), roles, permissions, feature flags, impersonation (fires `Impersonating`), and raw claim overrides.
+- **`Authkit::fake()`** — swaps manager bindings for in-memory fakes and returns a typed scripting/assertion handle. Fake everything or a subset (`Authkit::fake(['fga', 'vault'])`); unfaked managers keep real behavior on every code path. Fakes for **FGA** (scriptable allow/deny, default deny, `assertChecked`), **Invitations** (stateful send/revoke/accept registry), **Audit Logs** (`AuditLog::assertLogged(...)` with real actor resolution and metadata sanitization, export lifecycle, schema registrations), **organization sync** (Bus-level capture + `completeSync()`), **API keys** (user- and org-scoped create/list/revoke, and the `authkit-key` guard authenticates fake keys through its real machinery), **Vault** (in-memory KV with version history and optimistic-locking `ConflictException` parity; the `Vaulted` cast and `vault` disk run their real code paths over visibly-marked fake crypto), **Pipes** (connected-account fixtures, scripted tokens, both business exceptions triggerable), and **Groups** (CRUD, membership, role assignments — FGA cache-bust contract preserved).
+- **WorkOS traffic now rides the application's HTTP client** (`authkit.http.transport`, default `laravel`; set `AUTHKIT_HTTP_TRANSPORT=guzzle` to opt out). Laravel's native testing idioms finally see WorkOS calls — `Http::preventStrayRequests()`, `Http::fake()`, `Http::assertSent()` — and in production, global HTTP middleware and HTTP client events observe WorkOS requests like any other outbound call. The SDK's retry, error-mapping, and JWKS-cache behavior is unchanged.
+
+### Changed
+
+- Manager classes that gained fakes (`FgaChecker`, `InvitationManager`, `AuditLogManager`, `VaultManager`, `VaultCrypto`, `PipesManager`, `GroupManager`) are no longer `final` — each now has a deliberately designed testing subclass, and an arch test guards the seam.
+- Calling a testing assertion (e.g. `AuditLog::assertLogged(...)`) without faking first now throws a `LogicException` naming the fix instead of an undefined-method fatal.
+
+### Fixed
+
+- Compatibility with `workos/workos-php` 9.2.0: the events poller passes the now-required `$events` filter explicitly (empty = all event types, the same wire request as before).
+
 ## [v2.0.0](https://github.com/birdcar/authkit-laravel/compare/v1.0.1...v2.0.0) - 2026-08-13
 
 ### v2.0.0
@@ -54,22 +73,3 @@ rebuild with a new API surface.
 ## [v0.1.0](https://github.com/birdcar/authkit-laravel/compare/...v0.1.0) - 2026-01-23
 
 Initial pre-release.
-
-## [v2.1.0](https://github.com/birdcar/authkit-laravel/compare/v2.1.0...v2.1.0) - 2026-08-13
-
-v2.1.0 brings the missing chapter: first-party testing support, so consuming apps can write fast, fully offline Pest tests against every WorkOS surface this package wraps. The full guide lives at [docs/testing.md](https://github.com/birdcar/authkit-laravel/blob/main/docs/testing.md).
-
-### Added
-
-- **`Authkit::actingAs($user, [...])` / `Authkit::actingAsGuest()`** — synthetic `workos` sessions with no cookie, JWKS fetch, or SDK call. Claims flow through the exact contracts the real guard uses, so `Gate` checks, `Authkit::currentOrganization()`, `$request->organization()`, and the Pennant `workos` store behave as they would against a genuine login. Supports organizations (model or `org_...` string), roles, permissions, feature flags, impersonation (fires `Impersonating`), and raw claim overrides.
-- **`Authkit::fake()`** — swaps manager bindings for in-memory fakes and returns a typed scripting/assertion handle. Fake everything or a subset (`Authkit::fake(['fga', 'vault'])`); unfaked managers keep real behavior on every code path. Fakes for **FGA** (scriptable allow/deny, default deny, `assertChecked`), **Invitations** (stateful send/revoke/accept registry), **Audit Logs** (`AuditLog::assertLogged(...)` with real actor resolution and metadata sanitization, export lifecycle, schema registrations), **organization sync** (Bus-level capture + `completeSync()`), **API keys** (user- and org-scoped create/list/revoke, and the `authkit-key` guard authenticates fake keys through its real machinery), **Vault** (in-memory KV with version history and optimistic-locking `ConflictException` parity; the `Vaulted` cast and `vault` disk run their real code paths over visibly-marked fake crypto), **Pipes** (connected-account fixtures, scripted tokens, both business exceptions triggerable), and **Groups** (CRUD, membership, role assignments — FGA cache-bust contract preserved).
-- **WorkOS traffic now rides the application's HTTP client** (`authkit.http.transport`, default `laravel`; set `AUTHKIT_HTTP_TRANSPORT=guzzle` to opt out). Laravel's native testing idioms finally see WorkOS calls — `Http::preventStrayRequests()`, `Http::fake()`, `Http::assertSent()` — and in production, global HTTP middleware and HTTP client events observe WorkOS requests like any other outbound call. The SDK's retry, error-mapping, and JWKS-cache behavior is unchanged.
-
-### Changed
-
-- Manager classes that gained fakes (`FgaChecker`, `InvitationManager`, `AuditLogManager`, `VaultManager`, `VaultCrypto`, `PipesManager`, `GroupManager`) are no longer `final` — each now has a deliberately designed testing subclass, and an arch test guards the seam.
-- Calling a testing assertion (e.g. `AuditLog::assertLogged(...)`) without faking first now throws a `LogicException` naming the fix instead of an undefined-method fatal.
-
-### Fixed
-
-- Compatibility with `workos/workos-php` 9.2.0: the events poller passes the now-required `$events` filter explicitly (empty = all event types, the same wire request as before).
