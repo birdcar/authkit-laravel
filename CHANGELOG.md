@@ -5,7 +5,8 @@
 ### Added
 
 - First-party testing layer ([docs/testing.md](docs/testing.md)): `Authkit::actingAs()` / `Authkit::actingAsGuest()` synthetic `workos` sessions (claims flow through the real guard contracts — Gate, current organization, and Pennant flags all work offline), and `Authkit::fake()` with in-memory fakes for FGA, Invitations, Audit Logs, organization sync, API keys (user- and org-scoped, incl. the `authkit-key` guard's validate path), Vault (the `Vaulted` cast and `vault` disk run their real code paths over marker-prefixed fake crypto), Pipes, and Groups — each recording calls and exposing Laravel-style `assert*` helpers
-- `tests/Testing` suite (92 tests) covering the new layer end to end
+- WorkOS SDK traffic now rides the application's HTTP client by default (`authkit.http.transport`, `AUTHKIT_HTTP_TRANSPORT=guzzle` to opt out) — `Http::fake()`, `Http::preventStrayRequests()`, and `Http::assertSent()` see WorkOS calls natively in tests, and global HTTP middleware/events observe them in production
+- `tests/Testing` suite covering the new layer end to end
 
 ### Changed
 

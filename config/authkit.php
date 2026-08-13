@@ -14,6 +14,15 @@ return [
     'timeout' => (int) env('WORKOS_TIMEOUT', 60),
     'max_retries' => (int) env('WORKOS_MAX_RETRIES', 3),
 
+    'http' => [
+        // Which transport carries WorkOS SDK requests. 'laravel' (default)
+        // routes every request through the application's HTTP client, so
+        // Http::fake(), Http::preventStrayRequests(), Http::assertSent(),
+        // global middleware, and HTTP client events all see WorkOS traffic.
+        // 'guzzle' restores the SDK's bare Guzzle transport.
+        'transport' => env('AUTHKIT_HTTP_TRANSPORT', 'laravel'),
+    ],
+
     // Bare AuthKit auth domain host — e.g. "myapp.authkit.app" or a custom
     // domain — no scheme. MCP bearer verification derives both the expected
     // token issuer (https://{authkit_domain}) and the resource-server JWKS URL

@@ -41,6 +41,7 @@ use Authkit\Authkit\FeatureFlags\WorkosPennantDriver;
 use Authkit\Authkit\Filesystem\VaultFilesystemAdapter;
 use Authkit\Authkit\Http\Controllers\WorkosWebhookController;
 use Authkit\Authkit\Http\JwksGraceCache;
+use Authkit\Authkit\Http\LaravelHttpTransport;
 use Authkit\Authkit\Http\Middleware\AuthenticateMcpToken;
 use Authkit\Authkit\Http\Middleware\RefreshWorkosSession;
 use Authkit\Authkit\Http\Middleware\RequireOrganizationContext;
@@ -131,8 +132,18 @@ class AuthkitServiceProvider extends ServiceProvider
         // client private, so binding the stack here is the only way to get the
         // JWKS grace middleware in front of the SDK's own requests. bindIf keeps
         // the MockHandler test harness (which binds an instance) authoritative.
+        //
+        // The stack's BASE handler is the Laravel HTTP client by default
+        // (authkit.http.transport): WorkOS traffic then behaves like any other
+        // outbound request — Http::fake()/preventStrayRequests()/assertSent()
+        // see it in tests, global middleware and events see it in production.
         $this->app->bindIf(HandlerStack::class, function (Container $app): HandlerStack {
-            $stack = HandlerStack::create();
+            $transport = $app->make(Repository::class)->get('authkit.http.transport', 'laravel');
+
+            $stack = $transport === 'guzzle'
+                ? HandlerStack::create()
+                : HandlerStack::create($app->make(LaravelHttpTransport::class));
+
             $stack->push($app->make(JwksGraceCache::class)->middleware());
 
             return $stack;

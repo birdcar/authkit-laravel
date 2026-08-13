@@ -12,20 +12,22 @@ Two entry points cover everything:
 - **`Authkit::fake([...])`** — swaps manager bindings for in-memory fakes
   that record calls and expose `assert*` helpers.
 
-Every example below runs with zero HTTP. To PROVE a test makes no WorkOS
-call, note that `Http::preventStrayRequests()` will not help you here — the
-WorkOS SDK talks to Guzzle directly and never touches Laravel's HTTP client.
-The technique that does work is binding a Guzzle `HandlerStack` with an
-empty `MockHandler` queue, which makes any WorkOS request throw
-`Mock queue is empty`:
+Every example below runs with zero HTTP — and Laravel's native HTTP testing
+idioms guard that for you, because WorkOS traffic rides the application's
+own HTTP client (`authkit.http.transport`, default `laravel`):
 
 ```php
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
+Http::preventStrayRequests();   // any WorkOS SDK call now fails loudly
 
-$this->app->instance(HandlerStack::class, HandlerStack::create(new MockHandler([])));
-$this->app->forgetInstance(\Authkit\Authkit\Contracts\WorkosClientManager::class);
+Http::fake(['api.workos.com/*' => Http::response([...])]);  // or serve wire payloads
+Http::assertSent(fn ($request) => str_contains($request->url(), 'invitations'));
 ```
+
+No package-specific incantation needed — `Http::fake()` and friends see
+WorkOS requests exactly like any other outbound call. (Set
+`AUTHKIT_HTTP_TRANSPORT=guzzle` to restore the SDK's bare Guzzle transport;
+under it, Laravel's HTTP fakes cannot see WorkOS traffic and the offline
+guard is a Guzzle `HandlerStack` bound with an empty `MockHandler` queue.)
 
 ## Where this sits next to `npx @workos/emulate`
 
@@ -80,8 +82,9 @@ Details worth knowing:
   from claims — false for unclaimed flags, zero HTTP. Known limitation: a
   check for a *different* scope (another user, a non-session organization)
   falls through the driver's claims path to the live WorkOS API — the fakes
-  have no feature-flags entry to intercept it. The empty-MockHandler
-  technique above is the backstop that turns that into a loud failure.
+  have no feature-flags entry to intercept it.
+  `Http::preventStrayRequests()` is the backstop that turns that into a
+  loud failure.
 - **Call it again to switch context.** A second `actingAs` in one test
   resets the memoized current organization and Pennant's flag cache.
 - **Impersonation:** pass
