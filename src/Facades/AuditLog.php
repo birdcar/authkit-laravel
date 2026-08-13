@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static void assertLogged(string $action, callable|null $callback = null)
  * @method static void assertNotLogged(string $action)
  * @method static void assertNothingLogged()
+ * @method static void assertSchemaCreated(string $actionName, callable|null $callback = null)
  * @method static void assertExportRequested(callable|null $callback = null)
  * @method static \WorkOS\Resource\AuditLogExport markExportReady(string $auditLogExportId, ?string $url = null)
  *

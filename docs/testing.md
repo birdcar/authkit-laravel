@@ -183,7 +183,8 @@ AuditLog::assertLogged('task.created', fn (array $entry) => $entry['organization
 
 Exports are captured (`assertExportRequested()`), never polled; drive the
 lifecycle with `markExportReady($export->id)` when a test needs a ready
-export. Retention is an in-memory map with production validation (30/365).
+export. Schema registrations are recorded too (`assertSchemaCreated('task.created')`),
+and retention is an in-memory map with production validation (30/365).
 
 ### Organization sync — `$fake->organizationSync()`
 

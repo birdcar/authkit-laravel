@@ -79,10 +79,10 @@ final class OrganizationSyncFake
      * Resolved lazily at assertion time, never captured at construction: a
      * consumer calling Bus::fake() AFTER Authkit::fake() installs an outer
      * BusFake that records subsequent dispatches itself — a handle captured
-     * here would go blind to them. Reading the current dispatcher keeps the
-     * assertions honest in both orderings (jobs dispatched before an outer
-     * Bus::fake() was installed are recorded by whichever fake was current
-     * at dispatch time).
+     * here would go blind to them. The trade: jobs are recorded by whichever
+     * fake was current at dispatch time, so dispatches made BEFORE a later
+     * Bus::fake() are unreachable from it — dispatch and assert on the same
+     * side of any Bus::fake() call (docs/testing.md states this constraint).
      */
     private function bus(): BusFake
     {
