@@ -22,7 +22,7 @@ class RadarService
      */
     public function createAttempt(array $attributes): array
     {
-        $result = $this->client->radar()->createAttempts(
+        $result = $this->client->radar()->createAttempt(
             ipAddress: (string) ($attributes['ip_address'] ?? ''),
             userAgent: (string) ($attributes['user_agent'] ?? ''),
             email: (string) ($attributes['email'] ?? ''),
@@ -46,7 +46,7 @@ class RadarService
             id: $id,
             challengeStatus: $attributes['challenge_status'] ?? null,
             attemptStatus: $attributes['attempt_status'] ?? null,
-        ) ?? [];
+        );
     }
 
     /**

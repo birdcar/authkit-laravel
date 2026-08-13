@@ -17,7 +17,7 @@ class DomainService
      */
     public function create(string $organizationId, string $domain): array
     {
-        $result = $this->client->organizationDomains()->createOrganizationDomains(
+        $result = $this->client->organizationDomains()->createOrganizationDomain(
             domain: $domain,
             organizationId: $organizationId,
         );

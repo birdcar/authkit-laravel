@@ -87,7 +87,7 @@ class SetCurrentOrganization
                 $organization = $organizationModel::findOrCreateByWorkOS([
                     'id' => $orgData->id,
                     'name' => $orgData->name,
-                    'external_id' => $orgData->externalId ?? null,
+                    'external_id' => $orgData->externalId,
                     'domains' => array_map(fn ($d) => $d->toArray(), $orgData->domains),
                 ]);
             } else {
@@ -96,7 +96,7 @@ class SetCurrentOrganization
                     ['workos_id' => $orgData->id],
                     [
                         'name' => $orgData->name,
-                        'external_id' => $orgData->externalId ?? null,
+                        'external_id' => $orgData->externalId,
                     ]
                 );
             }

@@ -42,7 +42,7 @@ class FeatureFlagService
         $result = $this->client->featureFlags()->listOrganizationFeatureFlags($organizationId);
 
         /** @var array<Flag> */
-        return $result->data ?? [];
+        return $result->data;
     }
 
     private function flagEnabledViaApi(string $slug, string $organizationId): bool

@@ -252,8 +252,7 @@ class WorkOS
 
         $stateStr = $state !== null ? json_encode($state) : null;
 
-        /** @var array{url: string} $response */
-        $response = $this->client->userManagement()->getAuthorizationUrl(
+        return $this->client->userManagement()->getAuthorizationUrl(
             redirectUri: (string) config('workos.redirect_uri'),
             provider: UserManagementAuthenticationProvider::Authkit,
             state: $stateStr !== false ? $stateStr : null,
@@ -261,8 +260,6 @@ class WorkOS
             loginHint: $loginHint,
             screenHint: $screenHintEnum,
         );
-
-        return $response['url'];
     }
 
     /**
@@ -315,7 +312,7 @@ class WorkOS
     public function validateApiKey(string $key): ?ApiKeyValidation
     {
         try {
-            $result = $this->client->apiKeys()->createValidations(value: $key);
+            $result = $this->client->apiKeys()->createValidation(value: $key);
 
             if ($result->apiKey === null) {
                 return null;
