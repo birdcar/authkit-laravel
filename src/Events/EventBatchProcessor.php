@@ -76,7 +76,16 @@ final class EventBatchProcessor
 
         if (is_string($lastEventId) && $lastEventId !== '') {
             try {
+                // events: [] is deliberate and load-bearing (SDK ≥9.2 made the
+                // filter parameter required): the poller must receive EVERY
+                // event type — the typed set fans out to listeners and
+                // GenericWorkosEvent carries the rest, so a concrete filter
+                // list here would silently drop event types added later. An
+                // empty array serializes to no `events` query param at all
+                // (http_build_query drops empty arrays), the same wire request
+                // SDK 9.1 sent.
                 return $events->listEvents(
+                    events: [],
                     after: $lastEventId,
                     limit: $batchLimit,
                     order: PaginationOrder::Asc,
@@ -91,6 +100,7 @@ final class EventBatchProcessor
         }
 
         return $events->listEvents(
+            events: [], // no filter — see the comment on the cursor path above
             limit: $batchLimit,
             order: PaginationOrder::Asc,
             rangeStart: $this->rangeStart($cursor),
