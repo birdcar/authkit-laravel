@@ -122,6 +122,8 @@ class InstallCommand extends Command
             'WORKOS_REDIRECT_URI' => '${APP_URL}/authkit/callback',
             'WORKOS_COOKIE_PASSWORD' => $cookiePassword,
             'WORKOS_BASE_URL' => 'https://api.workos.com',
+            'AUTHKIT_EMULATE_ENABLED' => 'false',
+            'AUTHKIT_EMULATE_BASE_URL' => 'http://localhost:4100',
         ];
     }
 

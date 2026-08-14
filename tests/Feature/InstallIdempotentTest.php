@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Authkit\Authkit\AuthkitServiceProvider;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -107,9 +108,18 @@ it('appends every WorkOS env key exactly once', function (): void {
 
     $contents = (string) file_get_contents($this->envPath);
 
-    foreach (['WORKOS_API_KEY', 'WORKOS_CLIENT_ID', 'WORKOS_REDIRECT_URI', 'WORKOS_COOKIE_PASSWORD', 'WORKOS_BASE_URL'] as $key) {
+    foreach (['WORKOS_API_KEY', 'WORKOS_CLIENT_ID', 'WORKOS_REDIRECT_URI', 'WORKOS_COOKIE_PASSWORD', 'WORKOS_BASE_URL', 'AUTHKIT_EMULATE_ENABLED', 'AUTHKIT_EMULATE_BASE_URL'] as $key) {
         expect(substr_count($contents, $key.'='))->toBe(1);
     }
+});
+
+it('seeds the emulate keys off so a fresh install talks to real WorkOS', function (): void {
+    $this->artisan('authkit:install')->assertSuccessful();
+
+    $contents = (string) file_get_contents($this->envPath);
+
+    expect($contents)->toContain('AUTHKIT_EMULATE_ENABLED=false');
+    expect($contents)->toContain('AUTHKIT_EMULATE_BASE_URL=http://localhost:4100');
 });
 
 it('generates a 32 byte cookie password for .env but never for .env.example', function (): void {
@@ -163,4 +173,38 @@ it('does not warn about a missing .env on an idempotent re-run', function (): vo
     $this->artisan('authkit:install')
         ->doesntExpectOutputToContain('No .env file was found.')
         ->assertSuccessful();
+});
+
+it('migrates the auto-loaded package migrations without publishing', function (): void {
+    $this->loadLaravelMigrations();
+
+    $this->artisan('migrate')->assertSuccessful();
+
+    expect(Schema::hasColumn('users', 'workos_id'))->toBeTrue();
+});
+
+it('publishes migrations verbatim so the migrator dedupes them by name', function (): void {
+    $this->artisan('authkit:install')->assertSuccessful();
+
+    // Every published copy must keep its package filename: re-timestamped
+    // copies (publishesMigrations + update_date_on_publish) register as NEW
+    // migrations next to the auto-loaded package path, so `migrate` runs the
+    // same DDL twice and dies on a duplicate column.
+    foreach (glob(dirname(__DIR__, 2).'/database/migrations/*.php') ?: [] as $packageMigration) {
+        expect(is_file(database_path('migrations/'.basename($packageMigration))))->toBeTrue();
+    }
+});
+
+it('migrates cleanly after authkit:install publishes the migrations', function (): void {
+    // The pre-fix failure mode: publishing re-timestamped the copies, so the
+    // migrator saw the package path AND the published copies as distinct
+    // pending migrations, ran identical DDL twice, and died on a duplicate
+    // column. Verbatim names make the name-keyed dedupe collapse them.
+    $this->loadLaravelMigrations();
+
+    $this->artisan('authkit:install')->assertSuccessful();
+
+    $this->artisan('migrate')->assertSuccessful();
+
+    expect(Schema::hasColumn('users', 'workos_id'))->toBeTrue();
 });

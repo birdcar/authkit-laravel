@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Authkit\Authkit\Authkit;
 use Authkit\Authkit\AuthkitServiceProvider;
+use Illuminate\Support\Facades\Artisan;
 
 it('resolves the singleton', function () {
     expect(app(Authkit::class))->toBeInstanceOf(Authkit::class);
@@ -36,8 +37,11 @@ it('loads the package views', function () {
     expect(view()->exists('authkit-laravel::placeholder'))->toBeTrue();
 });
 
-it('registers the artisan command', function () {
-    $this->artisan('authkit-laravel:placeholder')
-        ->expectsOutputToContain('Authkit placeholder command executed.')
-        ->assertSuccessful();
+it('registers the artisan commands without the retired placeholder', function () {
+    $registered = array_keys(Artisan::all());
+
+    expect($registered)->toContain('authkit:install');
+    expect($registered)->toContain('authkit:inspect-token');
+    expect($registered)->toContain('authkit:work');
+    expect($registered)->not->toContain('authkit-laravel:placeholder');
 });

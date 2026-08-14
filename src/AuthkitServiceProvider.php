@@ -13,7 +13,6 @@ use Authkit\Authkit\Auth\WorkosGuard;
 use Authkit\Authkit\Authorization\ApiKeyGateHook;
 use Authkit\Authkit\Authorization\ClaimsGateHook;
 use Authkit\Authkit\Authorization\Listeners\InvalidateFgaCache;
-use Authkit\Authkit\Console\Commands\AuthkitCommand;
 use Authkit\Authkit\Console\Commands\InspectTokenCommand;
 use Authkit\Authkit\Console\Commands\InstallCommand;
 use Authkit\Authkit\Console\Commands\MakeWorkosListenerCommand;
@@ -358,12 +357,20 @@ class AuthkitServiceProvider extends ServiceProvider
             __DIR__.'/../public' => public_path('vendor/authkit-laravel'),
         ], ['authkit-laravel', 'authkit-laravel-assets']);
 
-        $this->publishesMigrations([
+        // Deliberately publishes() and NOT publishesMigrations(): the package
+        // path above is auto-loaded unconditionally, so published copies must
+        // keep their original filenames for the migrator's name-keyed dedupe
+        // (getMigrationFiles keyBy) to collapse the two sources into one
+        // pending migration. publishesMigrations() re-timestamps on publish
+        // (database.migrations.update_date_on_publish defaults true), which
+        // made `migrate` run the same DDL twice and die on a duplicate column.
+        // Bonus: the app's copy wins the dedupe (default path merges last), so
+        // a consumer who edits a published migration is honored.
+        $this->publishes([
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], ['authkit-laravel', 'authkit-laravel-migrations']);
 
         $this->commands([
-            AuthkitCommand::class,
             InstallCommand::class,
             InspectTokenCommand::class,
             MakeWorkosListenerCommand::class,
