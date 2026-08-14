@@ -9,10 +9,12 @@ use Authkit\Authkit\Events\Workos\OrganizationUpdated;
 use Authkit\Authkit\Listeners\Workos\Concerns\ResolvesProjectionModels;
 
 /**
- * Idempotent upsert keyed on workos_id. Saving through the model on purpose:
- * a row created here fires HasWorkosOrganization's create observer, whose job
+ * Idempotent upsert keyed on workos_id. A row CREATED here saves through the
+ * model on purpose: HasWorkosOrganization's create observer fires and its job
  * sees workos_id already set and no-ops (the same round-trip the login-time
- * upsert relies on).
+ * upsert relies on). A row UPDATED here saves quietly: this is remote-sourced
+ * state, and a loud save would fire the trait's rename observer and echo the
+ * name WorkOS just told us about straight back to WorkOS.
  */
 final class UpsertOrganizationProjection
 {
@@ -26,8 +28,9 @@ final class UpsertOrganizationProjection
             return; // app hasn't wired an org model — org context isn't in use
         }
 
-        $organization = $model::query()->firstWhere('workos_id', $event->resourceId())
-            ?? $model::query()->newModelInstance();
+        $organization = $model::query()->firstWhere('workos_id', $event->resourceId());
+        $exists = $organization !== null;
+        $organization ??= $model::query()->newModelInstance();
 
         $attributes = ['workos_id' => $event->resourceId()];
 
@@ -39,6 +42,8 @@ final class UpsertOrganizationProjection
 
         // forceFill: the org model is app-owned and its $fillable is unknowable
         // here (login-time upsert precedent).
-        $organization->forceFill($attributes)->save();
+        $organization->forceFill($attributes);
+
+        $exists ? $organization->saveQuietly() : $organization->save();
     }
 }

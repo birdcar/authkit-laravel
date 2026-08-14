@@ -169,3 +169,41 @@ it('round-trips create and delete against a running emulator', function (): void
     expect(fn () => $client->organizations()->getOrganization((string) $workosId))
         ->toThrow(NotFoundException::class);
 })->skip(fn (): bool => ! EmulateServer::isAvailable(), 'npx/node not available');
+
+it('renames the remote organization when the local name changes', function (): void {
+    $organization = Organization::query()->createQuietly(['name' => 'Acme', 'workos_id' => 'org_renamed']);
+
+    $this->fakeWorkosResponses([remoteOrganizationResponse('org_renamed', 'Acme Rebranded')]);
+
+    $organization->update(['name' => 'Acme Rebranded']);
+
+    $body = json_decode((string) $this->workosRequestHistory[0]['request']->getBody(), true);
+
+    expect($this->workosRequestHistory)->toHaveCount(1)
+        ->and($this->workosRequestHistory[0]['request']->getMethod())->toBe('PUT')
+        ->and($this->workosRequestHistory[0]['request']->getUri()->getPath())->toBe('/organizations/org_renamed')
+        ->and($body['name'])->toBe('Acme Rebranded');
+});
+
+it('skips the remote rename for a row that never synced', function (): void {
+    $organization = Organization::query()->createQuietly(['name' => 'Acme']);
+
+    $this->fakeWorkosResponses([]);
+
+    $organization->update(['name' => 'Renamed Before Sync']);
+
+    // The pending create job will carry the current name when it runs.
+    expect($this->workosRequestHistory)->toHaveCount(0);
+});
+
+it('makes no update call when a save touches no remote-visible state', function (): void {
+    $organization = Organization::query()->createQuietly(['name' => 'Acme', 'workos_id' => 'org_stable']);
+
+    $this->fakeWorkosResponses([]);
+
+    // workos_id linkage writes use saveQuietly in the sync jobs; this models
+    // any app-local column change.
+    $organization->touch();
+
+    expect($this->workosRequestHistory)->toHaveCount(0);
+});

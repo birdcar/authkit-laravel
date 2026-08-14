@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use Authkit\Authkit\Facades\Authkit;
 use Authkit\Authkit\Invitations\InvitationManager;
+use Authkit\Authkit\Models\WorkosMembership;
 use Authkit\Authkit\Testing\Fakes\InvitationsFake;
 use PHPUnit\Framework\AssertionFailedError;
+use Workbench\App\Models\User;
 use WorkOS\Resource\Invitation;
 use WorkOS\Resource\UserInvite;
 use WorkOS\Resource\UserInviteState;
@@ -119,4 +121,45 @@ it('fails assertions with readable messages', function (): void {
         ->toThrow(AssertionFailedError::class, 'Sent to: someone@example.com')
         ->and(fn () => $fake->assertNothingSent())
         ->toThrow(AssertionFailedError::class, 'Sent to: someone@example.com');
+});
+
+it('accept mirrors the real projection side effect when a local user matches the email', function (): void {
+    $this->migratePackageDatabase();
+
+    $fake = invitationsFake();
+
+    config()->set('authkit.user.model', User::class);
+
+    User::query()->create([
+        'name' => 'Invitee',
+        'email' => 'invitee@example.com',
+        'workos_id' => 'user_invitee',
+    ]);
+
+    $sent = Authkit::invitations()->send('invitee@example.com', organizationId: 'org_acme', roleSlug: 'admin');
+
+    $accepted = Authkit::invitations()->accept($sent->id);
+
+    expect($accepted->acceptedUserId)->toBe('user_invitee');
+
+    expect(WorkosMembership::query()
+        ->where('organization_id', 'org_acme')
+        ->where('user_id', 'user_invitee')
+        ->first())
+        ->not->toBeNull()
+        ->role->toBe('admin')
+        ->status->toBe('active');
+});
+
+it('accept without a matching local user transitions state and projects nothing', function (): void {
+    $this->migratePackageDatabase();
+
+    invitationsFake();
+
+    $sent = Authkit::invitations()->send('stranger@example.com', organizationId: 'org_acme');
+
+    $accepted = Authkit::invitations()->accept($sent->id);
+
+    expect($accepted->state)->toBe(UserInviteState::Accepted)
+        ->and(WorkosMembership::query()->count())->toBe(0);
 });

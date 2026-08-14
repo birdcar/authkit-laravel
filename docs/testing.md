@@ -209,6 +209,82 @@ capture — the assertions always read the *current* Bus fake — but jobs are
 recorded by whichever fake was installed at dispatch time, so dispatch and
 assert on the same side of your own `Bus::fake()` call.
 
+For flows that read `workos_id` in the same request that creates the
+organization (an onboarding action running under `sync_mode: sync`),
+`autoCompleting()` applies each captured create job's local effect the
+moment the row is saved — the instance the code under test holds already
+carries its fake org id, and the job is still assertable:
+
+```php
+$fake->organizationSync()->autoCompleting();
+
+$team = Team::create(['name' => 'Acme']);
+
+$team->workos_id;                                  // "org_fake_1", immediately
+$fake->organizationSync()->assertSyncRequested($team);
+```
+
+### Memberships — `$fake->memberships()`
+
+An in-memory `Authkit::memberships()` registry. Like the real manager, every
+mutation also upserts the local `workos_memberships` projection — so code
+that creates a membership and reads it back through an org model's
+`memberships()` relation (or a user's `organizations()` relation) behaves
+exactly as in production.
+
+```php
+$fake = Authkit::fake(['memberships']);
+
+Authkit::memberships()->create($team, $user, role: 'admin');
+
+$team->memberships()->count();                     // 1 — projection row exists
+$fake->memberships()->assertCreated($team, $user);
+
+$seeded = $fake->memberships()->seed('org_acme', 'user_bob', role: 'member'); // fixture, not a recorded create
+
+Authkit::memberships()->update($seeded->id, role: 'admin');
+$fake->memberships()->assertUpdated($seeded->id, 'admin');
+
+Authkit::memberships()->delete($seeded->id);       // registry AND projection row removed
+$fake->memberships()->assertDeleted($seeded->id);
+```
+
+Also available: `assertNothingCreated()`, `assertNotDeleted($id)`; `list()`
+honours org/user/status filters and, like WorkOS, returns only active
+memberships by default.
+
+### Organization switch — `$fake->organizationSwitch()`
+
+An in-memory `Authkit::switchToOrganization()`. Where the real switcher
+refreshes the sealed cookie (new claims arrive on the *next* request), the
+fake collapses the redirect: a successful switch re-installs the current
+fake session with the target `org_id` — the state the next request would
+see — so `Authkit::currentOrganization()` reflects it immediately.
+
+It mirrors WorkOS's refusal semantics: with no fake session installed the
+switch reports no session, and without an **active** row for the user in
+the target org in the `workos_memberships` projection it is refused —
+seed one (or use the memberships fake) before switching. On success,
+`role`/`roles` claims are rebuilt from the projection row; `permissions`
+cannot be derived locally (the role→permission mapping lives in the WorkOS
+environment) and carry over verbatim — call `actingAs()` after the switch
+when a test needs the target org's permissions.
+
+```php
+$fake = Authkit::fake(['memberships', 'organization-switch']);
+
+Authkit::actingAs($user, ['organization' => $teamA]);
+Authkit::memberships()->create($teamB, $user, role: 'admin');
+
+Authkit::switchToOrganization($teamB);             // true
+
+Authkit::currentOrganization();                    // $teamB's row
+$fake->organizationSwitch()->assertSwitched($teamB);
+
+$fake->organizationSwitch()->refuse();             // script the rejected-refresh path
+Authkit::switchToOrganization($teamA);             // false — exercise the fallback
+```
+
 ### API keys — `$fake->apiKeys()`
 
 Covers create/list/revoke for user-scoped AND organization-scoped keys (the

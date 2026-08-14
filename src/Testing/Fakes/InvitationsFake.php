@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Authkit\Authkit\Testing\Fakes;
 
 use Authkit\Authkit\Invitations\InvitationManager;
+use Authkit\Authkit\Models\WorkosMembership;
 use DateTimeImmutable;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use PHPUnit\Framework\Assert;
 use WorkOS\PaginatedResponse;
@@ -128,11 +130,52 @@ final class InvitationsFake extends InvitationManager
 
     public function accept(string $id): Invitation
     {
-        $invitation = $this->transition($id, UserInviteState::Accepted, 'accepted_at');
+        // Mirror the real accept(): WorkOS resolves the accepting user from
+        // the invitation's email, so the fake looks the email up against the
+        // configured user model's workos_id linkage.
+        $acceptedUserId = $this->workosUserIdForEmail($this->get($id)->email);
+
+        $invitation = $this->transition($id, UserInviteState::Accepted, 'accepted_at', array_filter([
+            'accepted_user_id' => $acceptedUserId,
+        ], static fn (?string $value): bool => $value !== null));
 
         $this->accepted[] = $id;
 
+        // The real manager synchronously projects the resulting membership
+        // (MembershipProjector); the fake applies the same local effect so
+        // post-accept reads (team lists, switch membership checks) behave.
+        if ($invitation->organizationId !== null && $acceptedUserId !== null) {
+            WorkosMembership::query()->updateOrCreate(
+                [
+                    'organization_id' => $invitation->organizationId,
+                    'user_id' => $acceptedUserId,
+                ],
+                [
+                    'workos_id' => 'om_fake_invite_'.$id,
+                    'role' => $invitation->roleSlug ?? 'member',
+                    'status' => 'active',
+                ],
+            );
+        }
+
         return $invitation;
+    }
+
+    /**
+     * The configured user model's workos_id for an email, when both the model
+     * and a matching row exist — the same linkage the login flow establishes.
+     */
+    private function workosUserIdForEmail(string $email): ?string
+    {
+        $userModel = config('authkit.user.model');
+
+        if (! is_string($userModel) || ! class_exists($userModel) || ! is_a($userModel, Model::class, true)) {
+            return null;
+        }
+
+        $workosId = $userModel::query()->where('email', $email)->value('workos_id');
+
+        return is_string($workosId) && $workosId !== '' ? $workosId : null;
     }
 
     public function list(
@@ -212,12 +255,16 @@ final class InvitationsFake extends InvitationManager
         ], $attributes));
     }
 
-    private function transition(string $id, UserInviteState $state, string $timestampKey): Invitation
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function transition(string $id, UserInviteState $state, string $timestampKey, array $extra = []): Invitation
     {
         $current = $this->get($id)->toArray();
 
         $current['state'] = $state->value;
         $current[$timestampKey] = (new DateTimeImmutable)->format(DateTimeInterface::RFC3339_EXTENDED);
+        $current = array_merge($current, $extra);
 
         $this->invitations[$id] = UserInvite::fromArray($current);
 

@@ -10,12 +10,16 @@ use Authkit\Authkit\Authorization\FgaChecker;
 use Authkit\Authkit\Contracts\WorkosClientManager;
 use Authkit\Authkit\Groups\GroupManager;
 use Authkit\Authkit\Invitations\InvitationManager;
+use Authkit\Authkit\Organizations\MembershipManager;
+use Authkit\Authkit\Organizations\OrganizationSwitcher;
 use Authkit\Authkit\Pipes\PipesManager;
 use Authkit\Authkit\Testing\Fakes\ApiKeysFake;
 use Authkit\Authkit\Testing\Fakes\AuditLogFake;
 use Authkit\Authkit\Testing\Fakes\FgaFake;
 use Authkit\Authkit\Testing\Fakes\GroupsFake;
 use Authkit\Authkit\Testing\Fakes\InvitationsFake;
+use Authkit\Authkit\Testing\Fakes\MembershipsFake;
+use Authkit\Authkit\Testing\Fakes\OrganizationSwitchFake;
 use Authkit\Authkit\Testing\Fakes\OrganizationSyncFake;
 use Authkit\Authkit\Testing\Fakes\PipesFake;
 use Authkit\Authkit\Testing\Fakes\VaultFake;
@@ -44,8 +48,10 @@ final class AuthkitFake
     public const array MANAGERS = [
         'fga',
         'invitations',
+        'memberships',
         'audit-log',
         'organization-sync',
+        'organization-switch',
         'api-keys',
         'vault',
         'pipes',
@@ -56,9 +62,13 @@ final class AuthkitFake
 
     private ?InvitationsFake $invitations = null;
 
+    private ?MembershipsFake $memberships = null;
+
     private ?AuditLogFake $auditLog = null;
 
     private ?OrganizationSyncFake $organizationSync = null;
+
+    private ?OrganizationSwitchFake $organizationSwitch = null;
 
     private ?ApiKeysFake $apiKeys = null;
 
@@ -77,8 +87,10 @@ final class AuthkitFake
             match ($manager) {
                 'fga' => $this->fakeFga(),
                 'invitations' => $this->fakeInvitations(),
+                'memberships' => $this->fakeMemberships(),
                 'audit-log' => $this->fakeAuditLog(),
                 'organization-sync' => $this->fakeOrganizationSync(),
+                'organization-switch' => $this->fakeOrganizationSwitch(),
                 'api-keys' => $this->fakeApiKeys(),
                 'vault' => $this->fakeVault(),
                 'pipes' => $this->fakePipes(),
@@ -100,6 +112,16 @@ final class AuthkitFake
     public function invitations(): InvitationsFake
     {
         return $this->invitations ?? $this->notFaked('invitations');
+    }
+
+    public function memberships(): MembershipsFake
+    {
+        return $this->memberships ?? $this->notFaked('memberships');
+    }
+
+    public function organizationSwitch(): OrganizationSwitchFake
+    {
+        return $this->organizationSwitch ?? $this->notFaked('organization-switch');
     }
 
     public function auditLog(): AuditLogFake
@@ -140,6 +162,16 @@ final class AuthkitFake
     private function fakeInvitations(): void
     {
         app()->instance(InvitationManager::class, $this->invitations = new InvitationsFake);
+    }
+
+    private function fakeMemberships(): void
+    {
+        app()->instance(MembershipManager::class, $this->memberships = new MembershipsFake);
+    }
+
+    private function fakeOrganizationSwitch(): void
+    {
+        app()->instance(OrganizationSwitcher::class, $this->organizationSwitch = new OrganizationSwitchFake);
     }
 
     private function fakeAuditLog(): void

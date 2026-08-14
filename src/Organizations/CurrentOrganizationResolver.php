@@ -22,6 +22,18 @@ final class CurrentOrganizationResolver
 
     private ?Model $organization = null;
 
+    /**
+     * Clear the memo so the next resolve() re-reads the guard's claims — the
+     * reset OrganizationSwitcher applies after refreshing the session, and
+     * the production counterpart of the forgetInstance() the testing layer
+     * performs between actingAs() calls.
+     */
+    public function forget(): void
+    {
+        $this->resolved = false;
+        $this->organization = null;
+    }
+
     public function resolve(): ?Model
     {
         if ($this->resolved) {

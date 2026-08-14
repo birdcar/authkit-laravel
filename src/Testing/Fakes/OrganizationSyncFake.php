@@ -6,9 +6,11 @@ namespace Authkit\Authkit\Testing\Fakes;
 
 use Authkit\Authkit\Jobs\CreateWorkosOrganization;
 use Authkit\Authkit\Jobs\DeleteWorkosOrganization;
+use Authkit\Authkit\Jobs\UpdateWorkosOrganization;
 use Authkit\Authkit\Observers\WorkosOrganizationObserver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Testing\Fakes\BusFake;
 use LogicException;
 
@@ -28,9 +30,50 @@ final class OrganizationSyncFake
 {
     private int $sequence = 0;
 
+    private bool $autoCompleting = false;
+
     public function __construct()
     {
-        Bus::fake([CreateWorkosOrganization::class, DeleteWorkosOrganization::class]);
+        Bus::fake([CreateWorkosOrganization::class, UpdateWorkosOrganization::class, DeleteWorkosOrganization::class]);
+    }
+
+    /**
+     * Complete every subsequent org creation's sync inline: the created row
+     * gets a fake org id the moment it is saved, the way `sync_mode: sync`
+     * behaves in production. For flows that read workos_id in the same
+     * request that creates the organization (onboarding), where a captured
+     * job's null workos_id would fail the very code under test.
+     *
+     * The create job is still captured and still asserted the same way —
+     * this only adds the job's local effect.
+     */
+    public function autoCompleting(): self
+    {
+        if ($this->autoCompleting) {
+            return $this;
+        }
+
+        $this->autoCompleting = true;
+
+        Event::listen('eloquent.created: *', function (string $event, array $payload): void {
+            $model = $payload[0] ?? null;
+
+            if (! $this->autoCompleting || ! $model instanceof Model) {
+                return;
+            }
+
+            // The same duck-type the sync job itself uses to recognise an
+            // organization model.
+            if (! method_exists($model, 'workosOrganizationName')) {
+                return;
+            }
+
+            if ($model->getAttribute('workos_id') === null) {
+                $this->completeSync($model);
+            }
+        });
+
+        return $this;
     }
 
     /**
@@ -48,6 +91,24 @@ final class OrganizationSyncFake
         $this->bus()->assertDispatched(
             CreateWorkosOrganization::class,
             static fn (CreateWorkosOrganization $job): bool => $job->organization->is($organization),
+        );
+    }
+
+    /**
+     * Assert a remote rename was requested — optionally for one specific
+     * local organization row.
+     */
+    public function assertUpdateRequested(?Model $organization = null): void
+    {
+        if ($organization === null) {
+            $this->bus()->assertDispatched(UpdateWorkosOrganization::class);
+
+            return;
+        }
+
+        $this->bus()->assertDispatched(
+            UpdateWorkosOrganization::class,
+            static fn (UpdateWorkosOrganization $job): bool => $job->organization->is($organization),
         );
     }
 
@@ -72,6 +133,7 @@ final class OrganizationSyncFake
     public function assertNothingSyncRequested(): void
     {
         $this->bus()->assertNotDispatched(CreateWorkosOrganization::class);
+        $this->bus()->assertNotDispatched(UpdateWorkosOrganization::class);
         $this->bus()->assertNotDispatched(DeleteWorkosOrganization::class);
     }
 

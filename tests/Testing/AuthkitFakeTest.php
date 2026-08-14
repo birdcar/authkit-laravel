@@ -73,7 +73,7 @@ it('throws a clear LogicException when scripting a manager that was not faked', 
 
 it('rejects unknown manager names with the valid list', function (): void {
     expect(fn (): AuthkitFake => Authkit::fake(['fgaa']))
-        ->toThrow(InvalidArgumentException::class, 'fga, invitations, audit-log');
+        ->toThrow(InvalidArgumentException::class, 'fga, invitations, memberships, audit-log');
 });
 
 it('forwards facade assertion calls to the bound fake', function (): void {

@@ -6,24 +6,22 @@ namespace Authkit\Authkit\Listeners;
 
 use Authkit\Authkit\Auth\AccessTokenClaims;
 use Authkit\Authkit\Auth\JwtPayloadDecoder;
-use Authkit\Authkit\Contracts\WorkosClientManager;
 use Authkit\Authkit\Events\Login;
-use Authkit\Authkit\Models\WorkosMembership;
-use Illuminate\Database\Eloquent\Model;
+use Authkit\Authkit\Organizations\MembershipProjector;
 use Illuminate\Support\Facades\Log;
 use Throwable;
-use WorkOS\Resource\UserOrganizationMembership;
 
 /**
  * Closes the gap between "WorkOS already knows about this org/membership"
  * (dashboard-created, directory-provisioned, invited, or created by another
  * app) and "the local projection has caught up" — synchronously, at login
  * time, before the response is returned, instead of waiting for the events
- * poller's next pass.
+ * poller's next pass. The convergence itself lives in
+ * {@see MembershipProjector}; this listener owns only the claims decode.
  */
 final class UpsertOrganizationAndMembershipFromLogin
 {
-    public function __construct(private readonly WorkosClientManager $clients) {}
+    public function __construct(private readonly MembershipProjector $projector) {}
 
     public function handle(Login $event): void
     {
@@ -53,70 +51,6 @@ final class UpsertOrganizationAndMembershipFromLogin
             return; // no current org on this login — nothing to project
         }
 
-        $organizationModel = config('authkit.organization.model');
-
-        if (! is_string($organizationModel) || $organizationModel === ''
-            || ! class_exists($organizationModel) || ! is_a($organizationModel, Model::class, true)) {
-            return; // app hasn't wired an org model — org context isn't in use
-        }
-
-        $organization = $organizationModel::query()->firstWhere('workos_id', $claims->organizationId);
-
-        if ($organization === null) {
-            $remote = $this->clients->client()->organizations()->getOrganization($claims->organizationId);
-
-            // forceFill, not create(): trusted data straight from WorkOS must
-            // land regardless of how the app's org model declares $fillable —
-            // the same reasoning HasWorkosUser::findOrCreateForWorkosUser
-            // documents for the user side.
-            $organization = $organizationModel::query()->newModelInstance();
-            $organization->forceFill([
-                'name' => $remote->name,
-                'workos_id' => $remote->id,
-            ])->save();
-            // HasWorkosOrganization's create-observer still fires here — its
-            // job's first line ("already synced?") sees workos_id set and no-ops.
-        }
-
-        $organizationWorkosId = $organization->getAttribute('workos_id');
-
-        if (is_string($organizationWorkosId) && $organizationWorkosId !== '') {
-            $this->syncMembership($claims, $organizationWorkosId);
-        }
-    }
-
-    private function syncMembership(AccessTokenClaims $claims, string $organizationWorkosId): void
-    {
-        $exists = WorkosMembership::query()
-            ->where('organization_id', $organizationWorkosId)
-            ->where('user_id', $claims->sub)
-            ->exists();
-
-        if ($exists) {
-            return; // already projected — the events pipeline keeps it current from here
-        }
-
-        $memberships = $this->clients->client()->organizationMembership()->listOrganizationMemberships(
-            organizationId: $organizationWorkosId,
-            userId: $claims->sub,
-        );
-
-        // At most one active membership exists per (org, user) pair under
-        // WorkOS's own default status filter; reconciling a genuinely ambiguous
-        // multi-membership state is the events pipeline's job, not this
-        // listener's.
-        $membership = $memberships->data[0] ?? null;
-
-        if (! $membership instanceof UserOrganizationMembership) {
-            return; // WorkOS hasn't surfaced the membership via this endpoint yet
-        }
-
-        WorkosMembership::query()->create([
-            'workos_id' => $membership->id,
-            'organization_id' => $organizationWorkosId,
-            'user_id' => $claims->sub,
-            'role' => $membership->role->slug,
-            'status' => $membership->status->value,
-        ]);
+        $this->projector->ensureProjected($claims->organizationId, $claims->sub);
     }
 }

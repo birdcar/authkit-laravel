@@ -16,6 +16,9 @@ use Authkit\Authkit\Groups\GroupManager;
 use Authkit\Authkit\Invitations\InvitationManager;
 use Authkit\Authkit\JwtTemplates\JwtTemplateManager;
 use Authkit\Authkit\Organizations\CurrentOrganizationResolver;
+use Authkit\Authkit\Organizations\MembershipManager;
+use Authkit\Authkit\Organizations\OrganizationSwitcher;
+use Authkit\Authkit\Organizations\OrganizationSwitchResult;
 use Authkit\Authkit\Pipes\PipesManager;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -79,6 +82,31 @@ class Authkit
     public function invitations(): InvitationManager
     {
         return app(InvitationManager::class);
+    }
+
+    /**
+     * Organization-membership management: create/get/list/update/delete plus
+     * deactivate/reactivate. WorkOS stays canonical, and every mutation also
+     * upserts the local workos_memberships projection synchronously so the
+     * request that made the change reads its own write.
+     */
+    public function memberships(): MembershipManager
+    {
+        return app(MembershipManager::class);
+    }
+
+    /**
+     * Refresh the current request's sealed session scoped to the given
+     * organization — the server-side counterpart of POSTing the
+     * `authkit.switch-org` route. True means the new cookie is queued and
+     * the switch takes effect on the next request (so redirect after it);
+     * false means there was no session to refresh or WorkOS refused (no
+     * active membership, rotated refresh token), in which case callers fall
+     * back to a re-authorize redirect or their own error state.
+     */
+    public function switchToOrganization(Model|string $organization): bool
+    {
+        return app(OrganizationSwitcher::class)->switch($organization) === OrganizationSwitchResult::Switched;
     }
 
     /**

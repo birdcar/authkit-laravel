@@ -7,6 +7,8 @@ use Authkit\Authkit\Authorization\FgaChecker;
 use Authkit\Authkit\Facades\Authkit;
 use Authkit\Authkit\Groups\GroupManager;
 use Authkit\Authkit\Invitations\InvitationManager;
+use Authkit\Authkit\Organizations\MembershipManager;
+use Authkit\Authkit\Organizations\OrganizationSwitcher;
 use Authkit\Authkit\Pipes\PipesManager;
 use Authkit\Authkit\Vault\VaultCrypto;
 use Authkit\Authkit\Vault\VaultManager;
@@ -26,11 +28,13 @@ use WorkOS\RequestOptions;
 $swappableManagers = [
     FgaChecker::class,
     InvitationManager::class,
+    MembershipManager::class,
     AuditLogManager::class,
     VaultManager::class,
     VaultCrypto::class,
     PipesManager::class,
     GroupManager::class,
+    OrganizationSwitcher::class,
 ];
 
 it('keeps every fakeable manager open for subclassing', function (string $manager): void {

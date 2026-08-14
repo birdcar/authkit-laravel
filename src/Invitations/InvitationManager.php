@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Authkit\Authkit\Invitations;
 
 use Authkit\Authkit\Contracts\WorkosClientManager;
+use Authkit\Authkit\Organizations\MembershipProjector;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 use WorkOS\PaginatedResponse;
 use WorkOS\RequestOptions;
 use WorkOS\Resource\CreateUserInviteOptionsLocale;
@@ -90,7 +93,29 @@ class InvitationManager
 
     public function accept(string $id): Invitation
     {
-        return $this->clients->client()->userManagement()->acceptInvitation($id);
+        $invitation = $this->clients->client()->userManagement()->acceptInvitation($id);
+
+        // Same synchronous convergence as login-time backfill: the accepter's
+        // very next request reads the projection (their team list, the org
+        // switcher's membership check), and the events pipeline hasn't run
+        // yet. Failures never break a successful accept — WorkOS is already
+        // canonical; the pipeline converges later.
+        if (is_string($invitation->organizationId) && $invitation->organizationId !== ''
+            && is_string($invitation->acceptedUserId) && $invitation->acceptedUserId !== '') {
+            try {
+                app(MembershipProjector::class)->ensureProjected(
+                    $invitation->organizationId,
+                    $invitation->acceptedUserId,
+                );
+            } catch (Throwable $e) {
+                Log::warning('authkit: accept-time org/membership projection upsert failed', [
+                    'exception' => $e::class,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $invitation;
     }
 
     /**

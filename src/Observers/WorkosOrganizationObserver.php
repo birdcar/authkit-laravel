@@ -6,6 +6,7 @@ namespace Authkit\Authkit\Observers;
 
 use Authkit\Authkit\Jobs\CreateWorkosOrganization;
 use Authkit\Authkit\Jobs\DeleteWorkosOrganization;
+use Authkit\Authkit\Jobs\UpdateWorkosOrganization;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -17,6 +18,17 @@ final class WorkosOrganizationObserver
     public function created(Model $organization): void
     {
         $this->dispatch(new CreateWorkosOrganization($organization));
+    }
+
+    public function updated(Model $organization): void
+    {
+        // Only a name change is remote-visible state; workos_id writes are
+        // the sync jobs' own quiet saves and everything else is app-local.
+        if (! $organization->wasChanged('name')) {
+            return;
+        }
+
+        $this->dispatch(new UpdateWorkosOrganization($organization));
     }
 
     public function deleted(Model $organization): void

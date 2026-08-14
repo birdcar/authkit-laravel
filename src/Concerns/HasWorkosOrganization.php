@@ -27,6 +27,7 @@ trait HasWorkosOrganization
         // registers the exact same container-resolved listeners without an
         // instance.
         static::created([WorkosOrganizationObserver::class, 'created']);
+        static::updated([WorkosOrganizationObserver::class, 'updated']);
         static::deleted([WorkosOrganizationObserver::class, 'deleted']);
     }
 
