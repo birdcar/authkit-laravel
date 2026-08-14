@@ -6,8 +6,10 @@ namespace Authkit\Authkit\Http\Requests;
 
 use Authkit\Authkit\Contracts\WorkosUser;
 use Authkit\Authkit\Events\Login;
+use Authkit\Authkit\Exceptions\AuthKitCallbackFailedException;
 use Authkit\Authkit\Exceptions\AuthKitStateMismatchException;
 use Authkit\Authkit\Support\AuthkitConfig;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use WorkOS\Service\UserManagement;
 use WorkOS\SessionManager;
@@ -36,6 +38,33 @@ final class AuthKitAuthenticationRequest extends FormRequest
             'code' => ['required', 'string'],
             'state' => ['required', 'string'],
         ];
+    }
+
+    /**
+     * An OAuth error callback carries `error` (+ optional `error_description`)
+     * and no code, so it must be intercepted BEFORE the code/state rules run:
+     * a validation redirect would send the browser back where it came from —
+     * the authorize URL — which re-runs the redirect and loops forever.
+     */
+    protected function prepareForValidation(): void
+    {
+        $error = $this->query('error');
+
+        if (is_string($error) && $error !== '') {
+            $description = $this->query('error_description');
+
+            throw new AuthKitCallbackFailedException($error, is_string($description) ? $description : null);
+        }
+    }
+
+    /**
+     * A callback without a code/state pair (bookmarked, replayed, hand-typed)
+     * gets the same friendly landing as an OAuth error — never the default
+     * redirect-back, which loops for the same reason as above.
+     */
+    protected function failedValidation(Validator $validator): never
+    {
+        throw new AuthKitCallbackFailedException('invalid_callback');
     }
 
     /**
