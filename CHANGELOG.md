@@ -2,6 +2,24 @@
 
 ## [Unreleased](https://github.com/birdcar/authkit-laravel/compare/v2.1.0...HEAD)
 
+### Added
+
+- `authkit:install` now seeds `AUTHKIT_EMULATE_ENABLED` / `AUTHKIT_EMULATE_BASE_URL` into `.env` and `.env.example` (off by default), so switching local development onto `npx @workos/emulate` is a one-line flip instead of a docs hunt.
+
+### Fixed
+
+- **`authkit.login` now works against real WorkOS.** The login redirect never sent `provider=authkit`, and a selector-less `/authorize` is rejected by WorkOS with an "invalid connection selector" error page before any login UI renders — the emulator tolerated it, so the gap only surfaced on the first real-environment login (the token audit). Hosted AuthKit still routes SSO-captured domains itself.
+- **An OAuth error callback no longer loops the browser.** `?error=access_denied` (user cancelled) or any other error callback carries no `code`, so the code/state validation redirected "back" — to the authorize URL — which re-ran the redirect and looped forever. Error callbacks (and bookmarked/replayed callback URLs) now land on `/` with a friendly retry message flashed under the `authkit` error key.
+- **Publishing the migrations no longer breaks `php artisan migrate`.** Published copies previously got re-timestamped (`publishesMigrations` + `update_date_on_publish`), so the migrator saw them and the auto-loaded package migrations as distinct pending migrations, ran the same DDL twice, and died on a duplicate column. Migrations now publish verbatim, letting the migrator's name-keyed dedupe collapse the two sources — and an app-edited published copy wins over the package original.
+
+### Removed
+
+- The leftover `authkit-laravel:placeholder` Artisan command no longer ships (scaffolding debris; it did nothing but print a line).
+
+### Documentation
+
+- **The JWT token audit has been run against a real WorkOS environment** — `docs/token-audit-findings.md` now carries observed values (issuer format, `aud` shape, and default-presence of `role`/`roles`/`permissions`/`feature_flags`, including the zero-membership and auto-scoping behaviors). `config/authkit.php`'s `jwt` comments now cite the findings instead of a TBD.
+
 ## [v2.1.0](https://github.com/birdcar/authkit-laravel/compare/v2.0.0...v2.1.0) - 2026-08-13
 
 v2.1.0 brings the missing chapter: first-party testing support, so consuming apps can write fast, fully offline Pest tests against every WorkOS surface this package wraps. The full guide lives at [docs/testing.md](https://github.com/birdcar/authkit-laravel/blob/main/docs/testing.md).

@@ -32,14 +32,18 @@ return [
     // SessionManager does not verify iss/aud (decodeAccessToken TODO), so the
     // guard layers those checks itself via JwtClaimsValidator.
     //
-    // 'audience' falls back to authkit.client_id when null — AuthKit tokens carry
-    // no `aud` claim, and `client_id` is what stops a token minted for a different
-    // application in the same WorkOS environment from being accepted here.
+    // 'audience' falls back to authkit.client_id when null — the token audit
+    // (docs/token-audit-findings.md, run 2026-08-13) observed real tokens carry
+    // `aud` = the client ID as a plain string, which is what stops a token
+    // minted for a different application in the same WorkOS environment from
+    // being accepted here.
     //
-    // 'issuer' is left null on purpose: docs/token-audit-findings.md is still TBD,
-    // and enforcing a guessed issuer would silently lock out every environment
-    // using a custom AuthKit auth domain. While null, issuer validation is skipped;
-    // setting WORKOS_JWT_ISSUER turns it on with no code change.
+    // 'issuer' stays null by default. The audit observed the default-environment
+    // issuer is `{base_url}/user_management/{client_id}`, but an environment
+    // with a custom AuthKit auth domain may mint a different value (unverified),
+    // and enforcing a guessed issuer would silently lock those environments out.
+    // While null, issuer validation is skipped; setting WORKOS_JWT_ISSUER turns
+    // it on with no code change.
     'jwt' => [
         'issuer' => env('WORKOS_JWT_ISSUER'),
         'audience' => env('WORKOS_JWT_AUDIENCE'),
