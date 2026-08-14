@@ -59,6 +59,10 @@ it('redirects to a WorkOS authorization URL carrying PKCE and state', function (
         ->and($query['response_type'])->toBe('code')
         ->and($query['code_challenge_method'])->toBe('S256')
         ->and($query['code_challenge'])->not->toBeEmpty()
+        // Real WorkOS rejects a selector-less /authorize outright ("invalid
+        // connection selector") — the emulator tolerates it, so only this
+        // assertion keeps the hosted-AuthKit path honest.
+        ->and($query['provider'])->toBe('authkit')
         ->and($query['state'])->not->toBeEmpty();
 
     // The verifier stays server-side; only the challenge travels to WorkOS.
